@@ -12,7 +12,7 @@ module.exports = {
     password: secrets.dbpassword,
   },
   collections: {
-    v1sync: 'v1sync', // object of chain, walletIdentity (wallet only identity), keyXpub (key xpub) and sspIdentity (entire multisig ssp identity address). 15 min expiration
+    v1sync: 'v1sync', // object of chain, walletIdentity (wallet only identity), keyXpub (key xpub) and wkIdentity (entire multisig ssp identity address). 15 min expiration
     v1action: 'v1action', // object of chain, w-k identity (wallet-key identity), type: tpe of action (only tx now), payload: (txhex for tx action to sign). 15 min expiration
   },
 };

@@ -38,7 +38,7 @@ function postSync(req, res) {
       if (!processedBody.keyXpub) {
         throw new Error('No XPUB of Key specified');
       }
-      if (!processedBody.sspIdentity) {
+      if (!processedBody.wkIdentity) {
         throw new Error('No SSP Identity specified');
       }
 
@@ -46,7 +46,7 @@ function postSync(req, res) {
         chain: processedBody.chain,
         walletIdentity: processedBody.walletIdentity,
         keyXpub: processedBody.keyXpub,
-        sspIdentity: processedBody.sspIdentity,
+        wkIdentity: processedBody.wkIdentity,
       };
 
       const syncOK = await syncService.postSync(data);

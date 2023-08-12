@@ -13,7 +13,7 @@ async function getSync(id) {
       chain: 1,
       walletIdentity: 1,
       keyXpub: 1,
-      sspIdentity: 1,
+      wkIdentity: 1,
     },
   };
   const syncRes = await serviceHelper.findOneInDatabase(database, syncCollection, query, projection);
@@ -23,7 +23,7 @@ async function getSync(id) {
   throw new Error(`Sync ${id} not found`);
 }
 
-// data is an object of chain, walletIdentity, keyXpub, sspIdentity
+// data is an object of chain, walletIdentity, keyXpub, wkIdentity
 async function postSync(data) {
   const db = await serviceHelper.databaseConnection();
   const database = db.db(config.database.database);

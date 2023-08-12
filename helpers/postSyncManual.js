@@ -5,7 +5,7 @@ async function postSync() {
     chain: 'flux',
     walletIdentity: 'testkappa',
     keyXpub: 'xpubaaaa',
-    sspIdentity: 'asdadsadad',
+    wkIdentity: 'asdadsadad',
   };
   const response = await axios.post('https://relay.ssp.runonflux.io/v1/sync', data);
   console.log(response.data);
