@@ -1,5 +1,6 @@
 const syncApi = require('./apiServices/syncApi');
 const actionApi = require('./apiServices/actionApi');
+const ratesApi = require('./apiServices/ratesApi');
 
 module.exports = (app) => {
   // return sync data
@@ -16,5 +17,9 @@ module.exports = (app) => {
   // post sync data
   app.post('/v1/action', (req, res) => {
     actionApi.postAction(req, res);
+  });
+  // rates endpoint
+  app.get('/v1/rates', (req, res) => {
+    ratesApi.getRates(req, res);
   });
 };
