@@ -1,6 +1,7 @@
 const actionService = require('../services/actionService');
 const serviceHelper = require('../services/serviceHelper');
 const log = require('../lib/log');
+const socket = require("../lib/socket");
 
 async function getAction(req, res) {
   try {
@@ -54,6 +55,11 @@ function postAction(req, res) {
         throw new Error('Failed to post action data');
       }
       const result = serviceHelper.createDataMessage(actionOK);
+
+      const io = socket.getIO();
+      if(data.action === "tx") {
+        io.to(data.wkIdentity).emit("tx", {tx: data});
+      }
       res.json(result);
     } catch (error) {
       log.error(error);

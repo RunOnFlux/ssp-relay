@@ -6,8 +6,18 @@ const log = require('./src/lib/log');
 const serviceHelper = require('./src/services/serviceHelper');
 
 const databaseService = require('./src/services/databaseIndexCreationService');
+const socket = require('./src/lib/socket');
 
 const server = http.createServer(app);
+
+const io = socket.init(server);
+
+io.on("connection", (socket) => {
+    socket.on("join", data => {
+      socket.join(data.id);
+    });
+});
+
 
 log.info('Initiating database');
 serviceHelper.initiateDB();

@@ -27,9 +27,10 @@
     "morgan": "^1.10.0",
     "node-cmd": "~5.0.0",
     "nodemon": "^3.0.1",
-    "utxo-lib": "https://github.com/RunOnFlux/utxo-lib",
     "qs": "^6.11.2",
+    "socket.io": "^4.7.2",
     "supertest": "^6.3.3",
+    "utxo-lib": "https://github.com/RunOnFlux/utxo-lib",
     "zelcorejs": "https://github.com/zelcore-io/zelcorejs"
   },
   "devDependencies": {
