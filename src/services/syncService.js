@@ -14,6 +14,31 @@ async function getSync(id) {
       walletIdentity: 1,
       keyXpub: 1,
       wkIdentity: 1,
+      fcmSSPKeyToken: 1,
+      fcmSSPWalletToken: 1,
+    },
+  };
+  const syncRes = await serviceHelper.findOneInDatabase(database, syncCollection, query, projection);
+  if (syncRes) {
+    return syncRes;
+  }
+  throw new Error(`Sync ${id} not found`);
+}
+
+async function getSyncByWkIdentity(id) {
+  const db = await serviceHelper.databaseConnection();
+  const database = db.db(config.database.database);
+  const syncCollection = config.collections.v1sync;
+  const query = { wkIdentity: id };
+  const projection = {
+    projection: {
+      _id: 0,
+      chain: 1,
+      walletIdentity: 1,
+      keyXpub: 1,
+      wkIdentity: 1,
+      fcmSSPKeyToken: 1,
+      fcmSSPWalletToken: 1,
     },
   };
   const syncRes = await serviceHelper.findOneInDatabase(database, syncCollection, query, projection);
@@ -48,5 +73,6 @@ async function postSync(data) {
 
 module.exports = {
   getSync,
+  getSyncByWkIdentity,
   postSync,
 };

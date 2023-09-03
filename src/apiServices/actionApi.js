@@ -1,7 +1,9 @@
 const actionService = require('../services/actionService');
 const serviceHelper = require('../services/serviceHelper');
+const { sendNotification } = require('../services/notificationService');
 const log = require('../lib/log');
-const socket = require("../lib/socket");
+const socket = require('../lib/socket');
+
 
 async function getAction(req, res) {
   try {
@@ -59,7 +61,9 @@ function postAction(req, res) {
       const io = socket.getIO();
       if(data.action === "tx") {
         io.to(data.wkIdentity).emit("tx", {tx: data});
+        await sendNotification(data.wkIdentity);
       }
+
       res.json(result);
     } catch (error) {
       log.error(error);

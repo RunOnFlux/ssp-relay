@@ -47,6 +47,7 @@ function postSync(req, res) {
         walletIdentity: processedBody.walletIdentity,
         keyXpub: processedBody.keyXpub,
         wkIdentity: processedBody.wkIdentity,
+        fcmSSPKeyToken: processedBody?.fcmSSPKeyToken,
       };
 
       const syncOK = await syncService.postSync(data);
