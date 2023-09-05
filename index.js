@@ -10,8 +10,8 @@ const databaseService = require('./src/services/databaseIndexCreationService');
 
 const server = http.createServer(app);
 
-socket.initKey(server);
-socket.initWallet(server);
+socket.initIOKey(server);
+socket.initIOWallet(server);
 
 log.info('Initiating database');
 serviceHelper.initiateDB();
