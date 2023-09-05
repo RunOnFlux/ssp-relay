@@ -1,9 +1,8 @@
 const actionService = require('../services/actionService');
 const serviceHelper = require('../services/serviceHelper');
-const { sendNotification } = require('../services/notificationService');
+const { sendNotificationKey } = require('../services/notificationService');
 const log = require('../lib/log');
 const socket = require('../lib/socket');
-
 
 async function getAction(req, res) {
   try {
@@ -58,10 +57,16 @@ function postAction(req, res) {
       }
       const result = serviceHelper.createDataMessage(actionOK);
 
-      const io = socket.getIO();
-      if(data.action === "tx") {
-        io.to(data.wkIdentity).emit("tx", {tx: data});
-        await sendNotification(data.wkIdentity);
+      // ssp-key listens for tx action
+      if (data.action === 'tx') {
+        const ioKey = socket.getIOKey();
+        ioKey.to(data.wkIdentity).emit(data.action, data);
+        await sendNotificationKey(data.wkIdentity);
+      }
+      // ssp-wallet listens for txid and txrejected actions
+      if (data.action === 'txrejected' || data.action === 'txid') {
+        const ioWallet = socket.getIOWallet();
+        ioWallet.to(data.wkIdentity).emit(data.action, data);
       }
 
       res.json(result);

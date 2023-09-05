@@ -13,6 +13,7 @@ async function doIndexes() {
     await database.collection(config.collections.v1sync).createIndex({ createdAt: 1 }, { expireAfterSeconds: 900 });
     await database.collection(config.collections.v1action).createIndex({ wkIdentity: 1 }); // for querying paritcular id
     await database.collection(config.collections.v1action).createIndex({ createdAt: 1 }, { expireAfterSeconds: 900 });
+    await database.collection(config.collections.v1token).createIndex({ wkIdentity: 1 }); // for querying paritcular id
 
     log.info('Collection indexes created.');
   } catch (error) {

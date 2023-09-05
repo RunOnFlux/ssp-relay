@@ -47,10 +47,15 @@ function postSync(req, res) {
         walletIdentity: processedBody.walletIdentity,
         keyXpub: processedBody.keyXpub,
         wkIdentity: processedBody.wkIdentity,
-        fcmSSPKeyToken: processedBody?.fcmSSPKeyToken,
+      };
+
+      const tokenData = {
+        wkIdentity: processedBody.wkIdentity,
+        tokenKey: processedBody.tokenKey,
       };
 
       const syncOK = await syncService.postSync(data);
+      await syncService.postToken(tokenData).catch((error) => log.error(error)); // we do not need to fail if this fails
       if (!syncOK) {
         throw new Error('Failed to update synchronisation data');
       }

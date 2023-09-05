@@ -1,27 +1,27 @@
 const admin = require('firebase-admin');
 const syncService = require('./syncService');
-
-var serviceAccount = require('../../config/serviceAccountKey.json');
+const log = require('../lib/log');
+const serviceAccount = require('../../config/serviceAccountKey');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-async function sendNotification(wkIdentity) {
+async function sendNotificationKey(wkIdentity) {
   try {
-    const sync = await syncService.getSyncByWkIdentity(wkIdentity);
+    const sync = await syncService.getToken(wkIdentity);
     await admin.messaging().send({
-      token: sync.fcmSSPKeyToken,
+      token: sync.tokenKey,
       notification: {
-        title: 'New transaction received',
-        body: 'Please confirm or reject if not initiated by you',
+        title: 'Transaction request',
+        body: 'A transaction has been initiated on your wallet.',
       },
     });
   } catch (error) {
-    console.log('cannot send the notification to user ', error);
+    log.error(error);
   }
 }
 
 module.exports = {
-  sendNotification,
+  sendNotificationKey,
 };
