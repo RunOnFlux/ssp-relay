@@ -11,7 +11,7 @@ async function sendNotificationKey(wkIdentity) {
   try {
     const sync = await syncService.getToken(wkIdentity);
     await admin.messaging().send({
-      token: sync.tokenKey,
+      token: sync.keyToken,
       notification: {
         title: 'Transaction request',
         body: 'A transaction has been initiated on your wallet.',

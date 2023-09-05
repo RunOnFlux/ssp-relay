@@ -51,7 +51,7 @@ function postSync(req, res) {
 
       const tokenData = {
         wkIdentity: processedBody.wkIdentity,
-        tokenKey: processedBody.tokenKey,
+        keyToken: processedBody.keyToken,
       };
 
       const syncOK = await syncService.postSync(data);

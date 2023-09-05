@@ -66,7 +66,7 @@ async function getToken(id) {
   throw new Error(`Sync ${id} not found`);
 }
 
-// data is an object of walletKeyIdentity, tokenKey, tokenWallet
+// data is an object of walletKeyIdentity, keyToken, walletToken
 async function postToken(data) {
   const db = await serviceHelper.databaseConnection();
   const database = db.db(config.database.database);
