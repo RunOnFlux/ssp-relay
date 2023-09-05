@@ -49,7 +49,13 @@ function postSync(req, res) {
         wkIdentity: processedBody.wkIdentity,
       };
 
+      const tokenData = {
+        wkIdentity: processedBody.wkIdentity,
+        keyToken: processedBody.keyToken,
+      };
+
       const syncOK = await syncService.postSync(data);
+      await syncService.postToken(tokenData).catch((error) => log.error(error)); // we do not need to fail if this fails
       if (!syncOK) {
         throw new Error('Failed to update synchronisation data');
       }

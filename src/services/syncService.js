@@ -46,7 +46,44 @@ async function postSync(data) {
   return data; // all ok
 }
 
+async function getToken(id) {
+  const db = await serviceHelper.databaseConnection();
+  const database = db.db(config.database.database);
+  const tokenCollection = config.collections.v1token;
+  const query = { wkIdentity: id };
+  const projection = {
+    projection: {
+      _id: 0,
+      wkIdentity: 1,
+      keyToken: 1,
+      walletToken: 1,
+    },
+  };
+  const syncRes = await serviceHelper.findOneInDatabase(database, tokenCollection, query, projection);
+  if (syncRes) {
+    return syncRes;
+  }
+  throw new Error(`Sync ${id} not found`);
+}
+
+// data is an object of walletKeyIdentity, keyToken, walletToken
+async function postToken(data) {
+  const db = await serviceHelper.databaseConnection();
+  const database = db.db(config.database.database);
+  const tokenCollection = config.collections.v1token;
+  const query = { wkIdentity: data.wkIdentity };
+
+  const update = { $set: data };
+  const options = {
+    upsert: true,
+  };
+  await serviceHelper.updateOneInDatabase(database, tokenCollection, query, update, options);
+  return data; // all ok
+}
+
 module.exports = {
   getSync,
+  getToken,
   postSync,
+  postToken,
 };
