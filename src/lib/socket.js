@@ -27,11 +27,10 @@ function getIOKey() {
 
 function initIOWallet(httpServer, path = '/v1/socket/wallet') {
   ioWallet = socketio(httpServer, { path });
-  ioWallet.on('connection', async (socket) => {
-    socket.on('join', async ({ wkIdentity }) => {
+  ioWallet.on('connection', (socket) => {
+    socket.on('join', ({ wkIdentity }) => {
       socket.join(wkIdentity);
     });
-
     socket.on('leave', ({ wkIdentity }) => {
       socket.leave(wkIdentity);
     });
