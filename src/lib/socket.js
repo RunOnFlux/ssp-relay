@@ -6,6 +6,15 @@ let ioWallet;
 
 function initIOKey(httpServer, path = '/v1/socket/key') {
   ioKey = socketio(httpServer, { path });
+  ioKey.on('connection', async (socket) => {
+    socket.on('join', async ({ wkIdentity }) => {
+      socket.join(wkIdentity);
+    });
+
+    socket.on('leave', ({ wkIdentity }) => {
+      socket.leave(wkIdentity);
+    });
+  });
 }
 
 function getIOKey() {
@@ -18,6 +27,15 @@ function getIOKey() {
 
 function initIOWallet(httpServer, path = '/v1/socket/wallet') {
   ioWallet = socketio(httpServer, { path });
+  ioWallet.on('connection', async (socket) => {
+    socket.on('join', async ({ wkIdentity }) => {
+      socket.join(wkIdentity);
+    });
+
+    socket.on('leave', ({ wkIdentity }) => {
+      socket.leave(wkIdentity);
+    });
+  });
 }
 
 function getIOWallet() {
