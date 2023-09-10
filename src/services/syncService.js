@@ -72,19 +72,35 @@ async function postToken(data) {
   const database = db.db(config.database.database);
   const tokenCollection = config.collections.v1token;
   const query = { wkIdentity: data.wkIdentity };
+  const projection = {
+    projection: {
+      _id: 0,
+      wkIdentity: 1,
+      keyToken: 1,
+      walletToken: 1,
+      createdAt: 1,
+    },
+  };
   const newData = {
     wkIdentity: data.wkIdentity,
     keyToken: data.keyToken,
     walletToken: data.walletToken,
     createdAt: new Date(),
   };
-  const existingRecords = await serviceHelper.findInDatabase(database, tokenCollection, query);
+  const existingRecords = await serviceHelper.findInDatabase(database, tokenCollection, query, projection);
   if (existingRecords.length > 0) {
     // eslint-disable-next-line no-restricted-syntax
     for (const existingRecord of existingRecords) {
       // sync ALWAYS has a keyToken OR a walletToken
-      if (existingRecord.keyToken === newData.keyToken || existingRecord.walletToken === newData.walletToken) {
-        return existingRecord; // already exists
+      if (newData.keyToken) {
+        if (existingRecord.keyToken === newData.keyToken) {
+          return existingRecord; // already exists
+        }
+      }
+      if (newData.walletToken) {
+        if (existingRecord.walletToken === newData.walletToken) {
+          return existingRecord; // already exists
+        }
       }
     }
   }
