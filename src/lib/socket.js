@@ -1,5 +1,6 @@
 const socketio = require('socket.io');
 const log = require('./log');
+const socketService = require('../services/socketService');
 
 let ioKey;
 let ioWallet;
@@ -9,6 +10,10 @@ function initIOKey(httpServer, path = '/v1/socket/key') {
   ioKey.on('connection', async (socket) => {
     socket.on('join', async ({ wkIdentity }) => {
       socket.join(wkIdentity);
+      const actionToSend = await socketService.getAction(wkIdentity).catch();
+      if (actionToSend.action === 'tx') {
+        ioKey.to(wkIdentity).emit(actionToSend.action, actionToSend);
+      }
     });
 
     socket.on('leave', ({ wkIdentity }) => {
