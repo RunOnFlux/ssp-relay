@@ -10,9 +10,6 @@ module.exports = (app) => {
   app.get('/v1/action/:id?', (req, res) => {
     actionApi.getAction(req, res);
   });
-  app.get('/v1/token/:id?', (req, res) => {
-    syncApi.getToken(req, res);
-  });
   // post sync data
   app.post('/v1/sync', (req, res) => {
     syncApi.postSync(req, res);

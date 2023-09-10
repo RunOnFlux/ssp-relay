@@ -46,7 +46,7 @@ async function postSync(data) {
   return data; // all ok
 }
 
-async function getToken(id) {
+async function getTokens(id) {
   const db = await serviceHelper.databaseConnection();
   const database = db.db(config.database.database);
   const tokenCollection = config.collections.v1token;
@@ -59,8 +59,8 @@ async function getToken(id) {
       walletToken: 1,
     },
   };
-  const syncRes = await serviceHelper.findOneInDatabase(database, tokenCollection, query, projection);
-  if (syncRes) {
+  const syncRes = await serviceHelper.findInDatabase(database, tokenCollection, query, projection);
+  if (syncRes.length) {
     return syncRes;
   }
   throw new Error(`Sync ${id} not found`);
@@ -72,18 +72,32 @@ async function postToken(data) {
   const database = db.db(config.database.database);
   const tokenCollection = config.collections.v1token;
   const query = { wkIdentity: data.wkIdentity };
-
-  const update = { $set: data };
-  const options = {
-    upsert: true,
+  const newData = {
+    wkIdentity: data.wkIdentity,
+    keyToken: data.keyToken,
+    walletToken: data.walletToken,
+    createdAt: new Date(),
   };
-  await serviceHelper.updateOneInDatabase(database, tokenCollection, query, update, options);
+  const existingRecords = await serviceHelper.findInDatabase(database, tokenCollection, query);
+  if (existingRecords.length > 0) {
+    // eslint-disable-next-line no-restricted-syntax
+    for (const existingRecord of existingRecords) {
+      // sync ALWAYS has a keyToken OR a walletToken
+      if (existingRecord.keyToken === newData.keyToken || existingRecord.walletToken === newData.walletToken) {
+        return newData; // already exists
+      }
+    }
+  }
+  if (existingRecords.length > 100) { // we do not want to store more than 100 tokens for wkIdentity
+    throw new Error(`More than 100 tokens for ${data.wkIdentity} found, not storing new one`);
+  }
+  await serviceHelper.insertOneToDatabase(database, tokenCollection, newData);
   return data; // all ok
 }
 
 module.exports = {
   getSync,
-  getToken,
+  getTokens,
   postSync,
   postToken,
 };

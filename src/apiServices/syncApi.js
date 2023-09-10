@@ -69,7 +69,43 @@ function postSync(req, res) {
   });
 }
 
+function postToken(req, res) {
+  let body = '';
+  req.on('data', (data) => {
+    body += data;
+  });
+  req.on('end', async () => {
+    try {
+      const processedBody = serviceHelper.ensureObject(body);
+      if (!processedBody.wkIdentity) {
+        throw new Error('No SSP identity specified');
+      }
+
+      if (!processedBody.keyToken) {
+        throw new Error('No SSP Key Token specified');
+      }
+
+      const tokenData = {
+        wkIdentity: processedBody.wkIdentity,
+        keyToken: processedBody.keyToken,
+      };
+
+      const syncOK = await syncService.postToken(tokenData);
+      if (!syncOK) {
+        throw new Error('Failed to update synced data');
+      }
+      const result = serviceHelper.createDataMessage(syncOK);
+      res.json(result);
+    } catch (error) {
+      log.error(error);
+      const errMessage = serviceHelper.createErrorMessage(error.message, error.name, error.code);
+      res.json(errMessage);
+    }
+  });
+}
+
 module.exports = {
   getSync,
   postSync,
+  postToken,
 };
