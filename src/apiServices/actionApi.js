@@ -61,7 +61,7 @@ function postAction(req, res) {
       if (data.action === 'tx') {
         const ioKey = socket.getIOKey();
         ioKey.to(data.wkIdentity).emit(data.action, data);
-        await sendNotificationKey(data.wkIdentity);
+        await sendNotificationKey(data.wkIdentity).catch((error) => log.error(error));
       }
       // ssp-wallet listens for txid and txrejected actions
       if (data.action === 'txrejected' || data.action === 'txid') {
