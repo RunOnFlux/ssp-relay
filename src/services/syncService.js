@@ -84,7 +84,7 @@ async function postToken(data) {
     for (const existingRecord of existingRecords) {
       // sync ALWAYS has a keyToken OR a walletToken
       if (existingRecord.keyToken === newData.keyToken || existingRecord.walletToken === newData.walletToken) {
-        return newData; // already exists
+        return existingRecord; // already exists
       }
     }
   }
