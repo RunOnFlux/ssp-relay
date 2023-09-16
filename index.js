@@ -8,7 +8,11 @@ const serviceHelper = require('./src/services/serviceHelper');
 
 const databaseService = require('./src/services/databaseIndexCreationService');
 
+const ratesService = require('./src/services/ratesService');
+
 const server = http.createServer(app);
+
+ratesService.initRates();
 
 socket.initIOKey(server);
 socket.initIOWallet(server);
