@@ -27,7 +27,7 @@ async function fetchCryptoRates() {
     const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?CMC_PRO_API_KEY=${apiKey}&id=3029`;
     const response = await axios.get(url);
     const { price } = response.data.data['3029'].quote.USD;
-    const prices = [{ flux: price }];
+    const prices = { flux: price };
     cryptoRates = prices;
   } catch (error) {
     log.error(error);
