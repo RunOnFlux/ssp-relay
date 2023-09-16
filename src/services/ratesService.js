@@ -2,8 +2,8 @@ const axios = require('axios');
 const config = require('config');
 const log = require('../lib/log');
 
-let fiatRates = [];
-let cryptoRates = [];
+let fiatRates = {};
+let cryptoRates = {};
 
 async function fetchFiatRates() {
   try {
