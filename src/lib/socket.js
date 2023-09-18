@@ -31,7 +31,10 @@ function getIOKey() {
 }
 
 function initIOWallet(httpServer, path = '/v1/socket/wallet') {
-  ioWallet = socketio(httpServer, { path });
+  ioWallet = socketio(httpServer, {
+    path,
+    transports: ['websocket', 'polling', 'flashsocket'],
+  });
   ioWallet.on('connection', (socket) => {
     socket.on('join', ({ wkIdentity }) => {
       socket.join(wkIdentity);
