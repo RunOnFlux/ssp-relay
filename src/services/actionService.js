@@ -15,6 +15,7 @@ async function getAction(id) {
       action: 1,
       payload: 1,
       expireAt: 1,
+      createdAt: 1,
     },
   };
   const actionRes = await serviceHelper.findOneInDatabase(database, actionCollection, query, projection);
