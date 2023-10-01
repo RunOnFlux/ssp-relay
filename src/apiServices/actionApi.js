@@ -34,6 +34,9 @@ function postAction(req, res) {
       if (!processedBody.chain) {
         throw new Error('No Chain specified');
       }
+      if (!processedBody.path) {
+        throw new Error('No Derivation Path specified');
+      }
       if (!processedBody.wkIdentity) {
         throw new Error('No Wallet-Key Identity specified');
       }
@@ -46,6 +49,7 @@ function postAction(req, res) {
 
       const data = {
         chain: processedBody.chain,
+        path: processedBody.path,
         wkIdentity: processedBody.wkIdentity,
         action: processedBody.action,
         payload: processedBody.payload,

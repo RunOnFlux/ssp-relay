@@ -11,6 +11,7 @@ async function getAction(id) {
     projection: {
       _id: 0,
       chain: 1,
+      path: 1,
       wkIdentity: 1,
       action: 1,
       payload: 1,

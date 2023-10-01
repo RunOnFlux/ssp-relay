@@ -3,6 +3,7 @@ const axios = require('axios');
 async function postSync() {
   const data = {
     chain: 'flux',
+    path: '0-0',
     wkIdentity: 'testkappab',
     action: 'tx',
     payload: '04asdadw',
