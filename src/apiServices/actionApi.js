@@ -46,6 +46,9 @@ function postAction(req, res) {
       if (!processedBody.payload) {
         throw new Error('No Payload specified');
       }
+      if (processedBody.action === 'tx' && !processedBody.path) {
+        throw new Error('No Derivation Path specified');
+      }
 
       const data = {
         chain: processedBody.chain,
