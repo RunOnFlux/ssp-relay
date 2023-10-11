@@ -24,10 +24,12 @@ async function fetchCryptoRates() {
   try {
     const apiKey = config.keys.cmc;
     // flux id is 3029
-    const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?CMC_PRO_API_KEY=${apiKey}&id=3029`;
+    const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?CMC_PRO_API_KEY=${apiKey}&id=1,3029,2577`;
     const response = await axios.get(url);
-    const { price } = response.data.data['3029'].quote.USD;
-    const prices = { flux: price };
+    const priceFlux = response.data.data['3029'].quote.USD.price;
+    const priceBtc = response.data.data['1'].quote.USD.price;
+    const priceRvn = response.data.data['3029'].quote.USD.price;
+    const prices = { flux: priceFlux, rvn: priceRvn, btc: priceBtc };
     cryptoRates = prices;
   } catch (error) {
     log.error(error);
