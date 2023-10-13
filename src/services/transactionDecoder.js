@@ -1,12 +1,19 @@
 const BigNumber = require('bignumber.js');
 const utxolib = require('utxo-lib');
 
+const blockchains = require('./blockchains');
+
+function getLibId(chain) {
+  return blockchains[chain].libid;
+}
+
 function decodeTransactionForApproval(
   rawTx,
   chain = 'flux',
 ) {
   try {
-    const network = utxolib.networks[chain];
+    const libID = getLibId(chain);
+    const network = utxolib.networks[libID];
     const txhex = rawTx;
     const txb = utxolib.TransactionBuilder.fromTransaction(
       utxolib.Transaction.fromHex(txhex, network),
