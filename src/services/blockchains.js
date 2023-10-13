@@ -75,7 +75,7 @@ const ltc = {
   bech32: 'ltc',
 };
 
-export default {
+module.exports = {
   flux,
   fluxTestnet,
   rvn,
