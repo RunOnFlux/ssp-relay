@@ -55,6 +55,21 @@ function decodeTransactionForApproval(
         }
       }
     });
+    if (txReceiver === 'decodingError') {
+      // use first output as being the receiver
+      const outOne = txb.tx.outs[0];
+      if (outOne.value) {
+        const address = utxolib.address.fromOutputScript(
+          outOne.script,
+          network,
+        );
+        console.log(address);
+        txReceiver = address;
+        amount = new BigNumber(outOne.value)
+          .dividedBy(new BigNumber(1e8))
+          .toFixed();
+      }
+    }
     const txInfo = {
       receiver: txReceiver,
       amount,
