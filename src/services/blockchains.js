@@ -75,9 +75,69 @@ const ltc = {
   bech32: 'ltc',
 };
 
+const btc = {
+  id: 'btc',
+  libid: 'bitcoin',
+  name: 'Bitcoin',
+  symbol: 'BTC',
+  decimals: 8,
+  slip: 0,
+  scriptType: 'p2wsh',
+  messagePrefix: '\x18Bitcoin Signed Message:\n',
+  pubKeyHash: '00',
+  scriptHash: '05',
+  wif: '80',
+  bip32: {
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  bech32: 'bc1',
+};
+
+const btcTestnet = {
+  id: 'btcTestnet',
+  libid: 'testnet',
+  name: 'Testnet Bitcoin',
+  symbol: 'TEST-BTC',
+  decimals: 8,
+  slip: 1,
+  scriptType: 'p2wsh',
+  messagePrefix: '\x18Bitcoin Signed Message:\n',
+  pubKeyHash: '6f',
+  scriptHash: 'c4',
+  wif: 'ef',
+  bip32: {
+    public: 0x043587cf,
+    private: 0x04358394,
+  },
+  bech32: 'tb1',
+};
+
+const btcSignet = {
+  id: 'btcSignet',
+  libid: 'testnet',
+  name: 'Signet Bitcoin',
+  symbol: 'TEST-BTC',
+  decimals: 8,
+  slip: 1,
+  scriptType: 'p2wsh',
+  messagePrefix: '\x18Bitcoin Signed Message:\n',
+  pubKeyHash: '6f',
+  scriptHash: 'c4',
+  wif: 'ef',
+  bip32: {
+    public: 0x043587cf,
+    private: 0x04358394,
+  },
+  bech32: 'tb1',
+};
+
 module.exports = {
   flux,
   fluxTestnet,
   rvn,
   ltc,
+  btc,
+  btcTestnet,
+  btcSignet,
 };
