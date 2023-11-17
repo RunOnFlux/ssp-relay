@@ -94,6 +94,24 @@ const btc = {
   bech32: 'bc1',
 };
 
+const doge = {
+  id: 'doge',
+  libid: 'dogecoin',
+  name: 'Dogecoin',
+  symbol: 'DOGE',
+  decimals: 8,
+  slip: 3,
+  scriptType: 'p2sh',
+  messagePrefix: '\x19Dogecoin Signed Message:\n',
+  pubKeyHash: '1e',
+  scriptHash: '16',
+  wif: '9e',
+  bip32: {
+    public: 0x02facafd,
+    private: 0x02fac398,
+  },
+};
+
 const btcTestnet = {
   id: 'btcTestnet',
   libid: 'testnet',
@@ -138,6 +156,7 @@ module.exports = {
   rvn,
   ltc,
   btc,
+  doge,
   btcTestnet,
   btcSignet,
 };
