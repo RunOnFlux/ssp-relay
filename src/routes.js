@@ -1,6 +1,7 @@
 const syncApi = require('./apiServices/syncApi');
 const actionApi = require('./apiServices/actionApi');
 const ratesApi = require('./apiServices/ratesApi');
+const feeService = require('./services/networkFeesService');
 
 module.exports = (app) => {
   // return sync data
@@ -24,5 +25,9 @@ module.exports = (app) => {
   // rates endpoint
   app.get('/v1/rates', (req, res) => {
     ratesApi.getRates(req, res);
+  });
+  // fees endpoint
+  app.get('/v1/networkfees', (req, res) => {
+    feeService.networkFees(res);
   });
 };
