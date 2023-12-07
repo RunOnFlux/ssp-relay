@@ -2,7 +2,7 @@ const axios = require('axios');
 
 async function postSync() {
   const data = {
-    chain: 'flux',
+    chain: 'btc',
     walletIdentity: 'testkappa',
     keyXpub: 'xpubaaaa',
     wkIdentity: 'asdadsadad',

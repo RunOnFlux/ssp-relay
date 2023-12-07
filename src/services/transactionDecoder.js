@@ -9,7 +9,7 @@ function getLibId(chain) {
 
 function decodeTransactionForApproval(
   rawTx,
-  chain = 'flux',
+  chain = 'btc',
 ) {
   try {
     const libID = getLibId(chain);
