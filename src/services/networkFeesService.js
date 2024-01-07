@@ -87,11 +87,7 @@ async function networkFees(res) {
   res.json(currentFees);
 }
 
-fetchFees();
-setInterval(() => {
-  fetchFees();
-}, 1 * 60 * 1000);
-
 module.exports = {
   networkFees,
+  fetchFees,
 };

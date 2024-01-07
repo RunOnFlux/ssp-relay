@@ -10,6 +10,8 @@ const databaseService = require('./src/services/databaseIndexCreationService');
 
 const ratesService = require('./src/services/ratesService');
 
+const networkFeesService = require('./src/services/networkFeesService');
+
 const server = http.createServer(app);
 
 ratesService.initRates();
@@ -24,6 +26,11 @@ setTimeout(() => {
   log.info('Preparing indexes');
   databaseService.doIndexes(); // no waiting
 }, 2000);
+
+networkFeesService.fetchFees();
+setInterval(() => {
+  networkFeesService.fetchFees();
+});
 
 setTimeout(() => {
   log.info('Starting SSP Relay');
