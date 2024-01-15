@@ -38,6 +38,11 @@ async function sendNotificationKey(wkIdentity, data) {
           });
         }
       } catch (error) {
+        // delete this from database
+        if (typeof error.message === 'string' && error.message.includes === 'not found') {
+          // eslint-disable-next-line no-await-in-loop
+          await syncService.deleteToken(sync).catch((er) => log.error(er));
+        }
         log.error(error);
       }
     }

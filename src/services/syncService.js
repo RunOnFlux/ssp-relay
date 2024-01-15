@@ -87,6 +87,17 @@ async function postToken(data) {
     walletToken: data.walletToken,
     createdAt: new Date(),
   };
+  // a token can be associated ONLY with one wkIdentity
+  const queryTokens = { keyToken: newData.keyToken };
+  const existingTokens = await serviceHelper.findInDatabase(database, tokenCollection, queryTokens, projection);
+  if (existingTokens.length > 1) {
+    // token associated with many wkIdentities. Delete all of them
+    // eslint-disable-next-line no-restricted-syntax
+    for (const existingToken of existingTokens) {
+      // eslint-disable-next-line no-await-in-loop
+      await serviceHelper.findOneAndDeleteInDatabase(database, tokenCollection, existingToken).catch((error) => console.log(error));
+    }
+  }
   const existingRecords = await serviceHelper.findInDatabase(database, tokenCollection, query, projection);
   if (existingRecords.length > 0) {
     // eslint-disable-next-line no-restricted-syntax
@@ -107,13 +118,25 @@ async function postToken(data) {
   if (existingRecords.length > 100) { // we do not want to store more than 100 tokens for wkIdentity
     throw new Error(`More than 100 tokens for ${data.wkIdentity} found, not storing new one`);
   }
-  await serviceHelper.insertOneToDatabase(database, tokenCollection, newData);
+  // update this existing record for this wkIdentity
+  const update = { $set: newData };
+  const options = {
+    upsert: true,
+  };
+  await serviceHelper.updateOneInDatabase(database, tokenCollection, queryTokens, update, options);
   return data; // all ok
 }
 
+async function deleteToken(sync) {
+  const db = await serviceHelper.databaseConnection();
+  const database = db.db(config.database.database);
+  const tokenCollection = config.collections.v1token;
+  await serviceHelper.findOneAndDeleteInDatabase(database, tokenCollection, sync);
+}
 module.exports = {
   getSync,
   getTokens,
   postSync,
   postToken,
+  deleteToken,
 };
