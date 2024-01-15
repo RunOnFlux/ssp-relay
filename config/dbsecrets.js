@@ -1,5 +1,5 @@
 module.exports = {
-  database: 'ssp-relay',
+  dbname: 'ssp-relay',
   dbusername: 'ssp-relay-user',
   dbpassword: 'ssp-relay-password',
 };
