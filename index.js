@@ -28,9 +28,6 @@ setTimeout(() => {
 }, 2000);
 
 networkFeesService.fetchFees();
-setInterval(() => {
-  networkFeesService.fetchFees();
-}, 1 * 60 * 1000);
 
 setTimeout(() => {
   log.info('Starting SSP Relay');

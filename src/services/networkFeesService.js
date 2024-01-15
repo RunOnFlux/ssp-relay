@@ -69,6 +69,7 @@ async function obtainLitecoinFees() {
 async function fetchFees() {
   const fees = [];
   const btcFee = await obtainBitcoinFees();
+  await serviceHelper.delay(61000);
   const ltcFee = await obtainLitecoinFees();
   if (btcFee) {
     fees.push(btcFee);
@@ -77,6 +78,8 @@ async function fetchFees() {
     fees.push(ltcFee);
   }
   currentFees = fees;
+  await serviceHelper.delay(61000);
+  fetchFees();
 }
 
 async function networkFees(res) {
