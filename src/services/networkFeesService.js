@@ -5,13 +5,13 @@ const serviceHelper = require('./serviceHelper');
 let currentFees = [];
 
 async function obtainBitcoinFees() {
-  const url = 'https://corsanywhere.app.runonflux.io/https://mempool.space/api/v1/fees/recommended'; // https://bitcoinfees.earn.com/api/v1/fees/recommended';
-  const url2 = 'https://corsanywhere.app.runonflux.io/https://api.blockcypher.com/v1/btc/main';
+  const url = 'https://bitcoinfees.net/api.json';
+  const url2 = 'https://api.blockcypher.com/v1/btc/main';
   try {
     const res = await axios.get(url);
-    const eco1 = Math.ceil(res.data.hourFee);
-    const normal1 = Math.ceil(res.data.halfHourFee);
-    const fast1 = Math.ceil(res.data.fastestFee);
+    const eco1 = Math.ceil(res.data.fee_by_block_target[20] / 1000);
+    const normal1 = Math.ceil(res.data.fee_by_block_target[5] / 1000);
+    const fast1 = Math.ceil(res.data.fee_by_block_target[1] / 1000);
 
     const res2 = await axios.get(url2);
     const eco2 = Math.ceil(res2.data.low_fee_per_kb / 1000);
@@ -39,7 +39,7 @@ async function obtainBitcoinFees() {
 }
 
 async function obtainLitecoinFees() {
-  const url2 = 'https://corsanywhere.app.runonflux.io/https://api.blockcypher.com/v1/ltc/main';
+  const url2 = 'https://api.blockcypher.com/v1/ltc/main';
   try {
     const res2 = await axios.get(url2);
     const eco2 = Math.ceil(res2.data.low_fee_per_kb / 1000);
