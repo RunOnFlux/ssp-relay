@@ -9,7 +9,7 @@ async function obtainBitcoinFees() {
   const url2 = 'https://api.blockcypher.com/v1/btc/main';
   try {
     const res = await axios.get(url);
-    const eco1 = Math.ceil(res.data.fee_by_block_target[20] / 1000);
+    const eco1 = Math.ceil(res.data.fee_by_block_target[30] / 1000);
     const normal1 = Math.ceil(res.data.fee_by_block_target[5] / 1000);
     const fast1 = Math.ceil(res.data.fee_by_block_target[1] / 1000);
 
