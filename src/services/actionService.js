@@ -15,6 +15,7 @@ async function getAction(id) {
       wkIdentity: 1,
       action: 1,
       payload: 1,
+      utxos: 1,
       expireAt: 1,
       createdAt: 1,
     },

@@ -58,6 +58,10 @@ function postAction(req, res) {
         payload: processedBody.payload,
       };
 
+      if (processedBody.utxos) {
+        data.utxos = processedBody.utxos;
+      }
+
       const actionOK = await actionService.postAction(data);
       if (!actionOK) {
         throw new Error('Failed to post action data');
