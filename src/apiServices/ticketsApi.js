@@ -1,7 +1,8 @@
-const config = require('config');
 const ticketService = require('../services/ticketService');
 const serviceHelper = require('../services/serviceHelper');
 const log = require('../lib/log');
+
+let alreadySubmittedIps = [];
 
 function postTicket(req, res) {
   let body = '';
@@ -23,10 +24,14 @@ function postTicket(req, res) {
       if (!processedBody.email) {
         throw new Error('No email specified');
       }
+      // request must contain challenge header
+      if (!req.headers.challenge) {
+        throw new Error('Invalid request');
+      }
       // only following IP can make the request
       const ip = req.headers['x-forwarded-for'].split(',')[0];
-      if (config.freshdesk.ips.includes(ip) === false) {
-        throw new Error('Unauthorized IP');
+      if (alreadySubmittedIps.filter((item) => item === ip).length > 10) {
+        throw new Error('Ticket already submitted');
       }
 
       const data = {
@@ -50,3 +55,7 @@ function postTicket(req, res) {
 module.exports = {
   postTicket,
 };
+
+setInterval(() => {
+  alreadySubmittedIps = [];
+}, 24 * 60 * 60 * 1000);
