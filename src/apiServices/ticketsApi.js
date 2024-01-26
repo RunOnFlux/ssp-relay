@@ -24,7 +24,7 @@ function postTicket(req, res) {
         throw new Error('No email specified');
       }
       // only following IP can make the request
-      const ip = req.headers['x-forwarded-for'];
+      const ip = req.headers['x-forwarded-for'].split(',')[0];
       if (config.freshdesk.ips.includes(ip) === false) {
         throw new Error('Unauthorized IP');
       }
