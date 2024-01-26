@@ -25,7 +25,7 @@ function postTicket(req, res) {
         throw new Error('No email specified');
       }
       // request must contain challenge header
-      if (!req.headers.challenge) {
+      if (!req.headers['x-challenge']) {
         throw new Error('Invalid request');
       }
       // only following IP can make the request
