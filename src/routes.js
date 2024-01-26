@@ -1,8 +1,8 @@
 const syncApi = require('./apiServices/syncApi');
 const actionApi = require('./apiServices/actionApi');
 const ratesApi = require('./apiServices/ratesApi');
+const ticketsApi = require('./apiServices/ticketsApi');
 const feeService = require('./services/networkFeesService');
-const ticketService = require('./services/ticketService');
 
 module.exports = (app) => {
   // return sync data
@@ -33,6 +33,6 @@ module.exports = (app) => {
   });
   // freshdesk ticket
   app.post('/v1/ticket', (req, res) => {
-    ticketService.postTicket(req, res);
+    ticketsApi.postTicket(req, res);
   });
 };
