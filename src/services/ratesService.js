@@ -56,7 +56,7 @@ async function initRates() {
   } finally {
     setTimeout(() => {
       initRates();
-    }, 15 * 60 * 1000); // 15 mins
+    }, 5 * 60 * 1000); // 5 mins
   }
 }
 
