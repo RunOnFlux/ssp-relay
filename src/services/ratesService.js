@@ -25,13 +25,13 @@ async function fetchCryptoRates() {
     const apiKey = config.keys.cmc;
     const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?CMC_PRO_API_KEY=${apiKey}&id=1,3029,2577,2,74`;
     const response = await axios.get(url);
-    const priceFlux = response.data.data['3029'].quote.USD.price;
     const priceBtc = response.data.data['1'].quote.USD.price;
-    const priceRvn = response.data.data['3029'].quote.USD.price;
+    const priceFlux = response.data.data['3029'].quote.USD.price;
+    const priceRvn = response.data.data['2577'].quote.USD.price;
     const priceLtc = response.data.data['2'].quote.USD.price;
     const priceDoge = response.data.data['74'].quote.USD.price;
     const prices = {
-      flux: priceFlux, rvn: priceRvn, btc: priceBtc, ltc: priceLtc, doge: priceDoge,
+      btc: priceBtc, flux: priceFlux, rvn: priceRvn, ltc: priceLtc, doge: priceDoge,
     };
     cryptoRates = prices;
   } catch (error) {
