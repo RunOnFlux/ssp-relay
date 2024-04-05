@@ -40,8 +40,9 @@ async function fetchCryptoRates() {
 }
 
 function getRates() {
+  const fiatRatesWithBTC = { ...fiatRates, BTC: cryptoRates.btc };
   const rates = {
-    fiat: fiatRates, // 1 usd = X fiat
+    fiat: fiatRatesWithBTC, // 1 usd = X fiat
     crypto: cryptoRates, // always to usd
   };
   return rates;
