@@ -1,5 +1,6 @@
 const freshdesk = require('freshdesk-client');
 const config = require('config');
+const log = require('../lib/log');
 
 async function postTicket(data) {
   try {
@@ -26,7 +27,7 @@ async function postTicket(data) {
     });
     return 'Ticket created successfully.';
   } catch (error) {
-    console.log(error);
+    log.error(error);
     if (error.message.includes('Cannot read properties of unde')) {
       return 'Ticket created successfully.';
     }

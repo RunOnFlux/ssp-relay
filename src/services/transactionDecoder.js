@@ -2,6 +2,7 @@ const BigNumber = require('bignumber.js');
 const utxolib = require('utxo-lib');
 
 const blockchains = require('./blockchains');
+const log = require('../lib/log');
 
 function getLibId(chain) {
   return blockchains[chain].libid;
@@ -12,6 +13,9 @@ function decodeTransactionForApproval(
   chain = 'btc',
 ) {
   try {
+    log.info('Decoding transaction for approval');
+    log.info(rawTx);
+    log.info(chain);
     const libID = getLibId(chain);
     const network = utxolib.networks[libID];
     const txhex = rawTx;
@@ -19,7 +23,8 @@ function decodeTransactionForApproval(
       utxolib.Transaction.fromHex(txhex, network),
       network,
     );
-    console.log(JSON.stringify(txb));
+
+    log.info(JSON.stringify(txb));
     let txReceiver = 'decodingError';
     let amount = '0';
     let senderAddress = '';
@@ -46,7 +51,6 @@ function decodeTransactionForApproval(
     txb.tx.outs.forEach((out) => {
       if (out.value) {
         const address = utxolib.address.fromOutputScript(out.script, network);
-        console.log(address);
         if (address !== senderAddress) {
           txReceiver = address;
           amount = new BigNumber(out.value)
@@ -63,7 +67,7 @@ function decodeTransactionForApproval(
           outOne.script,
           network,
         );
-        console.log(address);
+        log.warn(address);
         txReceiver = address;
         amount = new BigNumber(outOne.value)
           .dividedBy(new BigNumber(1e8))
@@ -76,7 +80,7 @@ function decodeTransactionForApproval(
     };
     return txInfo;
   } catch (error) {
-    console.log(error);
+    log.error(error);
     return {
       receiver: 'decodingError',
       amount: 'decodingError',

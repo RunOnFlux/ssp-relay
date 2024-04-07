@@ -1,6 +1,7 @@
 const config = require('config');
 
 const serviceHelper = require('./serviceHelper');
+const log = require('../lib/log');
 
 async function getSync(id) {
   const db = await serviceHelper.databaseConnection();
@@ -95,7 +96,7 @@ async function postToken(data) {
     // eslint-disable-next-line no-restricted-syntax
     for (const existingToken of existingTokens) {
       // eslint-disable-next-line no-await-in-loop
-      await serviceHelper.findOneAndDeleteInDatabase(database, tokenCollection, existingToken).catch((error) => console.log(error));
+      await serviceHelper.findOneAndDeleteInDatabase(database, tokenCollection, existingToken).catch((error) => log.error(error));
     }
   }
   const existingRecords = await serviceHelper.findInDatabase(database, tokenCollection, query, projection);
