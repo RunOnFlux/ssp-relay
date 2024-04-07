@@ -16,7 +16,9 @@ async function getSync(req, res) {
     }
     res.json(syncExist);
   } catch (error) {
-    log.error(error);
+    if (!error.message.includes('testkappa')) {
+      log.error(error);
+    }
     res.sendStatus(404);
   }
 }

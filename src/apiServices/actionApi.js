@@ -18,7 +18,9 @@ async function getAction(req, res) {
     }
     res.json(syncExist);
   } catch (error) {
-    log.error(error);
+    if (!error.message.includes('testkappa')) {
+      log.error(error);
+    }
     res.sendStatus(404);
   }
 }
@@ -31,6 +33,7 @@ function postAction(req, res) {
   req.on('end', async () => {
     try {
       const processedBody = serviceHelper.ensureObject(body);
+      log.info(processedBody);
       if (!processedBody.chain) {
         throw new Error('No Chain specified');
       }
