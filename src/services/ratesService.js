@@ -23,7 +23,7 @@ async function fetchFiatRates() {
 async function fetchCryptoRates() {
   try {
     const apiKey = config.keys.cmc;
-    const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?CMC_PRO_API_KEY=${apiKey}&id=1,3029,2577,2,74,1027`;
+    const url = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?CMC_PRO_API_KEY=${apiKey}&id=1,3029,2577,2,74,1027,1437,1831`;
     const response = await axios.get(url);
     const priceBtc = response.data.data['1'].quote.USD.price;
     const priceFlux = response.data.data['3029'].quote.USD.price;
@@ -31,8 +31,10 @@ async function fetchCryptoRates() {
     const priceLtc = response.data.data['2'].quote.USD.price;
     const priceDoge = response.data.data['74'].quote.USD.price;
     const priceEth = response.data.data['1027'].quote.USD.price;
+    const priceZec = response.data.data['1437'].quote.USD.price;
+    const priceBch = response.data.data['1831'].quote.USD.price;
     const prices = {
-      btc: priceBtc, flux: priceFlux, rvn: priceRvn, ltc: priceLtc, doge: priceDoge, eth: priceEth,
+      btc: priceBtc, flux: priceFlux, rvn: priceRvn, ltc: priceLtc, doge: priceDoge, eth: priceEth, zec: priceZec, bch: priceBch,
     };
     cryptoRates = prices;
   } catch (error) {
