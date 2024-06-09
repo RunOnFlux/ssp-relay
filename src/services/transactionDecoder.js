@@ -1,5 +1,6 @@
 const BigNumber = require('bignumber.js');
 const utxolib = require('utxo-lib');
+const bchaddrjs = require('bchaddrjs');
 
 const blockchains = require('./blockchains');
 const log = require('../lib/log');
@@ -17,6 +18,7 @@ function decodeTransactionForApproval(
     log.info(rawTx);
     log.info(chain);
     const libID = getLibId(chain);
+    const cashAddrPrefix = blockchains[chain].cashaddr;
     const network = utxolib.networks[libID];
     const txhex = rawTx;
     const txb = utxolib.TransactionBuilder.fromTransaction(
@@ -73,6 +75,9 @@ function decodeTransactionForApproval(
           .dividedBy(new BigNumber(1e8))
           .toFixed();
       }
+    }
+    if (cashAddrPrefix) {
+      txReceiver = bchaddrjs.toCashAddress(txReceiver);
     }
     const txInfo = {
       receiver: txReceiver,
