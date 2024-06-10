@@ -16,6 +16,14 @@ const flux = {
   },
   txVersion: 4,
   txGroupID: 0x892f2085,
+  backend: 'insight',
+  dustLimit: 546, // min utxo amount
+  minFeePerByte: 1, // min fee per byte
+  feePerByte: 1, // fee per byte
+  maxMessage: 80, // 80 bytes in size
+  maxTxSize: 1800000, // 1,800,000 vbytes
+  rbf: false,
+  txExpiryHeight: 30, // 30 blocks, 1 hour
 };
 
 const fluxTestnet = {
@@ -36,6 +44,14 @@ const fluxTestnet = {
   },
   txVersion: 4,
   txGroupID: 0x892f2085,
+  backend: 'insight',
+  dustLimit: 546, // min utxo amount
+  minFeePerByte: 1, // min fee per byte
+  feePerByte: 1, // fee per byte
+  maxMessage: 80, // 80 bytes in size
+  maxTxSize: 1800000, // 1,800,000 vbytes
+  rbf: false,
+  txExpiryHeight: 30, // 30 blocks, 1 hour
 };
 
 const rvn = {
@@ -54,6 +70,13 @@ const rvn = {
     public: 0x0488b21e,
     private: 0x0488ade4,
   },
+  backend: 'blockbook',
+  dustLimit: 546, // min utxo amount
+  minFeePerByte: 4, // min fee per byte
+  feePerByte: 4, // fee per byte
+  maxMessage: 80, // 80 bytes in size
+  maxTxSize: 100000, // 100,000 vbytes
+  rbf: true,
 };
 
 const ltc = {
@@ -72,7 +95,14 @@ const ltc = {
     public: 0x019da462,
     private: 0x019d9cfe,
   },
+  backend: 'blockbook',
   bech32: 'ltc',
+  dustLimit: 546, // min utxo amount
+  minFeePerByte: 1, // min fee per byte
+  feePerByte: 20, // fee per byte
+  maxMessage: 80, // 80 bytes in size
+  maxTxSize: 100000, // 100,000 vbytes
+  rbf: true,
 };
 
 const btc = {
@@ -88,10 +118,17 @@ const btc = {
   scriptHash: '05',
   wif: '80',
   bip32: {
-    public: 0x0488b21e,
-    private: 0x0488ade4,
+    public: 0x02aa7ed3,
+    private: 0x02aa7a99,
   },
+  backend: 'blockbook',
   bech32: 'bc1',
+  dustLimit: 546, // min utxo amount
+  minFeePerByte: 1, // min fee per byte
+  feePerByte: 100, // fee per byte
+  maxMessage: 80, // 80 bytes in size
+  maxTxSize: 100000, // 100,000 vbytes
+  rbf: true,
 };
 
 const doge = {
@@ -110,6 +147,13 @@ const doge = {
     public: 0x02facafd,
     private: 0x02fac398,
   },
+  backend: 'blockbook',
+  dustLimit: 1000000, // min utxo amount
+  minFeePerByte: 1000, // min fee per byte
+  feePerByte: 20, // fee per byte
+  maxMessage: 80, // 80 bytes in size
+  maxTxSize: 100000, // 100,000 vbytes
+  rbf: true,
 };
 
 const btcTestnet = {
@@ -125,10 +169,17 @@ const btcTestnet = {
   scriptHash: 'c4',
   wif: 'ef',
   bip32: {
-    public: 0x043587cf,
-    private: 0x04358394,
+    public: 0x02575483,
+    private: 0x02575048,
   },
+  backend: 'blockbook',
   bech32: 'tb1',
+  dustLimit: 546, // min utxo amount
+  minFeePerByte: 1, // min fee per byte
+  feePerByte: 5, // fee per byte
+  maxMessage: 80, // 80 bytes in size
+  maxTxSize: 100000, // 100,000 vbytes
+  rbf: true,
 };
 
 const btcSignet = {
@@ -144,10 +195,17 @@ const btcSignet = {
   scriptHash: 'c4',
   wif: 'ef',
   bip32: {
-    public: 0x043587cf,
-    private: 0x04358394,
+    public: 0x02575483,
+    private: 0x02575048,
   },
+  backend: 'blockbook',
   bech32: 'tb1',
+  dustLimit: 546, // min utxo amount
+  minFeePerByte: 1, // min fee per byte
+  feePerByte: 4, // fee per byte
+  maxMessage: 80, // 80 bytes in size
+  maxTxSize: 100000, // 100,000 vbytes
+  rbf: true,
 };
 
 const zec = {
@@ -167,14 +225,15 @@ const zec = {
     private: 0x0488ade4,
   },
   txVersion: 4,
-  txGroupID: 0xc2d6d0b4,
+  txGroupID: 0x892f2085,
   backend: 'blockbook',
   dustLimit: 546, // min utxo amount
   minFeePerByte: 1, // min fee per byte
-  feePerByte: 1, // fee per byte
+  feePerByte: 2, // fee per byte
   maxMessage: 80, // 80 bytes in size
   maxTxSize: 100000, // 100,000 vbytes
   rbf: false,
+  txExpiryHeight: 60, // 1 hour
 };
 
 const bch = {
