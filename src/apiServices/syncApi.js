@@ -51,6 +51,11 @@ function postSync(req, res) {
         wkIdentity: processedBody.wkIdentity,
       };
 
+      // EVM sync
+      if (processedBody.publicNonces && processedBody.publicNonces.length > 0) {
+        data.publicNonces = processedBody.publicNonces;
+      }
+
       const tokenData = {
         wkIdentity: processedBody.wkIdentity,
         keyToken: processedBody.keyToken,

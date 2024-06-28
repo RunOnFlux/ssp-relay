@@ -15,6 +15,7 @@ async function getSync(id) {
       walletIdentity: 1,
       keyXpub: 1,
       wkIdentity: 1,
+      publicNonces: 1,
     },
   };
   const syncRes = await serviceHelper.findOneInDatabase(database, syncCollection, query, projection);
