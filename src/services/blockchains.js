@@ -262,6 +262,26 @@ const bch = {
   cashaddr: 'bitcoincash:',
 };
 
+const sepolia = {
+  id: 'sepolia',
+  name: 'Sepolia Ethereum',
+  symbol: 'ETH',
+  slip: 1,
+  decimals: 18,
+  bip32: {
+    // not specified, use default
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  scriptType: 'p2sh', // not specified, use default
+  chainType: 'evm',
+  backend: 'alchemy',
+  accountSalt: 'aasalt', // ssp uses this salt for smart accounts
+  factorySalt: 'aafactorysalt', // factory uses this salt
+  factoryAddress: '0xA76f98D25C9775F67DCf8B9EF9618d454D287467',
+  entrypointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+};
+
 module.exports = {
   btc,
   flux,
@@ -273,4 +293,5 @@ module.exports = {
   btcTestnet,
   btcSignet,
   fluxTestnet,
+  sepolia,
 };

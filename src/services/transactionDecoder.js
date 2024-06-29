@@ -1,6 +1,8 @@
 const BigNumber = require('bignumber.js');
 const utxolib = require('utxo-lib');
 const bchaddrjs = require('bchaddrjs');
+const viem = require('viem');
+const abi = require('@runonflux/aa-schnorr-multisig-sdk/dist/abi');
 
 const blockchains = require('./blockchains');
 const log = require('../lib/log');
@@ -9,11 +11,60 @@ function getLibId(chain) {
   return blockchains[chain].libid;
 }
 
+function decodeEVMTransactionForApproval(
+  rawTx,
+  chain,
+) {
+  try {
+    const { decimals } = blockchains[chain];
+    const multisigUserOpJSON = JSON.parse(rawTx);
+    const { callData } = multisigUserOpJSON.userOpRequest;
+
+    const decodedData = viem.decodeFunctionData({
+      abi: abi.MultiSigSmartAccount_abi,
+      data: callData,
+    });
+
+    let txReceiver = 'decodingError';
+    let amount = '0';
+
+    if (
+      decodedData
+      && decodedData.functionName === 'execute'
+      && decodedData.args
+      && decodedData.args.length === 3
+    ) {
+      // eslint-disable-next-line prefer-destructuring
+      txReceiver = decodedData.args[0];
+      amount = new BigNumber(decodedData.args[1].toString())
+        .dividedBy(new BigNumber(10 ** decimals))
+        .toFixed();
+    } else {
+      throw new Error('Unexpected decoded data.');
+    }
+
+    const txInfo = {
+      receiver: txReceiver,
+      amount,
+    };
+    return txInfo;
+  } catch (error) {
+    log.error(error);
+    return {
+      receiver: 'decodingError',
+      amount: 'decodingError',
+    };
+  }
+}
+
 function decodeTransactionForApproval(
   rawTx,
   chain = 'btc',
 ) {
   try {
+    if (blockchains[chain].chainType === 'evm') {
+      return decodeEVMTransactionForApproval(rawTx, chain);
+    }
     log.info('Decoding transaction for approval');
     log.info(rawTx);
     log.info(chain);
