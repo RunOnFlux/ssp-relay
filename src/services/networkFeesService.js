@@ -93,9 +93,9 @@ async function obtainSepoliaFees() {
 async function fetchFees() {
   const fees = [];
   const btcFee = await obtainBitcoinFees();
-  await serviceHelper.delay(10001);
+  await serviceHelper.delay(61000);
   const ltcFee = await obtainLitecoinFees();
-  await serviceHelper.delay(10001);
+  await serviceHelper.delay(61000);
   const ethFee = await obtainSepoliaFees();
   if (btcFee) {
     fees.push(btcFee);
