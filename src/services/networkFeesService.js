@@ -6,7 +6,7 @@ let currentFees = [];
 
 async function obtainBitcoinFees() {
   const url = 'https://bitcoinfees.net/api.json';
-  const url2 = 'https://api.blockcypher.com/v1/btc/main';
+  const url2 = 'https://proxy.app.runonflux.io/https://api.blockcypher.com/v1/btc/main';
   try {
     const res = await axios.get(url);
     const eco1 = Math.ceil(res.data.fee_by_block_target[30] / 1000);
@@ -39,7 +39,7 @@ async function obtainBitcoinFees() {
 }
 
 async function obtainLitecoinFees() {
-  const url2 = 'https://api.blockcypher.com/v1/ltc/main';
+  const url2 = 'https://proxy.app.runonflux.io/https://api.blockcypher.com/v1/ltc/main';
   try {
     const res2 = await axios.get(url2);
     const eco2 = Math.ceil(res2.data.low_fee_per_kb / 1000);
@@ -67,7 +67,7 @@ async function obtainLitecoinFees() {
 }
 
 async function obtainSepoliaFees() {
-  const url = 'https://api.blockcypher.com/v1/eth/main';
+  const url = 'https://proxy.app.runonflux.io/https://api.blockcypher.com/v1/eth/main';
   try {
     const res = await axios.get(url);
     const base = res.data.base_fee;
