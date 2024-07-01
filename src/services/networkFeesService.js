@@ -105,8 +105,11 @@ async function fetchFees() {
   }
   if (ethFee) {
     fees.push(ethFee);
-    ethFee.coin = 'sepolia';
-    fees.push(ethFee);
+    const sepoliaFee = {
+      ...ethFee,
+      coin: 'sepolia',
+    };
+    fees.push(sepoliaFee);
   }
   currentFees = fees;
   await serviceHelper.delay(61000);
