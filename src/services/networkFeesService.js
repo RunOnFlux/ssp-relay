@@ -66,16 +66,47 @@ async function obtainLitecoinFees() {
   }
 }
 
+async function obtainSepoliaFees() {
+  const url = 'https://api.blockcypher.com/v1/eth/main';
+  try {
+    const res = await axios.get(url);
+    const base = res.data.base_fee;
+    const eco = res.data.low_priority_fee;
+    const normal = res.data.medium_priority_fee;
+    const fast = res.data.high_priority_fee;
+
+    const feesObject = {
+      coin: 'eth',
+      base,
+      economy: eco,
+      normal,
+      fast,
+      recommended: fast,
+    };
+    return feesObject;
+  } catch (error) {
+    log.error(error);
+    return false;
+  }
+}
+
 async function fetchFees() {
   const fees = [];
   const btcFee = await obtainBitcoinFees();
-  await serviceHelper.delay(61000);
+  await serviceHelper.delay(10001);
   const ltcFee = await obtainLitecoinFees();
+  await serviceHelper.delay(10001);
+  const ethFee = await obtainSepoliaFees();
   if (btcFee) {
     fees.push(btcFee);
   }
   if (ltcFee) {
     fees.push(ltcFee);
+  }
+  if (ethFee) {
+    fees.push(ethFee);
+    ethFee.coin = 'sepolia';
+    fees.push(ethFee);
   }
   currentFees = fees;
   await serviceHelper.delay(61000);
