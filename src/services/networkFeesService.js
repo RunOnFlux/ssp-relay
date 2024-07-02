@@ -67,7 +67,7 @@ async function obtainLitecoinFees() {
 }
 
 async function obtainEthFees() {
-  const url = 'https://proxy.app.runonflux.io/https://api.owlracle.info/v4/ethereum/gas';
+  const url = 'https://proxy.app.runonflux.io/https://api.owlracle.info/v4/ethereum/gas?apikey=f0c0b8fbcf0340d88f699309fa9339c4';
   try {
     const res = await axios.get(url);
     const fastFee = res.data.speeds.find((s) => s.acceptance === 1);
@@ -92,7 +92,7 @@ async function obtainEthFees() {
 }
 
 async function obtainSepoliaFees() {
-  const url = 'https://proxy.app.runonflux.io/https://api.owlracle.info/v4/sepolia/gas';
+  const url = 'https://proxy.app.runonflux.io/https://api.owlracle.info/v4/sepolia/gas?apikey=f0c0b8fbcf0340d88f699309fa9339c4';
   try {
     const res = await axios.get(url);
     const fastFee = res.data.speeds.find((s) => s.acceptance === 1);
