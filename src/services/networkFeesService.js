@@ -66,17 +66,43 @@ async function obtainLitecoinFees() {
   }
 }
 
-async function obtainSepoliaFees() {
-  const url = 'https://proxy.app.runonflux.io/https://api.blockcypher.com/v1/eth/main';
+async function obtainEthFees() {
+  const url = 'https://api.owlracle.info/v4/ethereum/gas';
   try {
     const res = await axios.get(url);
-    const base = res.data.base_fee;
-    const eco = res.data.low_priority_fee;
-    const normal = res.data.medium_priority_fee;
-    const fast = res.data.high_priority_fee;
+    const fastFee = res.data.speeds.find((s) => s.acceptance === 1);
+    const base = Math.floor(fastFee.baseFee * 1e9);
+    const eco = Math.floor(res.data.speeds[1].maxPriorityFeePerGas * 1e9);
+    const normal = Math.floor(res.data.speeds[2].maxPriorityFeePerGas * 1e9);
+    const fast = Math.floor(fastFee.maxPriorityFeePerGas * 1e9);
 
     const feesObject = {
       coin: 'eth',
+      base,
+      economy: eco,
+      normal,
+      fast,
+      recommended: fast,
+    };
+    return feesObject;
+  } catch (error) {
+    log.error(error);
+    return false;
+  }
+}
+
+async function obtainSepoliaFees() {
+  const url = 'https://api.owlracle.info/v4/sepolia/gas';
+  try {
+    const res = await axios.get(url);
+    const fastFee = res.data.speeds.find((s) => s.acceptance === 1);
+    const base = Math.floor(fastFee.baseFee * 1e9);
+    const eco = Math.floor(res.data.speeds[1].maxPriorityFeePerGas * 1e9);
+    const normal = Math.floor(res.data.speeds[2].maxPriorityFeePerGas * 1e9);
+    const fast = Math.floor(fastFee.maxPriorityFeePerGas * 1e9);
+
+    const feesObject = {
+      coin: 'sepolia',
       base,
       economy: eco,
       normal,
@@ -95,8 +121,9 @@ async function fetchFees() {
   const btcFee = await obtainBitcoinFees();
   await serviceHelper.delay(61000);
   const ltcFee = await obtainLitecoinFees();
+  const ethFee = await obtainEthFees();
   await serviceHelper.delay(61000);
-  const ethFee = await obtainSepoliaFees();
+  const sepFee = await obtainSepoliaFees();
   if (btcFee) {
     fees.push(btcFee);
   }
@@ -105,11 +132,9 @@ async function fetchFees() {
   }
   if (ethFee) {
     fees.push(ethFee);
-    const sepoliaFee = {
-      ...ethFee,
-      coin: 'sepolia',
-    };
-    fees.push(sepoliaFee);
+  }
+  if (sepFee) {
+    fees.push(sepFee);
   }
   currentFees = fees;
   await serviceHelper.delay(61000);
