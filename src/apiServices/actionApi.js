@@ -37,9 +37,6 @@ function postAction(req, res) {
       if (!processedBody.chain) {
         throw new Error('No Chain specified');
       }
-      if (!processedBody.path) {
-        throw new Error('No Derivation Path specified');
-      }
       if (!processedBody.wkIdentity) {
         throw new Error('No Wallet-Key Identity specified');
       }
@@ -72,13 +69,13 @@ function postAction(req, res) {
       const result = serviceHelper.createDataMessage(actionOK);
 
       // ssp-key listens for tx action
-      if (data.action === 'tx') {
+      if (data.action === 'tx' || data.action === 'publicnoncesrequest') {
         const ioKey = socket.getIOKey();
         ioKey.to(data.wkIdentity).emit(data.action, data);
         await sendNotificationKey(data.wkIdentity, data).catch((error) => log.error(error));
       }
       // ssp-wallet listens for txid and txrejected actions
-      if (data.action === 'txrejected' || data.action === 'txid') {
+      if (data.action === 'txrejected' || data.action === 'txid' || data.action === 'publicnoncesrejected' || data.action === 'publicnonces') {
         const ioWallet = socket.getIOWallet();
         ioWallet.to(data.wkIdentity).emit(data.action, data);
       }

@@ -11,8 +11,12 @@ admin.initializeApp({
 async function sendNotificationKey(wkIdentity, data) {
   try {
     const syncs = await syncService.getTokens(wkIdentity);
-    const title = 'Transaction request';
+    let title = 'Transaction Request';
     let body = 'A transaction has been initiated on your wallet.';
+    if (data.action === 'publicnoncesrequest') {
+      title = 'Public Nonces Request';
+      body = 'Your Wallet is requesting public nonces synchronisation.';
+    }
     try {
       if (data.payload && data.action === 'tx') {
         const decodedTransaction = transactionDecoder.decodeTransactionForApproval(
