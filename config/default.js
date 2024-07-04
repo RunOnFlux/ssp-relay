@@ -1,6 +1,7 @@
 const dbsecrets = require('./dbsecrets');
 const apisecrets = require('./apisecrets');
 const freshdesksecrets = require('./freshdesksecrets');
+const alchemysecrets = require('./alchemysecrets');
 
 module.exports = {
   server: {
@@ -21,6 +22,7 @@ module.exports = {
   keys: {
     cmc: apisecrets.cmcApiKey,
     freshdesk: freshdesksecrets.apikey,
+    alchemy: alchemysecrets.alchemyApiKey,
   },
   freshdesk: {
     namespace: freshdesksecrets.namespace,

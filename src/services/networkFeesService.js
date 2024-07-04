@@ -1,4 +1,5 @@
 const axios = require('axios');
+const config = require('config');
 const log = require('../lib/log');
 const serviceHelper = require('./serviceHelper');
 
@@ -67,22 +68,32 @@ async function obtainLitecoinFees() {
 }
 
 async function obtainEthFees() {
-  const url = 'https://proxy.app.runonflux.io/https://api.owlracle.info/v4/ethereum/gas?apikey=f0c0b8fbcf0340d88f699309fa9339c4';
+  const url = `https://eth-mainnet.g.alchemy.com/v2/${config.keys.alchemy}`;
   try {
-    const res = await axios.get(url);
-    const fastFee = res.data.speeds.find((s) => s.acceptance === 1);
-    const base = Math.floor(fastFee.baseFee * 1e9);
-    const eco = Math.floor(res.data.speeds[1].maxPriorityFeePerGas * 1e9);
-    const normal = Math.floor(res.data.speeds[2].maxPriorityFeePerGas * 1e9);
-    const fast = Math.floor(fastFee.maxPriorityFeePerGas * 1e9);
+    const dataA = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'eth_gasPrice',
+    };
+    const dataB = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'eth_gasPrice',
+    };
+    const resA = await axios.post(url, dataA);
+    const resB = await axios.post(url, dataB);
+    const baseFee = Math.floor(parseInt(resA.data.result, 16) * 1.5);
+    const economyFee = Math.floor(parseInt(resB.data.result, 16) * 1);
+    const normalFee = Math.floor(parseInt(resB.data.result, 16) * 1.5);
+    const fastFee = Math.floor(parseInt(resB.data.result, 16) * 2);
 
     const feesObject = {
       coin: 'eth',
-      base,
-      economy: eco,
-      normal,
-      fast,
-      recommended: fast,
+      base: baseFee,
+      economy: economyFee,
+      normal: normalFee,
+      fast: fastFee,
+      recommended: fastFee,
     };
     return feesObject;
   } catch (error) {
@@ -92,22 +103,32 @@ async function obtainEthFees() {
 }
 
 async function obtainSepoliaFees() {
-  const url = 'https://proxy.app.runonflux.io/https://api.owlracle.info/v4/sepolia/gas?apikey=f0c0b8fbcf0340d88f699309fa9339c4';
+  const url = `https://eth-sepolia.g.alchemy.com/v2/${config.keys.alchemy}`;
   try {
-    const res = await axios.get(url);
-    const fastFee = res.data.speeds.find((s) => s.acceptance === 1);
-    const base = Math.floor(fastFee.baseFee * 1e9);
-    const eco = Math.floor(res.data.speeds[1].maxPriorityFeePerGas * 1e9);
-    const normal = Math.floor(res.data.speeds[2].maxPriorityFeePerGas * 1e9);
-    const fast = Math.floor(fastFee.maxPriorityFeePerGas * 1e9);
+    const dataA = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'eth_gasPrice',
+    };
+    const dataB = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'eth_gasPrice',
+    };
+    const resA = await axios.post(url, dataA);
+    const resB = await axios.post(url, dataB);
+    const baseFee = Math.floor(parseInt(resA.data.result, 16) * 1.5);
+    const economyFee = Math.floor(parseInt(resB.data.result, 16) * 1);
+    const normalFee = Math.floor(parseInt(resB.data.result, 16) * 1.5);
+    const fastFee = Math.floor(parseInt(resB.data.result, 16) * 2);
 
     const feesObject = {
       coin: 'sepolia',
-      base,
-      economy: eco,
-      normal,
-      fast,
-      recommended: fast,
+      base: baseFee,
+      economy: economyFee,
+      normal: normalFee,
+      fast: fastFee,
+      recommended: fastFee,
     };
     return feesObject;
   } catch (error) {
