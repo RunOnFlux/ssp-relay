@@ -78,14 +78,14 @@ async function obtainEthFees() {
     const dataB = {
       id: new Date().getTime,
       jsonrpc: '2.0',
-      method: 'eth_gasPrice',
+      method: 'eth_maxPriorityFeePerGas',
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
-    const baseFee = Math.floor(parseInt(resA.data.result, 16) * 1.5);
+    const baseFee = Math.floor(parseInt(resA.data.result, 16) * 1.4);
     const economyFee = Math.floor(parseInt(resB.data.result, 16) * 1);
-    const normalFee = Math.floor(parseInt(resB.data.result, 16) * 1.5);
-    const fastFee = Math.floor(parseInt(resB.data.result, 16) * 2);
+    const normalFee = Math.floor(parseInt(resB.data.result, 16) * 1.4);
+    const fastFee = Math.floor(parseInt(resB.data.result, 16) * 1.8);
 
     const feesObject = {
       coin: 'eth',
@@ -113,14 +113,14 @@ async function obtainSepoliaFees() {
     const dataB = {
       id: new Date().getTime,
       jsonrpc: '2.0',
-      method: 'eth_gasPrice',
+      method: 'eth_maxPriorityFeePerGas',
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
-    const baseFee = Math.floor(parseInt(resA.data.result, 16) * 1.5);
+    const baseFee = Math.floor(parseInt(resA.data.result, 16) * 1.4);
     const economyFee = Math.floor(parseInt(resB.data.result, 16) * 1);
-    const normalFee = Math.floor(parseInt(resB.data.result, 16) * 1.5);
-    const fastFee = Math.floor(parseInt(resB.data.result, 16) * 2);
+    const normalFee = Math.floor(parseInt(resB.data.result, 16) * 1.4);
+    const fastFee = Math.floor(parseInt(resB.data.result, 16) * 1.8);
 
     const feesObject = {
       coin: 'sepolia',
