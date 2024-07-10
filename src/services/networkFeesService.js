@@ -82,10 +82,10 @@ async function obtainEthFees() {
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
-    const baseFee = Math.floor(parseInt(resA.data.result, 16) * 1.4);
-    const economyFee = Math.floor(parseInt(resB.data.result, 16) * 1);
-    const normalFee = Math.floor(parseInt(resB.data.result, 16) * 1.4);
-    const fastFee = Math.floor(parseInt(resB.data.result, 16) * 1.8);
+    const baseFee = +(Math.floor(parseInt(resA.data.result, 16) * 1.4) / 1e9).toFixed(9);
+    const economyFee = +(Math.floor(parseInt(resB.data.result, 16) * 1) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(parseInt(resB.data.result, 16) * 1.4) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(parseInt(resB.data.result, 16) * 1.8) / 1e9).toFixed(9);
 
     const feesObject = {
       coin: 'eth',
@@ -117,10 +117,10 @@ async function obtainSepoliaFees() {
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
-    const baseFee = Math.floor(parseInt(resA.data.result, 16) * 1.4);
-    const economyFee = Math.floor(parseInt(resB.data.result, 16) * 1);
-    const normalFee = Math.floor(parseInt(resB.data.result, 16) * 1.4);
-    const fastFee = Math.floor(parseInt(resB.data.result, 16) * 1.8);
+    const baseFee = +(Math.floor(parseInt(resA.data.result, 16) * 1.4) / 1e9).toFixed(9);
+    const economyFee = +(Math.floor(parseInt(resB.data.result, 16) * 1) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(parseInt(resB.data.result, 16) * 1.4) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(parseInt(resB.data.result, 16) * 1.8) / 1e9).toFixed(9);
 
     const feesObject = {
       coin: 'sepolia',
