@@ -3,6 +3,7 @@ const syncService = require('./syncService');
 const log = require('../lib/log');
 const serviceAccount = require('../../config/serviceAccountKey');
 const transactionDecoder = require('./transactionDecoder');
+const blockchains = require('./blockchains');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -23,7 +24,8 @@ async function sendNotificationKey(wkIdentity, data) {
           data.payload,
           data.chain,
         );
-        body = `A transaction of ${decodedTransaction.amount} ${data.chain.toUpperCase()} to ${decodedTransaction.receiver} has been initiated on your wallet.`;
+        // eslint-disable-next-line max-len
+        body = `A transaction of ${decodedTransaction.amount} ${decodedTransaction.token ? blockchains[data.chain].tokens.find((ttt) => ttt.contract.toLowerCase() === decodedTransaction.token.toLowerCase()).symbol : blockchains[data.chain].symbol} to ${decodedTransaction.receiver} has been initiated on your wallet.`;
       }
     } catch (error) {
       log.error(error);

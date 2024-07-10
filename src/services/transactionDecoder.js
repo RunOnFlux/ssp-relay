@@ -13,12 +13,34 @@ function getLibId(chain) {
 
 function decodeEVMTransactionForApproval(
   rawTx,
-  chain,
+  chain = 'eth',
 ) {
   try {
-    const { decimals } = blockchains[chain];
+    let { decimals } = blockchains[chain];
     const multisigUserOpJSON = JSON.parse(rawTx);
-    const { callData } = multisigUserOpJSON.userOpRequest;
+    const {
+      callData,
+      sender,
+      callGasLimit,
+      verificationGasLimit,
+      preVerificationGas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    } = multisigUserOpJSON.userOpRequest;
+
+    const totalGasLimit = new BigNumber(callGasLimit)
+      .plus(new BigNumber(verificationGasLimit))
+      .plus(new BigNumber(preVerificationGas));
+
+    const totalMaxWeiPerGas = new BigNumber(maxFeePerGas).plus(
+      new BigNumber(maxPriorityFeePerGas),
+    );
+
+    const totalFeeWei = totalGasLimit.multipliedBy(totalMaxWeiPerGas);
+
+    console.log(multisigUserOpJSON);
+
+    // callGasLimit":"0x5ea6","verificationGasLimit":"0x11b5a","preVerificationGas":"0xdf89","maxFeePerGas":"0xee6b28000","maxPriorityFeePerGas":"0x77359400",
 
     const decodedData = viem.decodeFunctionData({
       abi: abi.MultiSigSmartAccount_abi,
@@ -32,7 +54,7 @@ function decodeEVMTransactionForApproval(
       decodedData
       && decodedData.functionName === 'execute'
       && decodedData.args
-      && decodedData.args.length === 3
+      && decodedData.args.length >= 3
     ) {
       // eslint-disable-next-line prefer-destructuring
       txReceiver = decodedData.args[0];
@@ -44,16 +66,57 @@ function decodeEVMTransactionForApproval(
     }
 
     const txInfo = {
+      sender,
       receiver: txReceiver,
       amount,
+      fee: totalFeeWei.toFixed(),
+      token: '',
     };
+
+    if (amount === '0') {
+      // eslint-disable-next-line prefer-destructuring
+      txInfo.token = decodedData.args[0];
+
+      // find the token in our token list
+      const token = blockchains[chain].tokens.find(
+        (t) => t.contract.toLowerCase() === txInfo.token.toLowerCase(),
+      );
+      if (token) {
+        decimals = token.decimals;
+      }
+      const contractData = decodedData.args[2];
+      // most likely we are dealing with a contract call, sending some erc20 token
+      // docode args[2] which is operation
+      const decodedDataContract = viem.decodeFunctionData({
+        abi: viem.erc20Abi,
+        data: contractData,
+      });
+      console.log(decodedDataContract);
+      if (
+        decodedDataContract
+        && decodedDataContract.functionName === 'transfer'
+        && decodedDataContract.args
+        && decodedDataContract.args.length >= 2
+      ) {
+        // eslint-disable-next-line prefer-destructuring
+        txInfo.receiver = decodedDataContract.args[0];
+        txInfo.amount = new BigNumber(decodedDataContract.args[1].toString())
+          .dividedBy(new BigNumber(10 ** decimals))
+          .toFixed();
+      }
+    }
+
     return txInfo;
   } catch (error) {
-    log.error(error);
-    return {
+    console.log(error);
+    const txInfo = {
+      sender: 'decodingError',
       receiver: 'decodingError',
       amount: 'decodingError',
+      fee: 'decodingError',
+      token: 'decodingError',
     };
+    return txInfo;
   }
 }
 
