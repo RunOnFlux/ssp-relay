@@ -82,10 +82,14 @@ async function obtainEthFees() {
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
+    let priorityFee = parseInt(resB.data.result, 16);
+    if (priorityFee < 1250000000) {
+      priorityFee = 1250000000;
+    }
     const baseFee = +(Math.floor(parseInt(resA.data.result, 16) * 1.4) / 1e9).toFixed(9);
-    const economyFee = +(Math.floor(parseInt(resB.data.result, 16) * 1) / 1e9).toFixed(9);
-    const normalFee = +(Math.floor(parseInt(resB.data.result, 16) * 1.4) / 1e9).toFixed(9);
-    const fastFee = +(Math.floor(parseInt(resB.data.result, 16) * 1.8) / 1e9).toFixed(9);
+    const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 1.4) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 1.8) / 1e9).toFixed(9);
 
     const feesObject = {
       coin: 'eth',
@@ -117,10 +121,14 @@ async function obtainSepoliaFees() {
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
+    let priorityFee = parseInt(resB.data.result, 16);
+    if (priorityFee < 1250000000) {
+      priorityFee = 1250000000;
+    }
     const baseFee = +(Math.floor(parseInt(resA.data.result, 16) * 1.4) / 1e9).toFixed(9);
-    const economyFee = +(Math.floor(parseInt(resB.data.result, 16) * 1) / 1e9).toFixed(9);
-    const normalFee = +(Math.floor(parseInt(resB.data.result, 16) * 1.4) / 1e9).toFixed(9);
-    const fastFee = +(Math.floor(parseInt(resB.data.result, 16) * 1.8) / 1e9).toFixed(9);
+    const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 1.4) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 1.8) / 1e9).toFixed(9);
 
     const feesObject = {
       coin: 'sepolia',
@@ -137,11 +145,21 @@ async function obtainSepoliaFees() {
   }
 }
 
+let i = -1;
+
 async function fetchFees() {
+  i += 1;
   const fees = [];
-  const btcFee = await obtainBitcoinFees();
-  await serviceHelper.delay(61000);
-  const ltcFee = await obtainLitecoinFees();
+  let btcFee;
+  let ltcFee;
+  if (i % 10) {
+    btcFee = await obtainBitcoinFees();
+    await serviceHelper.delay(61000);
+    ltcFee = await obtainLitecoinFees();
+  } else {
+    btcFee = currentFees.find((f) => f.coin === 'btc');
+    ltcFee = currentFees.find((f) => f.coin === 'ltc');
+  }
   const ethFee = await obtainEthFees();
   const sepFee = await obtainSepoliaFees();
   if (btcFee) {
@@ -157,7 +175,7 @@ async function fetchFees() {
     fees.push(sepFee);
   }
   currentFees = fees;
-  await serviceHelper.delay(61000);
+  await serviceHelper.delay(18000); // every 18 seconds
   fetchFees();
 }
 
