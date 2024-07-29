@@ -20,21 +20,19 @@ async function sendNotificationKey(wkIdentity, data) {
     }
     try {
       if (data.payload && data.action === 'tx') {
-        const decodedTransaction = transactionDecoder.decodeTransactionForApproval(
-          data.payload,
-          data.chain,
-        );
-        // eslint-disable-next-line max-len
+        const decodedTransaction =
+          transactionDecoder.decodeTransactionForApproval(
+            data.payload,
+            data.chain,
+          );
         body = `A transaction of ${decodedTransaction.amount} ${decodedTransaction.token ? blockchains[data.chain].tokens.find((ttt) => ttt.contract.toLowerCase() === decodedTransaction.token.toLowerCase()).symbol : blockchains[data.chain].symbol} to ${decodedTransaction.receiver} has been initiated on your wallet.`;
       }
     } catch (error) {
       log.error(error);
     }
-    // eslint-disable-next-line no-restricted-syntax
     for (const sync of syncs) {
       try {
         if (sync.keyToken) {
-          // eslint-disable-next-line no-await-in-loop
           await admin.messaging().send({
             token: sync.keyToken,
             notification: {
@@ -45,8 +43,10 @@ async function sendNotificationKey(wkIdentity, data) {
         }
       } catch (error) {
         // delete this from database
-        if (typeof error.message === 'string' && error.message.includes === 'not found') {
-          // eslint-disable-next-line no-await-in-loop
+        if (
+          typeof error.message === 'string' &&
+          error.message.includes === 'not found'
+        ) {
           await syncService.deleteToken(sync).catch((er) => log.error(er));
         }
         log.error(error);

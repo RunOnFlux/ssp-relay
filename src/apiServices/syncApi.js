@@ -70,7 +70,11 @@ function postSync(req, res) {
       res.json(result);
     } catch (error) {
       log.error(error);
-      const errMessage = serviceHelper.createErrorMessage(error.message, error.name, error.code);
+      const errMessage = serviceHelper.createErrorMessage(
+        error.message,
+        error.name,
+        error.code,
+      );
       res.json(errMessage);
     }
   });
@@ -105,7 +109,11 @@ function postToken(req, res) {
       res.json(result);
     } catch (error) {
       log.error(error);
-      const errMessage = serviceHelper.createErrorMessage(error.message, error.name, error.code);
+      const errMessage = serviceHelper.createErrorMessage(
+        error.message,
+        error.name,
+        error.code,
+      );
       res.json(errMessage);
     }
   });

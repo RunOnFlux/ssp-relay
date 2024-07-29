@@ -36,7 +36,16 @@ async function fetchCryptoRates() {
     const priceUSDT = response.data.data['825'].quote.USD.price;
     const priceUSDC = response.data.data['3408'].quote.USD.price;
     const prices = {
-      btc: priceBtc, flux: priceFlux, rvn: priceRvn, ltc: priceLtc, doge: priceDoge, eth: priceEth, zec: priceZec, bch: priceBch, usdt: priceUSDT, usdc: priceUSDC,
+      btc: priceBtc,
+      flux: priceFlux,
+      rvn: priceRvn,
+      ltc: priceLtc,
+      doge: priceDoge,
+      eth: priceEth,
+      zec: priceZec,
+      bch: priceBch,
+      usdt: priceUSDT,
+      usdc: priceUSDC,
     };
     cryptoRates = prices;
   } catch (error) {
@@ -45,7 +54,11 @@ async function fetchCryptoRates() {
 }
 
 function getRates() {
-  const fiatRatesWithBTC = { ...fiatRates, BTC: 1 / cryptoRates.btc, ETH: 1 / cryptoRates.eth };
+  const fiatRatesWithBTC = {
+    ...fiatRates,
+    BTC: 1 / cryptoRates.btc,
+    ETH: 1 / cryptoRates.eth,
+  };
   const rates = {
     fiat: fiatRatesWithBTC, // 1 usd = X fiat
     crypto: cryptoRates, // always to usd
@@ -60,9 +73,12 @@ async function initRates() {
   } catch (error) {
     log.error(error);
   } finally {
-    setTimeout(() => {
-      initRates();
-    }, 5 * 60 * 1000); // 5 mins
+    setTimeout(
+      () => {
+        initRates();
+      },
+      5 * 60 * 1000,
+    ); // 5 mins
   }
 }
 

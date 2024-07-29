@@ -1,55 +1,17 @@
-import airbnbConfig from 'eslint-config-airbnb-base';
-import esLintPlugin from 'eslint-plugin-import';
+const globals = require('globals');
+const pluginJs = require('@eslint/js');
+const eslintPluginPrettierRecommended = require('eslint-plugin-prettier/recommended');
+const mochaPlugin = require('eslint-plugin-mocha');
 
-export default [
-    {
-        // plugins are not yet fully supported, needed to wait for some fixes
-        plugins: { airbnbConfig, esLintPlugin },
-        rules: {
-          'max-len': [
-            'error',
-            {
-              code: 300,
-              ignoreUrls: true,
-              ignoreTrailingComments: true,
-            },
-          ],
-          'no-console': 'off',
-          'default-param-last': 'off',
-          'no-unused-vars': "error",
-          // import extensions is having problem with newer version
-          // 'import/extensions': [
-          //   'error',
-          //   "never",
-          // ],
-          'linebreak-style': [
-            'error',
-            'unix',
-          ],
-        },
-        languageOptions: {
-            parserOptions: {
-                parser: 'babel-eslint',
-            },
-            globals: {
-              mocha: true,
-              node: true,
-              commonjs: true
-            },
-        },
-        // ignore file is replaced with ignores
-        ignores: ['/logs/']
+module.exports = [
+  {
+    languageOptions: {
+      globals: globals.node,
     },
-    {
-      files: [
-        '**/__tests__/*.{j,t}s?(x)',
-      ],
-      languageOptions: {
-          globals: {
-              mocha: true,
-          },
-      },
-    }
+  },
+  mochaPlugin.configs.flat.recommended,
+  eslintPluginPrettierRecommended,
+  { files: ['**/*.{js,mjs,cjs,ts}'] },
+  { files: ['**/*.js'], languageOptions: { sourceType: 'commonjs' } },
+  pluginJs.configs.recommended,
 ];
-
-  

@@ -72,10 +72,17 @@ function postAction(req, res) {
       if (data.action === 'tx' || data.action === 'publicnoncesrequest') {
         const ioKey = socket.getIOKey();
         ioKey.to(data.wkIdentity).emit(data.action, data);
-        await sendNotificationKey(data.wkIdentity, data).catch((error) => log.error(error));
+        await sendNotificationKey(data.wkIdentity, data).catch((error) =>
+          log.error(error),
+        );
       }
       // ssp-wallet listens for txid and txrejected actions
-      if (data.action === 'txrejected' || data.action === 'txid' || data.action === 'publicnoncesrejected' || data.action === 'publicnonces') {
+      if (
+        data.action === 'txrejected' ||
+        data.action === 'txid' ||
+        data.action === 'publicnoncesrejected' ||
+        data.action === 'publicnonces'
+      ) {
         const ioWallet = socket.getIOWallet();
         ioWallet.to(data.wkIdentity).emit(data.action, data);
       }
@@ -83,7 +90,11 @@ function postAction(req, res) {
       res.json(result);
     } catch (error) {
       log.error(error);
-      const errMessage = serviceHelper.createErrorMessage(error.message, error.name, error.code);
+      const errMessage = serviceHelper.createErrorMessage(
+        error.message,
+        error.name,
+        error.code,
+      );
       res.json(errMessage);
     }
   });

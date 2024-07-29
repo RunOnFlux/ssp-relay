@@ -7,7 +7,12 @@ async function postTicket(data) {
     const tokenKey = config.keys.freshdesk;
     const baseUri = `https://${config.freshdesk.namespace}.freshdesk.com`;
     let type = 'Question';
-    if (data.type === 'Incident' || data.type === 'Question' || data.type === 'Problem' || data.type === 'Feature Request') {
+    if (
+      data.type === 'Incident' ||
+      data.type === 'Question' ||
+      data.type === 'Problem' ||
+      data.type === 'Feature Request'
+    ) {
       type = data.type;
     }
     await freshdesk.createTicket({

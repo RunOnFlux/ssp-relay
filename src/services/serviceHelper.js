@@ -2,7 +2,7 @@ const axios = require('axios');
 const mongodb = require('mongodb');
 const config = require('config');
 const bitcoinjs = require('bitcoinjs-lib');
-const utxolib = require('utxo-lib');
+const utxolib = require('@runonflux/utxo-lib');
 const zelcorejs = require('zelcorejs');
 const { randomBytes } = require('crypto');
 const qs = require('qs');
@@ -20,7 +20,6 @@ let openDBConnection = null;
 
 async function databaseConnection() {
   if (!openDBConnection) {
-    // eslint-disable-next-line no-use-before-define
     await initiateDB();
   }
   return openDBConnection;
@@ -90,10 +89,20 @@ function errUnauthorizedMessage() {
 
 function ensureBoolean(parameter) {
   let param;
-  if (parameter === 'false' || parameter === 0 || parameter === '0' || parameter === false) {
+  if (
+    parameter === 'false' ||
+    parameter === 0 ||
+    parameter === '0' ||
+    parameter === false
+  ) {
     param = false;
   }
-  if (parameter === 'true' || parameter === 1 || parameter === '1' || parameter === true) {
+  if (
+    parameter === 'true' ||
+    parameter === 1 ||
+    parameter === '1' ||
+    parameter === true
+  ) {
     param = true;
   }
   return param;
@@ -111,6 +120,7 @@ function ensureObject(parameter) {
   try {
     param = JSON.parse(parameter);
   } catch (e) {
+    console.log(e);
     param = qs.parse(parameter);
   }
   return param;
@@ -138,28 +148,53 @@ async function initiateDB() {
 }
 
 async function distinctDatabase(database, collection, distinct, query) {
-  const results = await database.collection(collection).distinct(distinct, query);
+  const results = await database
+    .collection(collection)
+    .distinct(distinct, query);
   return results;
 }
 
 async function findInDatabase(database, collection, query, projection) {
-  const results = await database.collection(collection).find(query, projection).toArray();
+  const results = await database
+    .collection(collection)
+    .find(query, projection)
+    .toArray();
   return results;
 }
 
-async function findInDatabaseSort(database, collection, query, projection, sort) {
-  const results = await database.collection(collection).find(query, projection).sort(sort).toArray();
+async function findInDatabaseSort(
+  database,
+  collection,
+  query,
+  projection,
+  sort,
+) {
+  const results = await database
+    .collection(collection)
+    .find(query, projection)
+    .sort(sort)
+    .toArray();
   return results;
 }
 
 async function findOneInDatabase(database, collection, query, projection) {
-  const result = await database.collection(collection).findOne(query, projection);
+  const result = await database
+    .collection(collection)
+    .findOne(query, projection);
   return result;
 }
 
-async function findOneAndUpdateInDatabase(database, collection, query, update, options) {
+async function findOneAndUpdateInDatabase(
+  database,
+  collection,
+  query,
+  update,
+  options,
+) {
   const passedOptions = options || {};
-  const result = await database.collection(collection).findOneAndUpdate(query, update, passedOptions);
+  const result = await database
+    .collection(collection)
+    .findOneAndUpdate(query, update, passedOptions);
   return result;
 }
 
@@ -168,19 +203,36 @@ async function insertOneToDatabase(database, collection, value) {
   return result;
 }
 
-async function updateOneInDatabase(database, collection, query, update, options) {
+async function updateOneInDatabase(
+  database,
+  collection,
+  query,
+  update,
+  options,
+) {
   const passedOptions = options || {};
-  const result = await database.collection(collection).updateOne(query, update, passedOptions);
+  const result = await database
+    .collection(collection)
+    .updateOne(query, update, passedOptions);
   return result;
 }
 
 async function updateInDatabase(database, collection, query, projection) {
-  const result = await database.collection(collection).updateMany(query, projection);
+  const result = await database
+    .collection(collection)
+    .updateMany(query, projection);
   return result;
 }
 
-async function findOneAndDeleteInDatabase(database, collection, query, projection) {
-  const result = await database.collection(collection).findOneAndDelete(query, projection);
+async function findOneAndDeleteInDatabase(
+  database,
+  collection,
+  query,
+  projection,
+) {
+  const result = await database
+    .collection(collection)
+    .findOneAndDelete(query, projection);
   return result;
 }
 
@@ -210,12 +262,22 @@ async function collectionStats(database, collection) {
  * @param {number} expireTimeInSeconds - (Optional) - time in seconds to expire the documents
  * @returns
  */
-async function addMultipleDocuments(database, collection, value, expireTimeInSeconds = 0) {
+async function addMultipleDocuments(
+  database,
+  collection,
+  value,
+  expireTimeInSeconds = 0,
+) {
   // inserting multiple documents into the collection
   const result = await database.collection(collection).insertMany(value);
   // if expireTimeInSeconds has value different than null, we know we need to create a index to expire the document in expireTimeInSeconds
   if (expireTimeInSeconds !== 0) {
-    await database.collection(collection).createIndex({ CreatedAt: 1 }, { expireAfterSeconds: expireTimeInSeconds });
+    await database
+      .collection(collection)
+      .createIndex(
+        { CreatedAt: 1 },
+        { expireAfterSeconds: expireTimeInSeconds },
+      );
   }
   return result;
 }
@@ -263,7 +325,14 @@ function verifyPublicKey(pubKey) {
   }
 }
 
-function verifyMessage(message, address, signature, pubKeyHash = '00', strMessageMagic, checkSegwitAlways) {
+function verifyMessage(
+  message,
+  address,
+  signature,
+  pubKeyHash = '00',
+  strMessageMagic,
+  checkSegwitAlways,
+) {
   let signingAddress = address;
   try {
     if (!address || !message || !signature) {
@@ -277,7 +346,14 @@ function verifyMessage(message, address, signature, pubKeyHash = '00', strMessag
       // const sigAddress = bitcoinjs.payments.p2pkh({ pubkey: publicKeyBuffer }).address);
       signingAddress = sigAddress;
     }
-    const isValid = zelcorejs.message.verify(message, signingAddress, signature, strMessageMagic, checkSegwitAlways, pubKeyHash);
+    const isValid = zelcorejs.message.verify(
+      message,
+      signingAddress,
+      signature,
+      strMessageMagic,
+      checkSegwitAlways,
+      pubKeyHash,
+    );
     return isValid;
   } catch (e) {
     log.error(e);
@@ -292,7 +368,13 @@ function signMessage(message, pk, strMessageMagic) {
     // console.log(keyPair.privateKey.toString('hex'));
     // console.log(keyPair.publicKey.toString('hex'));
 
-    let signature = zelcorejs.message.sign(message, privateKey, keyPair.compressed, strMessageMagic, { extraEntropy: randomBytes(32) });
+    let signature = zelcorejs.message.sign(
+      message,
+      privateKey,
+      keyPair.compressed,
+      strMessageMagic,
+      { extraEntropy: randomBytes(32) },
+    );
     signature = signature.toString('base64');
     // => different (but valid) signature each time
     return signature;
@@ -303,9 +385,12 @@ function signMessage(message, pk, strMessageMagic) {
 }
 
 // helper function for timeout on axios connection
-const axiosGet = (url, options = {
-  timeout: 20000,
-}) => {
+const axiosGet = (
+  url,
+  options = {
+    timeout: 20000,
+  },
+) => {
   const abort = axios.CancelToken.source();
   const id = setTimeout(
     () => abort.cancel(`Timeout of ${options.timeout}ms.`),

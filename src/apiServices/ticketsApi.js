@@ -46,7 +46,11 @@ function postTicket(req, res) {
       res.json(result);
     } catch (error) {
       log.error(error);
-      const errMessage = serviceHelper.createErrorMessage(error.message, error.name, error.code);
+      const errMessage = serviceHelper.createErrorMessage(
+        error.message,
+        error.name,
+        error.code,
+      );
       res.json(errMessage);
     }
   });
@@ -56,6 +60,9 @@ module.exports = {
   postTicket,
 };
 
-setInterval(() => {
-  alreadySubmittedIps = [];
-}, 24 * 60 * 60 * 1000);
+setInterval(
+  () => {
+    alreadySubmittedIps = [];
+  },
+  24 * 60 * 60 * 1000,
+);
