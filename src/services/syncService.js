@@ -18,7 +18,12 @@ async function getSync(id) {
       publicNonces: 1,
     },
   };
-  const syncRes = await serviceHelper.findOneInDatabase(database, syncCollection, query, projection);
+  const syncRes = await serviceHelper.findOneInDatabase(
+    database,
+    syncCollection,
+    query,
+    projection,
+  );
   if (syncRes) {
     return syncRes;
   }
@@ -33,18 +38,22 @@ async function postSync(data) {
   const query = { walletIdentity: data.walletIdentity };
 
   const timestamp = new Date().getTime();
-  const validTill = timestamp + (15 * 60 * 1000); // 15 minutes
+  const validTill = timestamp + 15 * 60 * 1000; // 15 minutes
 
-  // eslint-disable-next-line no-param-reassign
   data.createdAt = new Date(timestamp);
-  // eslint-disable-next-line no-param-reassign
   data.expireAt = new Date(validTill);
 
   const update = { $set: data };
   const options = {
     upsert: true,
   };
-  await serviceHelper.updateOneInDatabase(database, syncCollection, query, update, options);
+  await serviceHelper.updateOneInDatabase(
+    database,
+    syncCollection,
+    query,
+    update,
+    options,
+  );
   return data; // all ok
 }
 
@@ -61,7 +70,12 @@ async function getTokens(id) {
       walletToken: 1,
     },
   };
-  const syncRes = await serviceHelper.findInDatabase(database, tokenCollection, query, projection);
+  const syncRes = await serviceHelper.findInDatabase(
+    database,
+    tokenCollection,
+    query,
+    projection,
+  );
   if (syncRes.length) {
     return syncRes;
   }
@@ -91,18 +105,27 @@ async function postToken(data) {
   };
   // a token can be associated ONLY with one wkIdentity
   const queryTokens = { keyToken: newData.keyToken };
-  const existingTokens = await serviceHelper.findInDatabase(database, tokenCollection, queryTokens, projection);
+  const existingTokens = await serviceHelper.findInDatabase(
+    database,
+    tokenCollection,
+    queryTokens,
+    projection,
+  );
   if (existingTokens.length > 1) {
     // token associated with many wkIdentities. Delete all of them
-    // eslint-disable-next-line no-restricted-syntax
     for (const existingToken of existingTokens) {
-      // eslint-disable-next-line no-await-in-loop
-      await serviceHelper.findOneAndDeleteInDatabase(database, tokenCollection, existingToken).catch((error) => log.error(error));
+      await serviceHelper
+        .findOneAndDeleteInDatabase(database, tokenCollection, existingToken)
+        .catch((error) => log.error(error));
     }
   }
-  const existingRecords = await serviceHelper.findInDatabase(database, tokenCollection, query, projection);
+  const existingRecords = await serviceHelper.findInDatabase(
+    database,
+    tokenCollection,
+    query,
+    projection,
+  );
   if (existingRecords.length > 0) {
-    // eslint-disable-next-line no-restricted-syntax
     for (const existingRecord of existingRecords) {
       // sync ALWAYS has a keyToken OR a walletToken
       if (newData.keyToken) {
@@ -117,15 +140,24 @@ async function postToken(data) {
       }
     }
   }
-  if (existingRecords.length > 100) { // we do not want to store more than 100 tokens for wkIdentity
-    throw new Error(`More than 100 tokens for ${data.wkIdentity} found, not storing new one`);
+  if (existingRecords.length > 100) {
+    // we do not want to store more than 100 tokens for wkIdentity
+    throw new Error(
+      `More than 100 tokens for ${data.wkIdentity} found, not storing new one`,
+    );
   }
   // update this existing record for this wkIdentity
   const update = { $set: newData };
   const options = {
     upsert: true,
   };
-  await serviceHelper.updateOneInDatabase(database, tokenCollection, queryTokens, update, options);
+  await serviceHelper.updateOneInDatabase(
+    database,
+    tokenCollection,
+    queryTokens,
+    update,
+    options,
+  );
   return data; // all ok
 }
 
@@ -133,7 +165,11 @@ async function deleteToken(sync) {
   const db = await serviceHelper.databaseConnection();
   const database = db.db(config.database.database);
   const tokenCollection = config.collections.v1token;
-  await serviceHelper.findOneAndDeleteInDatabase(database, tokenCollection, sync);
+  await serviceHelper.findOneAndDeleteInDatabase(
+    database,
+    tokenCollection,
+    sync,
+  );
 }
 module.exports = {
   getSync,

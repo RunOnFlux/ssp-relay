@@ -21,11 +21,14 @@ function ensureString(parameter) {
 function writeToFile(filepath, args) {
   const size = getFilesizeInBytes(filepath);
   let flag = 'a+';
-  if (size > (25 * 1024 * 1024)) { // 25MB
+  if (size > 25 * 1024 * 1024) {
+    // 25MB
     flag = 'w'; // rewrite file
   }
   const stream = fs.createWriteStream(filepath, { flags: flag });
-  stream.write(`${new Date().toISOString()}          ${ensureString(args.message || args)}\n`);
+  stream.write(
+    `${new Date().toISOString()}          ${ensureString(args.message || args)}\n`,
+  );
   if (args.stack && typeof args.stack === 'string') {
     stream.write(`${args.stack}\n`);
   }

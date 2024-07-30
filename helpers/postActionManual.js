@@ -8,7 +8,10 @@ async function postSync() {
     action: 'tx',
     payload: '04asdadw',
   };
-  const response = await axios.post('https://relay.ssp.runonflux.io/v1/action', data);
+  const response = await axios.post(
+    'https://relay.ssp.runonflux.io/v1/action',
+    data,
+  );
   console.log(response.data);
 }
 

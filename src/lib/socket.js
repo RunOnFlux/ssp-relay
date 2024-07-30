@@ -11,7 +11,10 @@ function initIOKey(httpServer, path = '/v1/socket/key') {
     socket.on('join', async ({ wkIdentity }) => {
       socket.join(wkIdentity);
       const actionToSend = await socketService.getAction(wkIdentity).catch();
-      if (actionToSend.action === 'tx' || actionToSend.action === 'publicnoncesrequest') {
+      if (
+        actionToSend.action === 'tx' ||
+        actionToSend.action === 'publicnoncesrequest'
+      ) {
         ioKey.to(wkIdentity).emit(actionToSend.action, actionToSend);
       }
     });

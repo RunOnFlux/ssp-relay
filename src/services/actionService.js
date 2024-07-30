@@ -20,7 +20,12 @@ async function getAction(id) {
       createdAt: 1,
     },
   };
-  const actionRes = await serviceHelper.findOneInDatabase(database, actionCollection, query, projection);
+  const actionRes = await serviceHelper.findOneInDatabase(
+    database,
+    actionCollection,
+    query,
+    projection,
+  );
   if (actionRes) {
     return actionRes;
   }
@@ -35,18 +40,22 @@ async function postAction(data) {
   const query = { wkIdentity: data.wkIdentity };
 
   const timestamp = new Date().getTime();
-  const validTill = timestamp + (15 * 60 * 1000); // 15 minutes
+  const validTill = timestamp + 15 * 60 * 1000; // 15 minutes
 
-  // eslint-disable-next-line no-param-reassign
   data.createdAt = new Date(timestamp);
-  // eslint-disable-next-line no-param-reassign
   data.expireAt = new Date(validTill);
 
   const update = { $set: data };
   const options = {
     upsert: true,
   };
-  await serviceHelper.updateOneInDatabase(database, actionCollection, query, update, options);
+  await serviceHelper.updateOneInDatabase(
+    database,
+    actionCollection,
+    query,
+    update,
+    options,
+  );
   return data; // all ok
 }
 

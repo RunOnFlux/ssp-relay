@@ -18,7 +18,12 @@ async function getAction(id) {
       utxos: 1,
     },
   };
-  const actionRes = await serviceHelper.findOneInDatabase(database, actionCollection, query, projection);
+  const actionRes = await serviceHelper.findOneInDatabase(
+    database,
+    actionCollection,
+    query,
+    projection,
+  );
   if (actionRes) {
     return actionRes;
   }

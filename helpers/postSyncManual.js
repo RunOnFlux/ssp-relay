@@ -8,7 +8,10 @@ async function postSync() {
     wkIdentity: 'asdadsadad',
     publicNonces: [{ kPublic: 'akk', kTwoPublic: 'asdd' }],
   };
-  const response = await axios.post('https://relay.ssp.runonflux.io/v1/sync', data);
+  const response = await axios.post(
+    'https://relay.ssp.runonflux.io/v1/sync',
+    data,
+  );
   console.log(response.data);
 }
 

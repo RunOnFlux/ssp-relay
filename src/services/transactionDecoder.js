@@ -1,5 +1,5 @@
 const BigNumber = require('bignumber.js');
-const utxolib = require('utxo-lib');
+const utxolib = require('@runonflux/utxo-lib');
 const bchaddrjs = require('bchaddrjs');
 const viem = require('viem');
 const abi = require('@runonflux/aa-schnorr-multisig-sdk/dist/abi');
@@ -11,10 +11,7 @@ function getLibId(chain) {
   return blockchains[chain].libid;
 }
 
-function decodeEVMTransactionForApproval(
-  rawTx,
-  chain = 'eth',
-) {
+function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
   try {
     let { decimals } = blockchains[chain];
     const multisigUserOpJSON = JSON.parse(rawTx);
@@ -51,12 +48,11 @@ function decodeEVMTransactionForApproval(
     let amount = '0';
 
     if (
-      decodedData
-      && decodedData.functionName === 'execute'
-      && decodedData.args
-      && decodedData.args.length >= 3
+      decodedData &&
+      decodedData.functionName === 'execute' &&
+      decodedData.args &&
+      decodedData.args.length >= 3
     ) {
-      // eslint-disable-next-line prefer-destructuring
       txReceiver = decodedData.args[0];
       amount = new BigNumber(decodedData.args[1].toString())
         .dividedBy(new BigNumber(10 ** decimals))
@@ -74,7 +70,6 @@ function decodeEVMTransactionForApproval(
     };
 
     if (amount === '0') {
-      // eslint-disable-next-line prefer-destructuring
       txInfo.token = decodedData.args[0];
 
       // find the token in our token list
@@ -93,12 +88,11 @@ function decodeEVMTransactionForApproval(
       });
       console.log(decodedDataContract);
       if (
-        decodedDataContract
-        && decodedDataContract.functionName === 'transfer'
-        && decodedDataContract.args
-        && decodedDataContract.args.length >= 2
+        decodedDataContract &&
+        decodedDataContract.functionName === 'transfer' &&
+        decodedDataContract.args &&
+        decodedDataContract.args.length >= 2
       ) {
-        // eslint-disable-next-line prefer-destructuring
         txInfo.receiver = decodedDataContract.args[0];
         txInfo.amount = new BigNumber(decodedDataContract.args[1].toString())
           .dividedBy(new BigNumber(10 ** decimals))
@@ -120,10 +114,7 @@ function decodeEVMTransactionForApproval(
   }
 }
 
-function decodeTransactionForApproval(
-  rawTx,
-  chain = 'btc',
-) {
+function decodeTransactionForApproval(rawTx, chain = 'btc') {
   try {
     if (blockchains[chain].chainType === 'evm') {
       return decodeEVMTransactionForApproval(rawTx, chain);
