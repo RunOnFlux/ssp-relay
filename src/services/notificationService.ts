@@ -1,13 +1,21 @@
-import admin from 'firebase-admin';
+import admin, { ServiceAccount } from 'firebase-admin';
 import syncService from './syncService';
 import log from '../lib/log';
-import serviceAccount from '../../config/serviceAccountKey';
+import * as serviceAccount from '../../config/serviceAccountKey.json';
 import transactionDecoder from './transactionDecoder';
 import blockchains from './blockchains';
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert(serviceAccount as ServiceAccount),
 });
+
+interface decodedTx {
+  amount: string;
+  receiver: string;
+  token?: string;
+  sender?: string;
+  fee?: string;
+}
 
 export async function sendNotificationKey(wkIdentity, data) {
   try {
@@ -20,7 +28,7 @@ export async function sendNotificationKey(wkIdentity, data) {
     }
     try {
       if (data.payload && data.action === 'tx') {
-        const decodedTransaction =
+        const decodedTransaction: decodedTx =
           transactionDecoder.decodeTransactionForApproval(
             data.payload,
             data.chain,

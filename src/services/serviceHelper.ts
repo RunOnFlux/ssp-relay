@@ -363,6 +363,7 @@ function verifyMessage(
 
 function signMessage(message, pk, strMessageMagic) {
   try {
+    // @ts-expect-error ECPair exists, todo types file
     const keyPair = bitcoinjs.ECPair.fromWIF(pk);
     const { privateKey } = keyPair;
     // console.log(keyPair.privateKey.toString('hex'));

@@ -27,6 +27,7 @@ async function postTicket(data) {
         source: freshdesk.TicketSourceType.Email,
         email: data.email,
         group_id: config.freshdesk.groupId, // group id to assign ticket to
+        // @ts-expect-error Maybe it exists, keeping it for now
         tags: ['SSP'],
       },
     });

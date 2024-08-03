@@ -36,6 +36,7 @@ function getIOKey() {
 function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
   ioWallet = new Server(httpServer, {
     path,
+    // @ts-expect-error keeping flashsocket for now. todo tests, fix
     transports: ['websocket', 'polling', 'flashsocket'],
     allowEIO3: true,
     cors: {
