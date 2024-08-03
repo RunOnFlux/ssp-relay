@@ -49,6 +49,7 @@ function postSync(req, res) {
         walletIdentity: processedBody.walletIdentity,
         keyXpub: processedBody.keyXpub,
         wkIdentity: processedBody.wkIdentity,
+        publicNonces: undefined,
       };
 
       // EVM sync

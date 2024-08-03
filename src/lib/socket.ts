@@ -28,7 +28,7 @@ function initIOKey(httpServer, path = '/v1/socket/key') {
 function getIOKey() {
   if (!ioKey) {
     log.warn('ioKey not initialized');
-    initIOKey();
+    initIOKey(undefined);
   }
   return ioKey;
 }
@@ -56,7 +56,7 @@ function initIOWallet(httpServer, path = '/v1/socket/wallet') {
 function getIOWallet() {
   if (!ioWallet) {
     log.warn('ioWallet not initialized');
-    initIOWallet();
+    initIOWallet(undefined);
   }
   return ioWallet;
 }

@@ -143,7 +143,8 @@ async function connectMongoDb(url) {
 }
 
 async function initiateDB() {
-  openDBConnection = await connectMongoDb();
+  let url = undefined; // Custom mongoDB URL connection
+  openDBConnection = await connectMongoDb(url);
   return true;
 }
 

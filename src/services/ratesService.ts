@@ -3,7 +3,10 @@ const config = require('config');
 const log = require('../lib/log');
 
 let fiatRates = {};
-let cryptoRates = {};
+let cryptoRates = {
+  btc: undefined,
+  eth: undefined,
+};
 
 async function fetchFiatRates() {
   try {

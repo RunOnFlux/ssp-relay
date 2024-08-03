@@ -56,6 +56,7 @@ function postAction(req, res) {
         wkIdentity: processedBody.wkIdentity,
         action: processedBody.action,
         payload: processedBody.payload,
+        utxos: undefined,
       };
 
       if (processedBody.utxos) {
