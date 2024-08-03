@@ -12,8 +12,8 @@ export default [
   {
     languageOptions: {
       globals: {
-        ...globals.node,
         ...globals.es2020,
+        ...globals.node,
         ...globals.mocha,
       },
     },

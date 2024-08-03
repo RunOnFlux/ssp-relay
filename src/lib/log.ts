@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 
+const __dirname = path.resolve();
+
 const logsDirPath = path.join(__dirname, '../../logs/');
 
 function getFilesizeInBytes(filename) {

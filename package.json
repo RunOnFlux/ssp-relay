@@ -5,7 +5,7 @@
   "main": "index.ts",
   "type": "module",
   "scripts": {
-    "start": "tsc && nodemon index.ts",
+    "start": "tsc && tsx index.ts",
     "test": "ts-mocha -p tsconfig.json tests/**/*.spec.ts",
     "lint": "eslint ./",
     "lint:fix": "eslint ./ --fix",
@@ -32,7 +32,6 @@
     "mongodb": "~6.8.0",
     "morgan": "~1.10.0",
     "node-cmd": "~5.0.0",
-    "nodemon": "~3.1.4",
     "qs": "~6.12.3",
     "socket.io": "~4.7.5",
     "viem": "~2.18.2",
@@ -50,7 +49,6 @@
     "globals": "~15.8.0",
     "prettier": "~3.3.3",
     "ts-mocha": "~10.0.0",
-    "ts-node": "~10.9.2",
     "tsx": "~4.16.3",
     "typescript": "~5.5.4",
     "typescript-eslint": "~7.18.0"

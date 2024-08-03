@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 import utxolib from '@runonflux/utxo-lib';
 import bchaddrjs from 'bchaddrjs';
-import viem from 'viem';
+import * as viem from 'viem';
 import abi from '@runonflux/aa-schnorr-multisig-sdk/dist/abi';
 
 import blockchains from './blockchains';
