@@ -1,11 +1,11 @@
-const axios = require('axios');
-const config = require('config');
-const log = require('../lib/log');
+import axios from 'axios';
+import config from 'config';
+import log from '../lib/log';
 
 let fiatRates = {};
 let cryptoRates = {
-  btc: undefined,
-  eth: undefined,
+  btc: 1,
+  eth: 1,
 };
 
 async function fetchFiatRates() {
@@ -85,7 +85,7 @@ async function initRates() {
   }
 }
 
-module.exports = {
+export default {
   getRates,
   fetchFiatRates,
   fetchCryptoRates,

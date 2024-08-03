@@ -350,7 +350,7 @@ const eth = {
   ],
 };
 
-module.exports = {
+export default {
   btc,
   flux,
   doge,

@@ -1,5 +1,5 @@
-const ratesService = require('../services/ratesService');
-const log = require('../lib/log');
+import ratesService from '../services/ratesService';
+import log from '../lib/log';
 
 async function getRates(req, res) {
   try {
@@ -14,6 +14,6 @@ async function getRates(req, res) {
   }
 }
 
-module.exports = {
+export default {
   getRates,
 };

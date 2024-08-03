@@ -1,12 +1,12 @@
-const socketio = require('socket.io');
-const log = require('./log');
-const socketService = require('../services/socketService');
+import { Server } from 'socket.io';
+import log from './log';
+import socketService from '../services/socketService';
 
 let ioKey;
 let ioWallet;
 
-function initIOKey(httpServer, path = '/v1/socket/key') {
-  ioKey = socketio(httpServer, { path });
+function initIOKey(httpServer?, path = '/v1/socket/key') {
+  ioKey = new Server(httpServer, { path });
   ioKey.on('connection', async (socket) => {
     socket.on('join', async ({ wkIdentity }) => {
       socket.join(wkIdentity);
@@ -28,13 +28,13 @@ function initIOKey(httpServer, path = '/v1/socket/key') {
 function getIOKey() {
   if (!ioKey) {
     log.warn('ioKey not initialized');
-    initIOKey(undefined);
+    initIOKey();
   }
   return ioKey;
 }
 
-function initIOWallet(httpServer, path = '/v1/socket/wallet') {
-  ioWallet = socketio(httpServer, {
+function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
+  ioWallet = new Server(httpServer, {
     path,
     transports: ['websocket', 'polling', 'flashsocket'],
     allowEIO3: true,
@@ -56,12 +56,12 @@ function initIOWallet(httpServer, path = '/v1/socket/wallet') {
 function getIOWallet() {
   if (!ioWallet) {
     log.warn('ioWallet not initialized');
-    initIOWallet(undefined);
+    initIOWallet();
   }
   return ioWallet;
 }
 
-module.exports = {
+export default {
   initIOKey,
   getIOKey,
   initIOWallet,

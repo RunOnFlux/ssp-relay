@@ -1,20 +1,26 @@
 {
-    "compilerOptions": {
-      "esModuleInterop": true,
-      "allowJs": true,
-      "skipLibCheck": true,
-      "resolveJsonModule": true,
-      "isolatedModules": true,
-      "noEmit": true,
-      "moduleDetection": "force",
-      "types": [
-        "node"
-      ],
-    },
-    "include":[
-      "*.*", "src/**/*", "config/**/*","config/**/*.json","helpers/**/*"
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "moduleDetection": "force",
+    "types": [
+      "node",
+      "mocha",
     ],
-    "exclude": [
-        "node_modules", "tests", "eslint.config.js", "package.json"
-    ]
-  }
+  },
+  "include": [
+    "src",
+    "helpers",
+    "config",
+  ],
+  "exclude": [
+    "node_modules",
+    "package.json",
+    "logs",
+    "tests",
+  ]
+}

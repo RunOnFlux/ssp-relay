@@ -1,6 +1,6 @@
-const config = require('config');
+import config from 'config';
 
-const serviceHelper = require('./serviceHelper');
+import serviceHelper from './serviceHelper';
 
 async function getAction(id) {
   const db = await serviceHelper.databaseConnection();
@@ -59,7 +59,7 @@ async function postAction(data) {
   return data; // all ok
 }
 
-module.exports = {
+export default {
   getAction,
   postAction,
 };

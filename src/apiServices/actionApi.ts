@@ -1,8 +1,25 @@
-const actionService = require('../services/actionService');
-const serviceHelper = require('../services/serviceHelper');
-const { sendNotificationKey } = require('../services/notificationService');
-const log = require('../lib/log');
-const socket = require('../lib/socket');
+import actionService from '../services/actionService';
+import serviceHelper from '../services/serviceHelper';
+import { sendNotificationKey } from '../services/notificationService';
+import log from '../lib/log';
+import socket from '../lib/socket';
+
+interface utxo {
+  txid: string;
+  vout: number;
+  scriptPubKey: string;
+  satoshis: string;
+  confirmations: number;
+  coinbase: boolean;
+}
+interface actionData {
+  chain: string;
+  path: string;
+  wkIdentity: string;
+  action: string;
+  payload: string;
+  utxos?: utxo[];
+}
 
 async function getAction(req, res) {
   try {
@@ -50,13 +67,12 @@ function postAction(req, res) {
         throw new Error('No Derivation Path specified');
       }
 
-      const data = {
+      const data: actionData = {
         chain: processedBody.chain,
         path: processedBody.path,
         wkIdentity: processedBody.wkIdentity,
         action: processedBody.action,
         payload: processedBody.payload,
-        utxos: undefined,
       };
 
       if (processedBody.utxos) {
@@ -101,7 +117,7 @@ function postAction(req, res) {
   });
 }
 
-module.exports = {
+export default {
   getAction,
   postAction,
 };

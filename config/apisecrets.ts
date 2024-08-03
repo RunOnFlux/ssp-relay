@@ -1,3 +1,3 @@
-module.exports = {
+export default {
   cmcApiKey: 'cmc-api-key',
 };

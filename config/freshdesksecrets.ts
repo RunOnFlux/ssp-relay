@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   apikey: 'secret',
   namespace: 'secret',
   groupid: 0,

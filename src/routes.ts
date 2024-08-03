@@ -1,10 +1,10 @@
-const syncApi = require('./apiServices/syncApi');
-const actionApi = require('./apiServices/actionApi');
-const ratesApi = require('./apiServices/ratesApi');
-const ticketsApi = require('./apiServices/ticketsApi');
-const feeService = require('./services/networkFeesService');
+import syncApi from './apiServices/syncApi';
+import actionApi from './apiServices/actionApi';
+import ratesApi from './apiServices/ratesApi';
+import ticketsApi from './apiServices/ticketsApi';
+import feeService from './services/networkFeesService';
 
-module.exports = (app) => {
+export default (app) => {
   // return sync data
   app.get('/v1/sync/:id?', (req, res) => {
     syncApi.getSync(req, res);

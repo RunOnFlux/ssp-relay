@@ -1,6 +1,6 @@
-const freshdesk = require('freshdesk-client');
-const config = require('config');
-const log = require('../lib/log');
+import freshdesk from 'freshdesk-client';
+import config from 'config';
+import log from '../lib/log';
 
 async function postTicket(data) {
   try {
@@ -40,6 +40,6 @@ async function postTicket(data) {
   }
 }
 
-module.exports = {
+export default {
   postTicket,
 };

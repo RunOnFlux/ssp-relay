@@ -1,16 +1,16 @@
-const http = require('http');
-const config = require('config');
-const app = require('./src/lib/server');
-const log = require('./src/lib/log');
-const socket = require('./src/lib/socket');
+import http from 'http';
+import config from 'config';
+import app from './src/lib/server';
+import log from './src/lib/log';
+import socket from './src/lib/socket';
 
-const serviceHelper = require('./src/services/serviceHelper');
+import serviceHelper from './src/services/serviceHelper';
 
-const databaseService = require('./src/services/databaseIndexCreationService');
+import databaseService from './src/services/databaseIndexCreationService';
 
-const ratesService = require('./src/services/ratesService');
+import ratesService from './src/services/ratesService';
 
-const networkFeesService = require('./src/services/networkFeesService');
+import networkFeesService from './src/services/networkFeesService';
 
 const server = http.createServer(app);
 

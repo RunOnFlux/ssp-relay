@@ -1,6 +1,14 @@
-const syncService = require('../services/syncService');
-const serviceHelper = require('../services/serviceHelper');
-const log = require('../lib/log');
+import syncService from '../services/syncService';
+import serviceHelper from '../services/serviceHelper';
+import log from '../lib/log';
+
+interface syncData {
+  chain: string;
+  walletIdentity: string;
+  keyXpub: string;
+  wkIdentity: string;
+  publicNonces?: string[];
+}
 
 async function getSync(req, res) {
   try {
@@ -44,12 +52,11 @@ function postSync(req, res) {
         throw new Error('No SSP Identity specified');
       }
 
-      const data = {
+      const data: syncData = {
         chain: processedBody.chain,
         walletIdentity: processedBody.walletIdentity,
         keyXpub: processedBody.keyXpub,
         wkIdentity: processedBody.wkIdentity,
-        publicNonces: undefined,
       };
 
       // EVM sync
@@ -120,7 +127,7 @@ function postToken(req, res) {
   });
 }
 
-module.exports = {
+export default {
   getSync,
   postSync,
   postToken,

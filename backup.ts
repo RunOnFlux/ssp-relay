@@ -1,11 +1,12 @@
-const cmd = require('node-cmd');
-const config = require('config');
-const util = require('util');
+import cmd from 'node-cmd';
+import config from './config/default';
+import { promisify } from 'util';
 
 const ip = '';
 const ipB = '';
-
-const cmdAsync = util.promisify(cmd.run);
+console.log(cmd);
+// eslint-disable-next-line no-unused-vars
+const cmdAsync: (arg0: string) => Promise<unknown> = promisify(cmd.run);
 // create dump of db
 
 async function makeBackup() {

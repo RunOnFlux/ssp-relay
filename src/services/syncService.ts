@@ -1,7 +1,7 @@
-const config = require('config');
+import config from 'config';
 
-const serviceHelper = require('./serviceHelper');
-const log = require('../lib/log');
+import serviceHelper from './serviceHelper';
+import log from '../lib/log';
 
 async function getSync(id) {
   const db = await serviceHelper.databaseConnection();
@@ -171,7 +171,7 @@ async function deleteToken(sync) {
     sync,
   );
 }
-module.exports = {
+export default {
   getSync,
   getTokens,
   postSync,

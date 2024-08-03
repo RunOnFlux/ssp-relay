@@ -1,11 +1,11 @@
-const BigNumber = require('bignumber.js');
-const utxolib = require('@runonflux/utxo-lib');
-const bchaddrjs = require('bchaddrjs');
-const viem = require('viem');
-const abi = require('@runonflux/aa-schnorr-multisig-sdk/dist/abi');
+import BigNumber from 'bignumber.js';
+import utxolib from '@runonflux/utxo-lib';
+import bchaddrjs from 'bchaddrjs';
+import viem from 'viem';
+import abi from '@runonflux/aa-schnorr-multisig-sdk/dist/abi';
 
-const blockchains = require('./blockchains');
-const log = require('../lib/log');
+import blockchains from './blockchains';
+import log from '../lib/log';
 
 function getLibId(chain) {
   return blockchains[chain].libid;
@@ -53,7 +53,7 @@ function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
       decodedData.args &&
       decodedData.args.length >= 3
     ) {
-      txReceiver = decodedData.args[0];
+      txReceiver = decodedData.args[0] as string;
       amount = new BigNumber(decodedData.args[1].toString())
         .dividedBy(new BigNumber(10 ** decimals))
         .toFixed();
@@ -70,7 +70,7 @@ function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
     };
 
     if (amount === '0') {
-      txInfo.token = decodedData.args[0];
+      txInfo.token = decodedData.args[0] as string;
 
       // find the token in our token list
       const token = blockchains[chain].tokens.find(
@@ -84,7 +84,7 @@ function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
       // docode args[2] which is operation
       const decodedDataContract = viem.decodeFunctionData({
         abi: viem.erc20Abi,
-        data: contractData,
+        data: contractData as `0x${string}`,
       });
       console.log(decodedDataContract);
       if (
@@ -198,6 +198,6 @@ function decodeTransactionForApproval(rawTx, chain = 'btc') {
   }
 }
 
-module.exports = {
+export default {
   decodeTransactionForApproval,
 };

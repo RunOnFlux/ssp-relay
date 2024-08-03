@@ -1,6 +1,6 @@
-const ticketService = require('../services/ticketService');
-const serviceHelper = require('../services/serviceHelper');
-const log = require('../lib/log');
+import ticketService from '../services/ticketService';
+import serviceHelper from '../services/serviceHelper';
+import log from '../lib/log';
 
 let alreadySubmittedIps = [];
 
@@ -56,7 +56,7 @@ function postTicket(req, res) {
   });
 }
 
-module.exports = {
+export default {
   postTicket,
 };
 

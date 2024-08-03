@@ -1,17 +1,26 @@
-const globals = require('globals');
-const pluginJs = require('@eslint/js');
-const eslintPluginPrettierRecommended = require('eslint-plugin-prettier/recommended');
-const mochaPlugin = require('eslint-plugin-mocha');
+import globals from 'globals';
+import pluginJs from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
+import mochaPlugin from 'eslint-plugin-mocha';
 
-module.exports = [
-  {
-    languageOptions: {
-      globals: globals.node,
-    },
-  },
+export default [
+  ...tseslint.configs.recommended,
   mochaPlugin.configs.flat.recommended,
   eslintPluginPrettierRecommended,
-  { files: ['**/*.{js,mjs,cjs,ts}'] },
-  { files: ['**/*.js'], languageOptions: { sourceType: 'commonjs' } },
   pluginJs.configs.recommended,
+  {
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.es2020,
+        ...globals.mocha,
+      },
+    },
+  },
+  { files: ['**/*.{js,mjs,cjs,ts}'] },
+  {
+    files: ['**/*.js'],
+    languageOptions: { sourceType: 'commonjs' },
+  },
 ];

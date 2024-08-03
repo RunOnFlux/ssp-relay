@@ -1,7 +1,7 @@
-const axios = require('axios');
-const config = require('config');
-const log = require('../lib/log');
-const serviceHelper = require('./serviceHelper');
+import axios from 'axios';
+import config from 'config';
+import log from '../lib/log';
+import serviceHelper from './serviceHelper';
 
 let currentFees = [];
 
@@ -190,7 +190,7 @@ async function networkFees(res) {
   res.json(currentFees);
 }
 
-module.exports = {
+export default {
   networkFees,
   fetchFees,
 };

@@ -1,13 +1,13 @@
-const axios = require('axios');
-const mongodb = require('mongodb');
-const config = require('config');
-const bitcoinjs = require('bitcoinjs-lib');
-const utxolib = require('@runonflux/utxo-lib');
-const zelcorejs = require('zelcorejs');
-const { randomBytes } = require('crypto');
-const qs = require('qs');
+import axios from 'axios';
+import mongodb from 'mongodb';
+import config from 'config';
+import bitcoinjs from 'bitcoinjs-lib';
+import utxolib from '@runonflux/utxo-lib';
+import zelcorejs from 'zelcorejs';
+import { randomBytes } from 'crypto';
+import qs from 'qs';
 
-const log = require('../lib/log');
+import log from '../lib/log';
 
 const { MongoClient } = mongodb;
 const user = encodeURIComponent(config.database.username);
@@ -131,7 +131,7 @@ function ensureString(parameter) {
 }
 
 // MongoDB functions
-async function connectMongoDb(url) {
+async function connectMongoDb(url?) {
   const connectUrl = url || mongoUrl;
   const mongoSettings = {
     useNewUrlParser: true,
@@ -143,8 +143,7 @@ async function connectMongoDb(url) {
 }
 
 async function initiateDB() {
-  let url = undefined; // Custom mongoDB URL connection
-  openDBConnection = await connectMongoDb(url);
+  openDBConnection = await connectMongoDb();
   return true;
 }
 
@@ -229,7 +228,7 @@ async function findOneAndDeleteInDatabase(
   database,
   collection,
   query,
-  projection,
+  projection?,
 ) {
   const result = await database
     .collection(collection)
@@ -405,7 +404,7 @@ const axiosGet = (
     });
 };
 
-module.exports = {
+export default {
   ensureBoolean,
   ensureNumber,
   ensureObject,

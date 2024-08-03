@@ -1,15 +1,15 @@
-const admin = require('firebase-admin');
-const syncService = require('./syncService');
-const log = require('../lib/log');
-const serviceAccount = require('../../config/serviceAccountKey');
-const transactionDecoder = require('./transactionDecoder');
-const blockchains = require('./blockchains');
+import admin from 'firebase-admin';
+import syncService from './syncService';
+import log from '../lib/log';
+import serviceAccount from '../../config/serviceAccountKey';
+import transactionDecoder from './transactionDecoder';
+import blockchains from './blockchains';
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-async function sendNotificationKey(wkIdentity, data) {
+export async function sendNotificationKey(wkIdentity, data) {
   try {
     const syncs = await syncService.getTokens(wkIdentity);
     let title = 'Transaction Request';
@@ -56,7 +56,3 @@ async function sendNotificationKey(wkIdentity, data) {
     log.error(error);
   }
 }
-
-module.exports = {
-  sendNotificationKey,
-};

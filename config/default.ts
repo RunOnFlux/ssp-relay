@@ -1,9 +1,9 @@
-const dbsecrets = require('./dbsecrets');
-const apisecrets = require('./apisecrets');
-const freshdesksecrets = require('./freshdesksecrets');
-const alchemysecrets = require('./alchemysecrets');
+import dbsecrets from './dbsecrets';
+import apisecrets from './apisecrets';
+import freshdesksecrets from './freshdesksecrets';
+import alchemysecrets from './alchemysecrets';
 
-module.exports = {
+export default {
   server: {
     port: 9876,
   },

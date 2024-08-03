@@ -1,7 +1,7 @@
-const config = require('config');
+import config from 'config';
 
-const serviceHelper = require('./serviceHelper');
-const log = require('../lib/log');
+import serviceHelper from './serviceHelper';
+import log from '../lib/log';
 
 async function doIndexes() {
   try {
@@ -34,6 +34,6 @@ async function doIndexes() {
   }
 }
 
-module.exports = {
+export default {
   doIndexes,
 };

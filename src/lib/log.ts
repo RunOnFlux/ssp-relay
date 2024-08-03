@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 const logsDirPath = path.join(__dirname, '../../logs/');
 
@@ -123,7 +123,7 @@ function bugtrackC(args) {
   }
 }
 
-module.exports = {
+export default {
   error,
   warn,
   info,

@@ -1,6 +1,6 @@
-const config = require('config');
+import config from 'config';
 
-const serviceHelper = require('./serviceHelper');
+import serviceHelper from './serviceHelper';
 
 async function getAction(id) {
   const db = await serviceHelper.databaseConnection();
@@ -30,6 +30,6 @@ async function getAction(id) {
   throw new Error(`Socket Action ${id} not found`);
 }
 
-module.exports = {
+export default {
   getAction,
 };
