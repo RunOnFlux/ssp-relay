@@ -1,5 +1,5 @@
 import axios from 'axios';
-import mongodb from 'mongodb';
+import { MongoClient } from 'mongodb';
 import config from 'config';
 import bitcoinjs from 'bitcoinjs-lib';
 import utxolib from '@runonflux/utxo-lib';
@@ -9,7 +9,6 @@ import qs from 'qs';
 
 import log from '../lib/log';
 
-const { MongoClient } = mongodb;
 const user = encodeURIComponent(config.database.username);
 const password = encodeURIComponent(config.database.password);
 const authMechanism = 'DEFAULT';
