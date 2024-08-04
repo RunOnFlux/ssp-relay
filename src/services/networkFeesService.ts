@@ -157,6 +157,7 @@ async function fetchFees() {
   let btcFee;
   let ltcFee;
   if (i % 10 === 1) {
+    // intentional second round, prefer faster load for evm
     btcFee = await obtainBitcoinFees();
     await serviceHelper.delay(61000);
     ltcFee = await obtainLitecoinFees();

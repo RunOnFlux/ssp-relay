@@ -1,6 +1,6 @@
 {
   "name": "ssp-relay",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "SSP Relay",
   "main": "index.ts",
   "type": "module",
@@ -17,7 +17,7 @@
     "@runonflux/aa-schnorr-multisig-sdk": "~1.0.3",
     "@runonflux/utxo-lib": "~1.0.0",
     "apicache": "~1.6.3",
-    "axios": "~1.7.2",
+    "axios": "~1.7.3",
     "bchaddrjs": "~0.5.2",
     "bignumber.js": "~9.1.2",
     "bitcoinjs-lib": "~6.1.6",
@@ -32,25 +32,25 @@
     "mongodb": "~6.8.0",
     "morgan": "~1.10.0",
     "node-cmd": "~5.0.0",
-    "qs": "~6.12.3",
+    "qs": "~6.13.0",
     "socket.io": "~4.7.5",
-    "viem": "~2.18.2",
+    "viem": "~2.18.8",
     "zelcorejs": "https://github.com/zelcore-io/zelcorejs"
   },
   "devDependencies": {
     "@eslint/js": "~9.8.0",
-    "@types/chai": "~4.2.21",
+    "@types/chai": "~4.3.17",
     "@types/expect": "~24.3.0",
     "@types/mocha": "~10.0.7",
     "eslint": "~9.8.0",
     "eslint-config-prettier": "~9.1.0",
     "eslint-plugin-mocha": "~10.5.0",
     "eslint-plugin-prettier": "~5.2.1",
-    "globals": "~15.8.0",
+    "globals": "~15.9.0",
     "prettier": "~3.3.3",
     "ts-mocha": "~10.0.0",
-    "tsx": "~4.16.3",
+    "tsx": "~4.16.5",
     "typescript": "~5.5.4",
-    "typescript-eslint": "~7.18.0"
+    "typescript-eslint": "~8.0.0"
   }
 }
