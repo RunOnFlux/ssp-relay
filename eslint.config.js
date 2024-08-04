@@ -5,16 +5,15 @@ import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended'
 import mochaPlugin from 'eslint-plugin-mocha';
 
 export default [
-  eslint.configs.recommended,
-  // ...tseslint.configs.recommendedTypeChecked, // TODO switch to this
-  ...tseslint.configs.recommended,
   mochaPlugin.configs.flat.recommended,
+  eslint.configs.recommended,
+  ...tseslint.configs.recommended, // TBD recommendedTypeChecked
   eslintPluginPrettierRecommended,
   {
     languageOptions: {
       // parserOptions: {
       //   projectService: {
-      //     allowDefaultProject: ['./*.js'],
+      //     allowDefaultProject: ['*.js', '*.ts'],
       //     defaultProject: './tsconfig.json',
       //   },
       //   tsconfigRootDir: import.meta.dirname,

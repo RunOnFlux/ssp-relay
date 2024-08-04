@@ -27,10 +27,15 @@ async function makeBackup() {
   }
 }
 
-makeBackup();
 setInterval(
-  async () => {
-    makeBackup();
+  () => {
+    makeBackup()
+      .then(() => {
+        console.log('Backup done');
+      })
+      .catch((error) => {
+        console.log(error);
+      });
   },
-  60 * 60 * 1000,
+  1000 * 60 * 60,
 );
