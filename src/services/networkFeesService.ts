@@ -156,7 +156,7 @@ async function fetchFees() {
   const fees = [];
   let btcFee;
   let ltcFee;
-  if (i % 10) {
+  if (i % 10 === 1) {
     btcFee = await obtainBitcoinFees();
     await serviceHelper.delay(61000);
     ltcFee = await obtainLitecoinFees();
