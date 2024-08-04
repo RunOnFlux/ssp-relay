@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "moduleDetection": "force",
+    "types": [
+      "node",
+      "mocha",
+    ],
+  },
+  "include": [
+    "src",
+    "helpers",
+    "config",
+  ],
+  "exclude": [
+    "node_modules",
+    "package.json",
+    "logs",
+    "tests",
+  ]
+}
