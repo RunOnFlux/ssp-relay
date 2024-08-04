@@ -9,7 +9,8 @@
     "test": "ts-mocha -p tsconfig.json tests/**/*.spec.ts",
     "lint": "eslint ./",
     "lint:fix": "eslint ./ --fix",
-    "type-check": "tsc"
+    "type-check": "tsc",
+    "backup": "tsx backup.js"
   },
   "author": "Tadeas Kmenta",
   "license": "MIT",
