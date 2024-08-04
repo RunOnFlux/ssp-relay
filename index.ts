@@ -1,5 +1,5 @@
 import http from 'http';
-import config from 'config';
+import config from './config/default';
 import app from './src/lib/server';
 import log from './src/lib/log';
 import socket from './src/lib/socket';
