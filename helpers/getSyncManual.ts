@@ -7,4 +7,6 @@ async function getSync() {
   console.log(JSON.stringify(response.data));
 }
 
-getSync();
+getSync().catch((error) => {
+  console.log(error);
+});

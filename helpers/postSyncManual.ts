@@ -15,4 +15,6 @@ async function postSync() {
   console.log(response.data);
 }
 
-postSync();
+postSync().catch((error) => {
+  console.log(error);
+});

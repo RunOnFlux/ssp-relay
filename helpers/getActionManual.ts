@@ -7,4 +7,6 @@ async function getAction() {
   console.log(JSON.stringify(response.data));
 }
 
-getAction();
+getAction().catch((error) => {
+  console.log(error);
+});
