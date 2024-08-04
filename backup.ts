@@ -27,6 +27,14 @@ async function makeBackup() {
   }
 }
 
+makeBackup()
+  .then(() => {
+    console.log('Backup done');
+  })
+  .catch((error) => {
+    console.log(error);
+  });
+
 setInterval(
   () => {
     makeBackup()
