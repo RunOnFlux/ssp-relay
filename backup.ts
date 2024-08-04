@@ -4,7 +4,7 @@ import { promisify } from 'util';
 
 const ip = '';
 const ipB = '';
-console.log(cmd);
+
 const cmdAsync: (arg0: string) => Promise<unknown> = promisify(cmd.run);
 // create dump of db
 
