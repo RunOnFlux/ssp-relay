@@ -78,7 +78,7 @@ async function obtainEthFees() {
     const dataB = {
       id: new Date().getTime,
       jsonrpc: '2.0',
-      method: 'eth_maxPriorityFeePerGas',
+      method: 'rundler_maxPriorityFeePerGas',
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
@@ -87,11 +87,11 @@ async function obtainEthFees() {
       priorityFee = 1250000000;
     }
     const baseFee = +(
-      Math.floor(parseInt(resA.data.result, 16) * 1.4) / 1e9
+      Math.floor(parseInt(resA.data.result, 16) * 1.25) / 1e9
     ).toFixed(9);
     const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
-    const normalFee = +(Math.floor(priorityFee * 1.4) / 1e9).toFixed(9);
-    const fastFee = +(Math.floor(priorityFee * 1.8) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 1.15) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 1.3) / 1e9).toFixed(9);
 
     const feesObject = {
       coin: 'eth',
@@ -119,7 +119,7 @@ async function obtainSepoliaFees() {
     const dataB = {
       id: new Date().getTime,
       jsonrpc: '2.0',
-      method: 'eth_maxPriorityFeePerGas',
+      method: 'rundler_maxPriorityFeePerGas',
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
@@ -128,11 +128,11 @@ async function obtainSepoliaFees() {
       priorityFee = 1250000000;
     }
     const baseFee = +(
-      Math.floor(parseInt(resA.data.result, 16) * 1.4) / 1e9
+      Math.floor(parseInt(resA.data.result, 16) * 1.2) / 1e9
     ).toFixed(9);
     const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
-    const normalFee = +(Math.floor(priorityFee * 1.4) / 1e9).toFixed(9);
-    const fastFee = +(Math.floor(priorityFee * 1.8) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 1.2) / 1e9).toFixed(9);
 
     const feesObject = {
       coin: 'sepolia',
