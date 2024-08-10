@@ -6,21 +6,21 @@ import serviceHelper from '../../src/services/serviceHelper';
 
 const { expect } = chai;
 
-describe('Service Helper', function () {
-  describe('Service helperService: Correctly verifies ZelID', function () {
-    it('Missing ZelID is false', function () {
+describe('Service Helper', () => {
+  describe('Service helperService: Correctly verifies ZelID', () => {
+    it('Missing ZelID is false', () => {
       const isValid = serviceHelper.verifyZelID();
       expect(isValid).to.be.false;
     });
 
-    it('Invalid ZelID is false', function () {
+    it('Invalid ZelID is false', () => {
       const isValid = serviceHelper.verifyZelID(
         '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo',
       );
       expect(isValid).to.be.false;
     });
 
-    it('Valid ZelID is true', function () {
+    it('Valid ZelID is true', () => {
       const isValid = serviceHelper.verifyZelID(
         '1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ',
       );
@@ -28,32 +28,32 @@ describe('Service Helper', function () {
     });
   });
 
-  describe('Service helperService: Correctly verifies Public Keys', function () {
-    it('Missing Public Key is false', function () {
+  describe('Service helperService: Correctly verifies Public Keys', () => {
+    it('Missing Public Key is false', () => {
       const isValid = serviceHelper.verifyPublicKey();
       expect(isValid).to.be.false;
     });
 
-    it('Invalid Public Key is false', function () {
+    it('Invalid Public Key is false', () => {
       const isValid = serviceHelper.verifyPublicKey('xxx');
       expect(isValid).to.be.false;
     });
 
-    it('Invalid Public Key is false B', function () {
+    it('Invalid Public Key is false B', () => {
       const isValid = serviceHelper.verifyPublicKey(
         '618423c1dbed7381cf8cf151702f205a8c3979a76d60b307b03c97bb95474a',
       );
       expect(isValid).to.be.false;
     });
 
-    it('Invalid Public Key is false C', function () {
+    it('Invalid Public Key is false C', () => {
       const isValid = serviceHelper.verifyPublicKey(
         '618423c1dbed7381cf8cf151702f205a8c3979a76d60b307b03c97bb95474Z',
       );
       expect(isValid).to.be.false;
     });
 
-    it('Valid Public Key is true', function () {
+    it('Valid Public Key is true', () => {
       const isValid = serviceHelper.verifyPublicKey(
         '618423c1dbed7381cf8cf151702f205a8c3979a76d60b307b03c97bb95474a84',
       );
@@ -62,17 +62,17 @@ describe('Service Helper', function () {
   });
 
   describe('Service helperService: Verifies signed messages', function () {
-    it('Missing parameter is false', function () {
+    it('Missing parameter is false', () => {
       const isValid = serviceHelper.verifyMessage('kappa', null, 'echo');
       expect(isValid).to.be.false;
     });
 
-    it('Invalid signature length false', function () {
+    it('Invalid signature length false', () => {
       const isValid = serviceHelper.verifyMessage('kappa', 'bravo', 'echo');
       expect(isValid).to.be.false;
     });
 
-    it('Invalid addrtess checksum is false', function () {
+    it('Invalid addrtess checksum is false', () => {
       const message = 'Beautiful Message';
       const isValid = serviceHelper.verifyMessage(
         message,
@@ -82,7 +82,7 @@ describe('Service Helper', function () {
       expect(isValid).to.be.false;
     });
 
-    it('Valid signature is true', function () {
+    it('Valid signature is true', () => {
       const message = 'Beautiful Message';
       const isValid = serviceHelper.verifyMessage(
         message,
@@ -92,7 +92,7 @@ describe('Service Helper', function () {
       expect(isValid).to.be.true;
     });
 
-    it('Signature is false for wrong message magic', function () {
+    it('Signature is false for wrong message magic', () => {
       const message = 'Beautiful Message';
       const isValid = serviceHelper.verifyMessage(
         message,
@@ -104,7 +104,7 @@ describe('Service Helper', function () {
       expect(isValid).to.be.false;
     });
 
-    it('Signature on different network is false', function () {
+    it('Signature on different network is false', () => {
       const message = 'Beautiful Message';
       const isValid = serviceHelper.verifyMessage(
         message,
@@ -114,7 +114,7 @@ describe('Service Helper', function () {
       expect(isValid).to.be.false;
     });
 
-    it('Signature with custom message magic is true', function () {
+    it('Signature with custom message magic is true', () => {
       const message = 'Beautiful Message';
       const isValid = serviceHelper.verifyMessage(
         message,
@@ -126,7 +126,7 @@ describe('Service Helper', function () {
       expect(isValid).to.be.true;
     });
 
-    it('Signature on different network with correct message magic is true', function () {
+    it('Signature on different network with correct message magic is true', () => {
       const message = 'Beautiful Message';
       const isValid = serviceHelper.verifyMessage(
         message,
@@ -138,7 +138,7 @@ describe('Service Helper', function () {
       expect(isValid).to.be.true;
     });
 
-    it('Signature on different network with correct message magic but invalid sig is false', function () {
+    it('Signature on different network with correct message magic but invalid sig is false', () => {
       const message = 'Beautiful Message';
       const isValid = serviceHelper.verifyMessage(
         message,
