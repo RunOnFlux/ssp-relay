@@ -12,7 +12,7 @@ var actionCollection = undefined;
 
 describe('Transaction Decoder', () => {
   describe('Decode Transaction For Approval: Correctly verifies transaction', () => {
-    it('should return successfully', async () => {
+    it('should return error', async () => {
       const ret = transactionDecoder.decodeTransactionForApproval();
       assert.deepEqual(ret, { receiver: 'decodingError', amount: 'decodingError'});
     });

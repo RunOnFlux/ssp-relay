@@ -14,12 +14,10 @@ describe('Rate Service', () => {
         r =  ratesService.getRates();
     });
 
-    it('should correctly return rates', async () => {
-        expect(r).to.not.be.null;
-        expect(r).to.not.be.undefined;
-    });
-
     it('should correctly return rates of crypto', async () => {
+        expect(r).to.have.property('crypto');
+        expect(r.crypto).to.have.property('btc');
+        expect(r.crypto).to.have.property('eth');
         expect(r.crypto).to.not.be.null;
         expect(r.crypto).to.not.be.undefined;
         expect(r.crypto.btc).to.not.be.null;
@@ -29,6 +27,9 @@ describe('Rate Service', () => {
     });
 
     it('should correctly return rates of fiat', async () => {
+        expect(r).to.have.property('fiat');
+        expect(r.fiat).to.have.property('BTC');
+        expect(r.fiat).to.have.property('ETH');
         expect(r.fiat).to.not.be.null;
         expect(r.fiat).to.not.be.undefined;
         expect(r.fiat.BTC).to.not.be.null;

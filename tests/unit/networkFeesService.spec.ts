@@ -13,6 +13,10 @@ describe('Network Fees Service', () => {
     it('should return ltc fees when valid', async () => {
         await networkFeesService.obtainLitecoinFees().then((r) => {
             assert.equal(r.coin, 'ltc');
+            expect(r).to.have.property('economy');
+            expect(r).to.have.property('normal');
+            expect(r).to.have.property('fast');
+            expect(r).to.have.property('recommended');
             expect(r.economy).to.not.be.null;
             expect(r.economy).to.not.be.undefined;
             expect(r.normal).to.not.be.null;
@@ -27,6 +31,10 @@ describe('Network Fees Service', () => {
     it('should return ltc fees when valid', async () => {
         await networkFeesService.obtainLitecoinFees().then((r) => {
             assert.equal(r.coin, 'ltc');
+            expect(r).to.have.property('economy');
+            expect(r).to.have.property('normal');
+            expect(r).to.have.property('fast');
+            expect(r).to.have.property('recommended');
             expect(r.economy).to.not.be.null;
             expect(r.economy).to.not.be.undefined;
             expect(r.normal).to.not.be.null;
@@ -42,6 +50,10 @@ describe('Network Fees Service', () => {
     it.skip('should return eth fees when valid', async () => {
         await networkFeesService.obtainEthFees().then((r) => {
             assert.equal(r.coin, 'eth');
+            expect(r).to.have.property('economy');
+            expect(r).to.have.property('normal');
+            expect(r).to.have.property('fast');
+            expect(r).to.have.property('recommended');
             expect(r.economy).to.not.be.null;
             expect(r.economy).to.not.be.undefined;
             expect(r.normal).to.not.be.null;
@@ -57,6 +69,10 @@ describe('Network Fees Service', () => {
     it.skip('should return sepolia fees when valid', async () => {
         await networkFeesService.obtainSepoliaFees().then((r) => {
             assert.equal(r.coin, 'sepolia');
+            expect(r).to.have.property('economy');
+            expect(r).to.have.property('normal');
+            expect(r).to.have.property('fast');
+            expect(r).to.have.property('recommended');
             expect(r.economy).to.not.be.null;
             expect(r.economy).to.not.be.undefined;
             expect(r.normal).to.not.be.null;

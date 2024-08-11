@@ -41,10 +41,11 @@ describe('Notification Service', () => {
       tokenCollection = config.collections.v1token;
     });
 
+    // Checking exception if the notification is successful or not
     it('should return successfully sends key', async () => {
       await database.collection(tokenCollection).insertMany(testInsert);
       await notificationService.sendNotificationKey(141, data).catch(e => {
-        assert.equal(e, undefined);
+        expect(e).to.be.undefined;
       });
     });
 

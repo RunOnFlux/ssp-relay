@@ -42,7 +42,20 @@ describe('Socket Service', () => {
 
     it('should return data when id is valid', async () => {
       await database.collection(socketCollection).insertMany(testInsert);
-      await socketService.getAction(141).then((r) => expect(r).to.deep.equal({ wkIdentity: 141 }));
+      await socketService.getAction(141).then((r) => {
+        expect(r).to.have.property('wkIdentity');
+        expect(r).to.deep.equal({ wkIdentity: 141 });
+      });
+
+      await socketService.getAction(121).then((r) => {
+        expect(r).to.have.property('wkIdentity');
+        expect(r).to.deep.equal({ wkIdentity: 121 });
+      });
+
+      await socketService.getAction(231).then((r) => {
+        expect(r).to.have.property('wkIdentity');
+        expect(r).to.deep.equal({ wkIdentity: 231 });
+      });
     });
   });
 });
