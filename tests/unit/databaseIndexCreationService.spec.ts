@@ -56,7 +56,15 @@ describe('Database Index Creation Service', () => {
         v1action,
         { wkIdentity: 1 },
         projection,
-      ).then((r) => expect(r).to.deep.equal({ createdAt: 1, wkIdentity: 1 }));
+      ).then((r) => {
+        expect(r).to.have.property('createdAt');
+        expect(r).to.have.property('wkIdentity');
+        expect(r.createdAt).to.not.be.null;
+        expect(r.createdAt).to.not.be.undefined;
+        expect(r.wkIdentity).to.not.be.null;
+        expect(r.wkIdentity).to.not.be.undefined;
+        expect(r).to.deep.equal({ createdAt: 1, wkIdentity: 1 });
+      });
 
     });
 
@@ -78,7 +86,15 @@ describe('Database Index Creation Service', () => {
         v1token,
         { wkIdentity: 1 },
         projection,
-        ).then((r) => expect(r).to.deep.equal({ keyToken: 1, wkIdentity: 1 }));
+        ).then((r) => {
+          expect(r).to.have.property('keyToken');
+          expect(r).to.have.property('wkIdentity');
+          expect(r.keyToken).to.not.be.null;
+          expect(r.keyToken).to.not.be.undefined;
+          expect(r.wkIdentity).to.not.be.null;
+          expect(r.wkIdentity).to.not.be.undefined;
+          expect(r).to.deep.equal({ keyToken: 1, wkIdentity: 1 });
+        });
     });
 
     it('should return when collection v1sync index initialized', async () => {
@@ -99,7 +115,15 @@ describe('Database Index Creation Service', () => {
         v1sync,
         { walletIdentity: 1 },
         projection,
-        ).then((r) => expect(r).to.deep.equal({ createdAt: 1, walletIdentity: 1 }));
+        ).then((r) => {
+          expect(r).to.have.property('createdAt');
+          expect(r).to.have.property('walletIdentity');
+          expect(r.createdAt).to.not.be.null;
+          expect(r.createdAt).to.not.be.undefined;
+          expect(r.walletIdentity).to.not.be.null;
+          expect(r.walletIdentity).to.not.be.undefined;
+          expect(r).to.deep.equal({ createdAt: 1, walletIdentity: 1 });
+        });
     });
   });
 });

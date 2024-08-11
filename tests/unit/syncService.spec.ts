@@ -55,7 +55,18 @@ describe('Sync Service', () => {
     });
 
     it('should return data when id is valid', async () => {
-      await syncService.getSync(141).then((r) => expect(r).to.deep.equal({ walletIdentity: 141 }));
+      await syncService.getSync(141).then((r) => {
+        expect(r).to.have.property('walletIdentity');
+        expect(r).to.deep.equal({ walletIdentity: 141 });
+      });
+      await syncService.getSync(121).then((r) => {
+        expect(r).to.have.property('walletIdentity');
+        expect(r).to.deep.equal({ walletIdentity: 121 });
+      });
+      await syncService.getSync(231).then((r) => {
+        expect(r).to.have.property('walletIdentity');
+        expect(r).to.deep.equal({ walletIdentity: 231 });
+      });
     });
 
     it('should return error after database drop and id is invalid', async () => {
@@ -67,6 +78,9 @@ describe('Sync Service', () => {
   describe('Post Sync: Correctly verifies post sync', () => {
     it('should return data with walletIdentity when id is valid', async () => {
       await syncService.postSync({walletIdentity: 144}).then((r) => {
+        expect(r).to.have.property('createdAt');
+        expect(r).to.have.property('expireAt');
+        expect(r).to.have.property('walletIdentity');
         expect(r.createdAt).to.not.be.null;
         expect(r.createdAt).to.not.be.undefined;
         expect(r.expireAt).to.not.be.null;
@@ -77,10 +91,13 @@ describe('Sync Service', () => {
 
     it('should return data without walletIdentity when data is empty', async () => {
       await syncService.postSync({}).then((r) => {
+        expect(r).to.have.property('createdAt');
+        expect(r).to.have.property('expireAt');
         expect(r.createdAt).to.not.be.null;
         expect(r.createdAt).to.not.be.undefined;
         expect(r.expireAt).to.not.be.null;
-        assert.equal(r.walletIdentity, undefined);
+        expect(r.expireAt).to.not.be.undefined;
+        expect(r.walletIdentity).to.be.undefined;
       });
     });
 
@@ -109,7 +126,18 @@ describe('Sync Service', () => {
     });
 
     it('should return data when id is valid', async () => {
-      await syncService.getTokens(141).then((r) => expect(r).to.deep.equal([{ wkIdentity: 141 }]));
+      await syncService.getTokens(141).then((r) => {
+        expect(r[0]).to.have.property('wkIdentity');
+        expect(r).to.deep.equal([{ wkIdentity: 141 }]);
+      });
+      await syncService.getTokens(121).then((r) => {
+        expect(r[0]).to.have.property('wkIdentity');
+        expect(r).to.deep.equal([{ wkIdentity: 121 }]);
+      });
+      await syncService.getTokens(231).then((r) => {
+        expect(r[0]).to.have.property('wkIdentity');
+        expect(r).to.deep.equal([{ wkIdentity: 231 }]);
+      });
     });
 
     it('should return error after database drop and id is invalid', async () => {
@@ -122,13 +150,18 @@ describe('Sync Service', () => {
   describe('Post Token: Correctly verifies post token', () => {
     it('should return data with wkIdentity when id is valid', async () => {
       await syncService.postToken({wkIdentity: 144}).then((r) => {
+        expect(r).to.have.property('wkIdentity');
         expect(r.wkIdentity).equal(144);
+      });
+      await syncService.postToken({wkIdentity: 191}).then((r) => {
+        expect(r).to.have.property('wkIdentity');
+        expect(r.wkIdentity).equal(191);
       });
     });
 
     it('should return data without wkIdentity when data is empty', async () => {
       await syncService.postToken({}).then((r) => {
-        assert.equal(r.wkIdentity, undefined);
+        expect(r.wkIdentity).to.be.undefined;
       });
     });
   });

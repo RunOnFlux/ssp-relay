@@ -42,7 +42,10 @@ describe('Action Service', () => {
 
     it('should return data when id is valid', async () => {
       await database.collection(actionCollection).insertMany(testInsert);
-      await actionService.getAction(141).then((r) => expect(r).to.deep.equal({ wkIdentity: 141 }));
+      await actionService.getAction(141).then((r) => {
+        expect(r).to.have.property('wkIdentity');
+        expect(r).to.deep.equal({ wkIdentity: 141 });
+      });
     });
 
     it('should return error after database drop and id is invalid', async () => {
@@ -53,6 +56,8 @@ describe('Action Service', () => {
   describe('Post Action: Correctly verifies action', () => {
     it('should return data with wkIdentity when data is valid', async () => {
       await actionService.postAction({wkIdentity: 144}).then((r) => {
+        expect(r).to.have.property('createdAt');
+        expect(r).to.have.property('expireAt');
         expect(r.createdAt).to.not.be.null;
         expect(r.createdAt).to.not.be.undefined;
         expect(r.expireAt).to.not.be.null;
@@ -63,6 +68,8 @@ describe('Action Service', () => {
 
     it('should return data without wkIdentity when data is empty', async () => {
       await actionService.postAction({}).then((r) => {
+        expect(r).to.have.property('createdAt');
+        expect(r).to.have.property('expireAt');
         expect(r.createdAt).to.not.be.null;
         expect(r.createdAt).to.not.be.undefined;
         expect(r.expireAt).to.not.be.null;
