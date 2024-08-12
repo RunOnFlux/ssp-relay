@@ -23,7 +23,6 @@ const testInsert = [
 const data = {
   action: 'publicnoncesrequest',
   payload: 'tx',
-  action: 'tx'
 }
 
 const dataNoAction = {
