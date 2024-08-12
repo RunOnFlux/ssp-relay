@@ -23,6 +23,12 @@ jobs:
           mongodb-version: ${{ matrix.mongodb-version }}
       - name: npm install
         run: npm i
+      - name: Setup CI config
+        run: |
+          echo $CI_CONFIG > config/serviceAccountKey.json
+        shell: bash
+        env:
+          CI_CONFIG: ${{ secrets.SERVICE_ACCOUNT_CI }}
       - name: Run tests and collect coverage
         run: |
           npm run test
