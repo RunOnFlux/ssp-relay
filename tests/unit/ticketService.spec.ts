@@ -3,7 +3,6 @@
 // @ts-nocheck test suite
 import chai from 'chai';
 import ticketService from '../../src/services/ticketService';
-import serviceHelper from '../../src/services/serviceHelper';
 
 const { assert } = chai;
 
