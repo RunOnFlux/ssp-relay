@@ -2,10 +2,9 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
 import chai from 'chai';
-import config from 'config';
 import transactionDecoder from '../../src/services/transactionDecoder';
 
-const { expect, assert } = chai;
+const { assert } = chai;
 
 var database = undefined;
 var actionCollection = undefined;

@@ -6,7 +6,7 @@ import config from 'config';
 import notificationService from '../../src/services/notificationService';
 import serviceHelper from '../../src/services/serviceHelper';
 
-const { expect, assert } = chai;
+const { expect } = chai;
 
 const testInsert = [
   {
