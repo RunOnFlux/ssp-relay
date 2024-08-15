@@ -2,7 +2,6 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
 import chai from 'chai';
-import config from 'config';
 import ratesService from '../../src/services/ratesService';
 import ratesApi from '../../src/apiServices/ratesApi';
 import sinon from 'sinon';
