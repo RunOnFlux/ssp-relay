@@ -4,7 +4,6 @@
 import chai from 'chai';
 import ticketService from '../../src/services/ticketService';
 import sinon from 'sinon';
-import freshdesk from 'freshdesk-client';
 
 const { assert } = chai;
 
