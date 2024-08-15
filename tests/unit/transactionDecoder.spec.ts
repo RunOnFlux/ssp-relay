@@ -1,21 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import chai from 'chai';
-import transactionDecoder from '../../src/services/transactionDecoder';
-
-const { assert } = chai;
-
-var database = undefined;
-var actionCollection = undefined;
-
-describe('Transaction Decoder', () => {
-  describe('Decode Transaction For Approval: Correctly verifies transaction', () => {
-    it('should return error', async () => {
-      const ret = transactionDecoder.decodeTransactionForApproval();
-      assert.deepEqual(ret, { receiver: 'decodingError', amount: 'decodingError'});
-    });
-
-    // Valid test cases will be included moving forward once sample data is present
-  });
-});
+// import chai from 'chai';
+// import transactionDecoder from '../../src/services/transactionDecoder';

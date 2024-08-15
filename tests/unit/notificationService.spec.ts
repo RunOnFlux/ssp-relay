@@ -5,6 +5,8 @@ import chai from 'chai';
 import config from 'config';
 import notificationService from '../../src/services/notificationService';
 import serviceHelper from '../../src/services/serviceHelper';
+import sinon from 'sinon';
+import syncService from '../../src/services/syncService';
 
 const { expect } = chai;
 
@@ -40,6 +42,10 @@ describe('Notification Service', () => {
       tokenCollection = config.collections.v1token;
     });
 
+    afterEach(function() {
+      sinon.restore();
+    });
+
     // Checking exception if the notification is successful or not
     it('should return successfully sends key', async () => {
       await database.collection(tokenCollection).insertMany(testInsert);
@@ -54,6 +60,21 @@ describe('Notification Service', () => {
       await notificationService.sendNotificationKey(141, dataNoAction).catch(e => {
         expect(e).to.not.be.null;
         expect(e).to.not.be.undefined;
+      });
+    });
+
+    // Testing using stub data
+    it('should return successful result 141 if stub value is valid', async () => {
+      const stub = await sinon.stub(syncService, "getTokens").returns({ wkIdentity: 141});
+      await notificationService.sendNotificationKey(141, data).catch(e => {
+        expect(e).to.be.undefined;
+      });
+    });
+
+    it('should return successful result 121 if stub value is valid', async () => {
+      const stub = await sinon.stub(syncService, "getTokens").returns({ wkIdentity: 121});
+      await notificationService.sendNotificationKey(121, data).catch(e => {
+        expect(e).to.be.undefined;
       });
     });
   });

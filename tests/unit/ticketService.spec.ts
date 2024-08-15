@@ -3,6 +3,8 @@
 // @ts-nocheck test suite
 import chai from 'chai';
 import ticketService from '../../src/services/ticketService';
+import sinon from 'sinon';
+import freshdesk from 'freshdesk-client';
 
 const { assert } = chai;
 
@@ -35,6 +37,10 @@ const data = [
 
 describe('Ticket Service', () => {
   describe('Post Ticket: Correctly verifies ticket creation', () => {
+    afterEach(function() {
+      sinon.restore();
+    });
+
     it('should return success ticket creation for incident', async () => {
       await ticketService.postTicket(data[0]).then((r) => assert.equal(r, 'Ticket created successfully.'));
     });
@@ -51,6 +57,21 @@ describe('Ticket Service', () => {
         await ticketService.postTicket(data[0]).then((r) => assert.equal(r, 'Ticket created successfully.'));
     });
 
-    // Creation of negative test case is limited due to post ticket function error handling
+    // Testing using stub data
+    it('should return error result if stub value is false', async () => {
+      const freshdesk = {
+        createTicket: sinon.stub()
+      }
+      await freshdesk.createTicket.throws(new Error());
+      await ticketService.postTicket(141).catch((e) => assert.equal(e, 'Failed to create a Ticket'));
+    });
+
+    it('should return successful result if stub value is false', async () => {
+      const freshdesk = {
+        createTicket: sinon.stub()
+      }
+      await freshdesk.createTicket.throws(new Error('Cannot read properties of unde'));
+      await ticketService.postTicket(data[0]).then((r) => assert.equal(r, 'Ticket created successfully.'));
+    });
   });
 });
