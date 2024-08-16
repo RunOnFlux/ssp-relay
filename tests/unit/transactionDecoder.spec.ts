@@ -4,7 +4,7 @@
 import chai from 'chai';
 import transactionDecoder from '../../src/services/transactionDecoder';
 
-const { expect, assert } = chai;
+const { expect } = chai;
 
 const rawTxSepolia = {
     "id": "0x8b18236447c918b3b217da857a787a7561313b730374430596eaa6f9c2d0ee16",
