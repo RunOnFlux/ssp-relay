@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "tsc && tsx index.ts",
-    "test": "nyc --reporter=lcov ts-mocha -p tsconfig.json tests/**/*.spec.ts",
+    "test": "nyc --reporter=lcov ts-mocha -p tsconfig.json tests/**/*.spec.ts --exit",
     "lint": "eslint ./",
     "lint:fix": "eslint ./ --fix",
     "type-check": "tsc",

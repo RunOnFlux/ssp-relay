@@ -49,8 +49,7 @@ describe('Network Fees Service', () => {
         });
     });
 
-    // Please provide valid key in URL before testing
-    it.skip('should return eth fees when valid', async () => {
+    it('should return eth fees when valid', async () => {
         await networkFeesService.obtainEthFees().then((r) => {
             assert.equal(r.coin, 'eth');
             expect(r).to.have.property('economy');
@@ -68,8 +67,7 @@ describe('Network Fees Service', () => {
         });
     });
 
-    // Please provide valid key in URL before testing
-    it.skip('should return sepolia fees when valid', async () => {
+    it('should return sepolia fees when valid', async () => {
         await networkFeesService.obtainSepoliaFees().then((r) => {
             assert.equal(r.coin, 'sepolia');
             expect(r).to.have.property('economy');
