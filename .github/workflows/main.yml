@@ -1,4 +1,4 @@
-name: Build and Test
+name: Test
 on: [push, pull_request]
 jobs:
   build:
@@ -25,11 +25,13 @@ jobs:
         run: npm i
       - name: Setup CI config
         run: |
-          echo $CI_CONFIG > config/serviceAccountKey.json
+          echo $SERVICE_ACCOUNT_CONFIG > config/serviceAccountKey.json
+          echo $API_SECRETS > config/apisecrets.ts
           touch logs/debug.log logs/error.log logs/info.log
         shell: bash
         env:
-          CI_CONFIG: ${{ secrets.SERVICE_ACCOUNT_CI }}
+          SERVICE_ACCOUNT_CONFIG: ${{ secrets.SERVICE_ACCOUNT_CI }}
+          API_SECRETS: ${{ secrets.API_SECRETS }}
       - name: Run tests and collect coverage
         run: |
           npm run test
