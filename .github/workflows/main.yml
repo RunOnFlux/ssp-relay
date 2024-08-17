@@ -26,6 +26,7 @@ jobs:
       - name: Setup CI config
         run: |
           echo $CI_CONFIG > config/serviceAccountKey.json
+          touch logs/debug.log logs/error.log logs/info.log
         shell: bash
         env:
           CI_CONFIG: ${{ secrets.SERVICE_ACCOUNT_CI }}
