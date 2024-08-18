@@ -16,7 +16,7 @@ function postTicket(req, res) {
         throw new Error('No description specified');
       }
       if (!processedBody.subject) {
-        throw new Error('No subjet specified');
+        throw new Error('No subject specified');
       }
       if (!processedBody.type) {
         throw new Error('No type specified');

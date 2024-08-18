@@ -17,7 +17,7 @@ interface decodedTx {
   fee?: string;
 }
 
-export async function sendNotificationKey(wkIdentity, data) {
+async function sendNotificationKey(wkIdentity, data) {
   try {
     const syncs = await syncService.getTokens(wkIdentity);
     let title = 'Transaction Request';
@@ -63,4 +63,8 @@ export async function sendNotificationKey(wkIdentity, data) {
   } catch (error) {
     log.error(error);
   }
+}
+
+export default {
+  sendNotificationKey
 }

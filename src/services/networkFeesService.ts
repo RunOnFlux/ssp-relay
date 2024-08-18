@@ -194,4 +194,8 @@ async function networkFees(res) {
 export default {
   networkFees,
   fetchFees,
+  obtainBitcoinFees,
+  obtainLitecoinFees,
+  obtainEthFees,
+  obtainSepoliaFees
 };

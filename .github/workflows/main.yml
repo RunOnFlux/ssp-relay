@@ -21,17 +21,22 @@ jobs:
         uses: supercharge/mongodb-github-action@1.10.0
         with:
           mongodb-version: ${{ matrix.mongodb-version }}
+          mongodb-username: ssp-relay-user
+          mongodb-password: ssp-relay-password
+          mongodb-db: ssp-relay
       - name: npm install
         run: npm i
       - name: Setup CI config
         run: |
           echo $SERVICE_ACCOUNT_CONFIG > config/serviceAccountKey.json
           echo $API_SECRETS > config/apisecrets.ts
+          echo $ALCHEMY_SECRETS > config/alchemysecrets.ts
           touch logs/debug.log logs/error.log logs/info.log
         shell: bash
         env:
           SERVICE_ACCOUNT_CONFIG: ${{ secrets.SERVICE_ACCOUNT_CI }}
           API_SECRETS: ${{ secrets.API_SECRETS }}
+          ALCHEMY_SECRETS: ${{ secrets.ALCHEMY_SECRETS }}
       - name: Run tests and collect coverage
         run: |
           npm run test
