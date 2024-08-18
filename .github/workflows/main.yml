@@ -21,6 +21,9 @@ jobs:
         uses: supercharge/mongodb-github-action@1.10.0
         with:
           mongodb-version: ${{ matrix.mongodb-version }}
+          mongodb-username: ssp-relay-user
+          mongodb-password: ssp-relay-password
+          mongodb-db: ssp-relay
       - name: npm install
         run: npm i
       - name: Setup CI config

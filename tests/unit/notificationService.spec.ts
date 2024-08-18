@@ -55,8 +55,8 @@ describe('Notification Service', () => {
     });
 
     // Currently there is a limitation in testing the firebase
-    it.skip('should return error when it sends key to firebase', async () => {
-      await database.collection(tokenCollection).drop()
+    it('should return error when it sends key to firebase', async () => {
+      await database.collection(tokenCollection).drop().catch(() => {});
       await notificationService.sendNotificationKey(141, dataNoAction).catch(e => {
         expect(e).to.not.be.null;
         expect(e).to.not.be.undefined;

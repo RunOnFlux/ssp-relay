@@ -30,7 +30,7 @@ describe('Socket Service', () => {
       const db = await serviceHelper.databaseConnection();
       database = db.db(config.database.database);
       socketCollection = config.collections.v1action;
-      await database.collection(socketCollection).drop();
+      await database.collection(socketCollection).drop().catch(() => {});;
     });
 
     afterEach(function() {

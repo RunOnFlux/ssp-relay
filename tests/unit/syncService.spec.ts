@@ -43,7 +43,7 @@ describe('Sync Service', () => {
       const db = await serviceHelper.databaseConnection();
       database = db.db(config.database.database);
       syncCollection = config.collections.v1sync;
-      await database.collection(syncCollection).drop();
+      await database.collection(syncCollection).drop().catch(() => {});
       await database.collection(syncCollection).insertMany(testInsertV1Sync);
     });
 
@@ -75,7 +75,7 @@ describe('Sync Service', () => {
     });
 
     it('should return error after database drop and id is invalid', async () => {
-      await database.collection(syncCollection).drop();
+      await database.collection(syncCollection).drop().catch(() => {});;
       await syncService.getSync(141).catch((e) => assert.equal(e, 'Error: Sync 141 not found'));
     });
 
@@ -151,7 +151,7 @@ describe('Sync Service', () => {
       const db = await serviceHelper.databaseConnection();
       database = db.db(config.database.database);
       tokenCollection = config.collections.v1token;
-      await database.collection(tokenCollection).drop();
+      await database.collection(tokenCollection).drop().catch(() => {});;
       await database.collection(tokenCollection).insertMany(testInsertV1Tokens);
     });
 
@@ -183,7 +183,7 @@ describe('Sync Service', () => {
     });
 
     it('should return error after database drop and id is invalid', async () => {
-      await database.collection(tokenCollection).drop();
+      await database.collection(tokenCollection).drop().catch(() => {});;
       await syncService.getTokens(141).catch((e) => assert.equal(e, 'Error: Sync 141 not found'));
     });
 

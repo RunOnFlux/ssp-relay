@@ -30,7 +30,7 @@ describe('Action Service', () => {
       const db = await serviceHelper.databaseConnection();
       database = db.db(config.database.database);
       actionCollection = config.collections.v1action;
-      await database.collection(actionCollection).drop();
+      await database.collection(actionCollection).drop().catch(() => {});
     });
 
     afterEach(function() {
