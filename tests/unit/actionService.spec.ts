@@ -11,41 +11,48 @@ const { expect, assert } = chai;
 
 const testInsert = [
   {
-    wkIdentity: 141
+    wkIdentity: 141,
   },
   {
-    wkIdentity: 121
+    wkIdentity: 121,
   },
   {
-    wkIdentity: 231
+    wkIdentity: 231,
   },
 ];
 
-var database = undefined;
-var actionCollection = undefined;
+let database = undefined;
+let actionCollection = undefined;
 
-describe('Action Service', () => {
-  describe('Get Action: Correctly verifies action', () => {
-    before(async () => {
+describe('Action Service', function () {
+  describe('Get Action: Correctly verifies action', function () {
+    before(async function () {
       const db = await serviceHelper.databaseConnection();
       database = db.db(config.database.database);
       actionCollection = config.collections.v1action;
-      await database.collection(actionCollection).drop().catch(() => {});
+      await database
+        .collection(actionCollection)
+        .drop()
+        .catch(() => {});
     });
 
-    afterEach(function() {
+    afterEach(function () {
       sinon.restore();
     });
 
-    it('should return error when id is undefined', async () => {
-      await actionService.getAction().catch((e) => assert.equal(e, 'Error: Action undefined not found'));
+    it('should return error when id is undefined', async function () {
+      await actionService
+        .getAction()
+        .catch((e) => assert.equal(e, 'Error: Action undefined not found'));
     });
 
-    it('should return error when id is not valid', async () => {
-      await actionService.getAction(123).catch((e) => assert.equal(e, 'Error: Action 123 not found'));
+    it('should return error when id is not valid', async function () {
+      await actionService
+        .getAction(123)
+        .catch((e) => assert.equal(e, 'Error: Action 123 not found'));
     });
 
-    it('should return data when id is valid', async () => {
+    it('should return data when id is valid', async function () {
       await database.collection(actionCollection).insertMany(testInsert);
       await actionService.getAction(141).then((r) => {
         expect(r).to.have.property('wkIdentity');
@@ -53,46 +60,58 @@ describe('Action Service', () => {
       });
     });
 
-    it('should return error after database drop and id is invalid', async () => {
-      await actionService.getAction(141).catch((e) => assert.equal(e, 'Error: Action 141 not found'));
+    it('should return error after database drop and id is invalid', async function () {
+      await actionService
+        .getAction(141)
+        .catch((e) => assert.equal(e, 'Error: Action 141 not found'));
     });
 
     // Testing using stub data
-    it('should return successful result 141 if stub value is valid', async () => {
-      await sinon.stub(serviceHelper, "findOneInDatabase").returns({ wkIdentity: 141});
+    it('should return successful result 141 if stub value is valid', async function () {
+      await sinon
+        .stub(serviceHelper, 'findOneInDatabase')
+        .returns({ wkIdentity: 141 });
       await actionService.getAction(141).then((r) => {
         expect(r).to.have.property('wkIdentity');
         expect(r).to.deep.equal({ wkIdentity: 141 });
       });
     });
 
-    it('should return successful result 121 if stub value is valid', async () => {
-      await sinon.stub(serviceHelper, "findOneInDatabase").returns({ wkIdentity: 121});
+    it('should return successful result 121 if stub value is valid', async function () {
+      await sinon
+        .stub(serviceHelper, 'findOneInDatabase')
+        .returns({ wkIdentity: 121 });
       await actionService.getAction(121).then((r) => {
         expect(r).to.have.property('wkIdentity');
         expect(r).to.deep.equal({ wkIdentity: 121 });
       });
     });
 
-    it('should return error result if stub value is false', async () => {
-      await sinon.stub(serviceHelper, "findOneInDatabase").returns(false);
-      await actionService.getAction(141).catch((e) => assert.equal(e, 'Error: Action 141 not found'));
+    it('should return error result if stub value is false', async function () {
+      await sinon.stub(serviceHelper, 'findOneInDatabase').returns(false);
+      await actionService
+        .getAction(141)
+        .catch((e) => assert.equal(e, 'Error: Action 141 not found'));
     });
 
-    it('should return error result if stub value is undefined', async () => {
-      await sinon.stub(serviceHelper, "findOneInDatabase").returns(undefined);
-      await actionService.getAction(141).catch((e) => assert.equal(e, 'Error: Action 141 not found'));
+    it('should return error result if stub value is undefined', async function () {
+      await sinon.stub(serviceHelper, 'findOneInDatabase').returns(undefined);
+      await actionService
+        .getAction(141)
+        .catch((e) => assert.equal(e, 'Error: Action 141 not found'));
     });
 
-    it('should return error result if stub value is null', async () => {
-      await sinon.stub(serviceHelper, "findOneInDatabase").returns(undefined);
-      await actionService.getAction(141).catch((e) => assert.equal(e, 'Error: Action 141 not found'));
+    it('should return error result if stub value is null', async function () {
+      await sinon.stub(serviceHelper, 'findOneInDatabase').returns(undefined);
+      await actionService
+        .getAction(141)
+        .catch((e) => assert.equal(e, 'Error: Action 141 not found'));
     });
   });
 
-  describe('Post Action: Correctly verifies action', () => {
-    it('should return data with wkIdentity when data is valid', async () => {
-      await actionService.postAction({wkIdentity: 144}).then((r) => {
+  describe('Post Action: Correctly verifies action', function () {
+    it('should return data with wkIdentity when data is valid', async function () {
+      await actionService.postAction({ wkIdentity: 144 }).then((r) => {
         expect(r).to.have.property('createdAt');
         expect(r).to.have.property('expireAt');
         expect(r.createdAt).to.not.be.null;
@@ -103,7 +122,7 @@ describe('Action Service', () => {
       });
     });
 
-    it('should return data without wkIdentity when data is empty', async () => {
+    it('should return data without wkIdentity when data is empty', async function () {
       await actionService.postAction({}).then((r) => {
         expect(r).to.have.property('createdAt');
         expect(r).to.have.property('expireAt');
@@ -114,9 +133,12 @@ describe('Action Service', () => {
       });
     });
 
-    it('should return data without wkIdentity when data is invalid', async () => {
+    it('should return data without wkIdentity when data is invalid', async function () {
       await actionService.postAction().catch((r) => {
-        assert.equal(r, `TypeError: Cannot read properties of undefined (reading 'wkIdentity')`)
+        assert.equal(
+          r,
+          `TypeError: Cannot read properties of undefined (reading 'wkIdentity')`,
+        );
       });
     });
   });

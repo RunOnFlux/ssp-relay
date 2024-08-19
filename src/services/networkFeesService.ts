@@ -197,5 +197,5 @@ export default {
   obtainBitcoinFees,
   obtainLitecoinFees,
   obtainEthFees,
-  obtainSepoliaFees
+  obtainSepoliaFees,
 };

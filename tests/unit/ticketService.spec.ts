@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
 import chai from 'chai';
@@ -34,43 +33,57 @@ const data = [
   },
 ];
 
-describe('Ticket Service', () => {
-  describe('Post Ticket: Correctly verifies ticket creation', () => {
-    afterEach(function() {
+describe('Ticket Service', function () {
+  describe('Post Ticket: Correctly verifies ticket creation', function () {
+    afterEach(function () {
       sinon.restore();
     });
 
-    it('should return success ticket creation for incident', async () => {
-      await ticketService.postTicket(data[0]).then((r) => assert.equal(r, 'Ticket created successfully.'));
+    it('should return success ticket creation for incident', async function () {
+      await ticketService
+        .postTicket(data[0])
+        .then((r) => assert.equal(r, 'Ticket created successfully.'));
     });
 
-    it('should return success ticket creation for question', async () => {
-        await ticketService.postTicket(data[1]).then((r) => assert.equal(r, 'Ticket created successfully.'));
+    it('should return success ticket creation for question', async function () {
+      await ticketService
+        .postTicket(data[1])
+        .then((r) => assert.equal(r, 'Ticket created successfully.'));
     });
 
-    it('should return success ticket creation for problem', async () => {
-        await ticketService.postTicket(data[2]).then((r) => assert.equal(r, 'Ticket created successfully.'));
+    it('should return success ticket creation for problem', async function () {
+      await ticketService
+        .postTicket(data[2])
+        .then((r) => assert.equal(r, 'Ticket created successfully.'));
     });
 
-    it('should return success ticket creation for feature request', async () => {
-        await ticketService.postTicket(data[0]).then((r) => assert.equal(r, 'Ticket created successfully.'));
+    it('should return success ticket creation for feature request', async function () {
+      await ticketService
+        .postTicket(data[0])
+        .then((r) => assert.equal(r, 'Ticket created successfully.'));
     });
 
     // Testing using stub data
-    it('should return error result if stub value is false', async () => {
+    it('should return error result if stub value is false', async function () {
       const freshdesk = {
-        createTicket: sinon.stub()
-      }
+        createTicket: sinon.stub(),
+      };
       await freshdesk.createTicket.throws(new Error());
-      await ticketService.postTicket(141).catch((e) => assert.equal(e, 'Failed to create a Ticket'));
+      await ticketService
+        .postTicket(141)
+        .catch((e) => assert.equal(e, 'Failed to create a Ticket'));
     });
 
-    it('should return successful result if stub value is false', async () => {
+    it('should return successful result if stub value is false', async function () {
       const freshdesk = {
-        createTicket: sinon.stub()
-      }
-      await freshdesk.createTicket.throws(new Error('Cannot read properties of unde'));
-      await ticketService.postTicket(data[0]).then((r) => assert.equal(r, 'Ticket created successfully.'));
+        createTicket: sinon.stub(),
+      };
+      await freshdesk.createTicket.throws(
+        new Error('Cannot read properties of unde'),
+      );
+      await ticketService
+        .postTicket(data[0])
+        .then((r) => assert.equal(r, 'Ticket created successfully.'));
     });
   });
 });

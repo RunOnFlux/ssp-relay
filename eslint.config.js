@@ -10,6 +10,7 @@ export default [
   ...tseslint.configs.recommended, // TBD recommendedTypeChecked
   eslintPluginPrettierRecommended,
   {
+    files: ['**/*.{js,mjs,cjs,ts}'],
     languageOptions: {
       // parserOptions: {
       //   projectService: {
@@ -24,8 +25,10 @@ export default [
         ...globals.mocha,
       },
     },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
   },
-  { files: ['**/*.{js,mjs,cjs,ts}'] },
   {
     files: ['**/*.js'],
     languageOptions: { sourceType: 'commonjs' },
