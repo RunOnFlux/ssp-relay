@@ -66,5 +66,5 @@ async function sendNotificationKey(wkIdentity, data) {
 }
 
 export default {
-  sendNotificationKey
-}
+  sendNotificationKey,
+};

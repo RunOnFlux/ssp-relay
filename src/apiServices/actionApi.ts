@@ -1,6 +1,6 @@
 import actionService from '../services/actionService';
 import serviceHelper from '../services/serviceHelper';
-import { sendNotificationKey } from '../services/notificationService';
+import notificationService from '../services/notificationService';
 import log from '../lib/log';
 import socket from '../lib/socket';
 
@@ -89,9 +89,9 @@ function postAction(req, res) {
       if (data.action === 'tx' || data.action === 'publicnoncesrequest') {
         const ioKey = socket.getIOKey();
         ioKey.to(data.wkIdentity).emit(data.action, data);
-        await sendNotificationKey(data.wkIdentity, data).catch((error) =>
-          log.error(error),
-        );
+        await notificationService
+          .sendNotificationKey(data.wkIdentity, data)
+          .catch((error) => log.error(error));
       }
       // ssp-wallet listens for txid and txrejected actions
       if (
