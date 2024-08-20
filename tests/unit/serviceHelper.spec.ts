@@ -7,7 +7,7 @@ import { MongoClient } from 'mongodb';
 import axios from 'axios';
 import bitcoinjs from 'bitcoinjs-lib';
 import zelcorejs from 'zelcorejs';
-import serviceHelper from '../../src/lib/services/serviceHelper';
+import serviceHelper from '../../src/services/serviceHelper';
 
 const { expect } = chai;
 
