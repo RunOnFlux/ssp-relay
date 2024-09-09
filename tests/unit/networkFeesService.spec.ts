@@ -14,7 +14,7 @@ describe('Network Fees Service', function () {
     });
 
     it('should return btc fees when valid', async function () {
-      await networkFeesService.obtainLitecoinFees().then((r) => {
+      await networkFeesService.obtainBitcoinFees().then((r) => {
         assert.equal(r.coin, 'btc');
         expect(r).to.have.property('economy');
         expect(r).to.have.property('normal');
