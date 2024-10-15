@@ -36,6 +36,7 @@
     "qs": "~6.13.0",
     "socket.io": "~4.7.5",
     "viem": "~2.18.8",
+    "alchemy-sdk": "~3.4.3",
     "zelcorejs": "https://github.com/zelcore-io/zelcorejs"
   },
   "devDependencies": {
