@@ -3,6 +3,7 @@ import actionApi from './apiServices/actionApi';
 import ratesApi from './apiServices/ratesApi';
 import ticketsApi from './apiServices/ticketsApi';
 import feeService from './services/networkFeesService';
+import customTokenApi from './apiServices/customTokenApi';
 
 export default (app) => {
   // return sync data
@@ -34,5 +35,9 @@ export default (app) => {
   // freshdesk ticket
   app.post('/v1/ticket', (req, res) => {
     ticketsApi.postTicket(req, res);
+  });
+  // get key endpoint
+  app.get('/v1/alchemy/getkey', (req, res) => {
+    customTokenApi.getKey(req, res);
   });
 };
