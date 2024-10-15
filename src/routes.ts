@@ -3,7 +3,7 @@ import actionApi from './apiServices/actionApi';
 import ratesApi from './apiServices/ratesApi';
 import ticketsApi from './apiServices/ticketsApi';
 import feeService from './services/networkFeesService';
-import customTokenApi from './apiServices/customTokenApi';
+import tokenApi from './apiServices/tokenApi';
 
 export default (app) => {
   // return sync data
@@ -37,7 +37,7 @@ export default (app) => {
     ticketsApi.postTicket(req, res);
   });
   // get key endpoint
-  app.get('/v1/alchemy/getkey', (req, res) => {
-    customTokenApi.getKey(req, res);
+  app.get('/v1/tokeninfo/:network/:address', (req, res) => {
+    tokenApi.getTokenInfo(req, res);
   });
 };
