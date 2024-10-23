@@ -9,7 +9,7 @@ async function getTokenInfo(req, res) {
     let { address } = req.params;
     address = address || req.query.address; 
 
-    let value = await getFromAlchemy(address, network);
+    const value = await getFromAlchemy(address, network);
 
     res.json(value);
   } catch (error) {
