@@ -4,10 +4,10 @@ import { getFromAlchemy } from '../services/tokenServices';
 async function getTokenInfo(req, res) {
   try {
     let { network } = req.params;
-    network = network || req.query.contract; 
+    network = network ?? req.query.contract;
 
     let { address } = req.params;
-    address = address || req.query.address; 
+    address = address ?? req.query.address;
 
     const value = await getFromAlchemy(address, network);
 

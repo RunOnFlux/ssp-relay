@@ -5,14 +5,14 @@ Ensures proper communication between SSP Wallet and SSP Key
 
 ## Requirements
 
-Requires node version 16.0 and above, mongodb
+Requires node version 20 and above, mongodb
 
 ## Installation
 
-Install npm dependencies with command:
+Install npm dependencies using yarn:
 
 ```javascript
-npm install
+yarn
 ```
 
 ## Usage

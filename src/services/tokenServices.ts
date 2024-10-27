@@ -1,19 +1,21 @@
-import { Alchemy, Network } from "alchemy-sdk";
+import { Alchemy, Network } from 'alchemy-sdk';
 import config from 'config';
 
-export async function getFromAlchemy (contractAddress: any, network: any) {
-  let value : any;
-  
+export async function getFromAlchemy(contractAddress: string, network: string) {
+  let networkValue: Network;
+
   // need to add here if new network with tokens
   if (network == 'eth') {
-    value = Network.ETH_MAINNET;
+    networkValue = Network.ETH_MAINNET;
+  } else if (network === 'sepolia') {
+    networkValue = Network.ETH_SEPOLIA;
   } else {
-    value = Network.ETH_SEPOLIA;
+    networkValue = Network.ETH_SEPOLIA;
   }
 
   const alchemy = new Alchemy({
     apiKey: `${config.keys.alchemy}`,
-    network: value,
+    network: networkValue,
   });
 
   const metadata = await alchemy.core.getTokenMetadata(contractAddress);

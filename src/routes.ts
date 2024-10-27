@@ -36,8 +36,8 @@ export default (app) => {
   app.post('/v1/ticket', (req, res) => {
     ticketsApi.postTicket(req, res);
   });
-  // get key endpoint
-  app.get('/v1/tokeninfo/:network/:address', (req, res) => {
+  // get token information endpoint
+  app.get('/v1/tokeninfo/:network?/:address?', (req, res) => {
     tokenApi.getTokenInfo(req, res);
   });
 };
