@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 import utxolib from '@runonflux/utxo-lib';
 import bchaddrjs from 'bchaddrjs';
 import * as viem from 'viem';
-import MultiSigSmartAccount_abi from '@runonflux/aa-schnorr-multisig-sdk/dist/abi';
+import { MultiSigSmartAccount_abi } from '@runonflux/aa-schnorr-multisig-sdk/dist/abi';
 
 import blockchains from './blockchains';
 import log from '../lib/log';
@@ -39,7 +39,7 @@ function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
 
     // callGasLimit":"0x5ea6","verificationGasLimit":"0x11b5a","preVerificationGas":"0xdf89","maxFeePerGas":"0xee6b28000","maxPriorityFeePerGas":"0x77359400",
     const decodedData = viem.decodeFunctionData({
-      abi: MultiSigSmartAccount_abi as unknown as viem.Abi,
+      abi: MultiSigSmartAccount_abi as viem.Abi,
       data: callData,
     });
 

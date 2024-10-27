@@ -17,7 +17,7 @@
   resolved "https://registry.yarnpkg.com/@adraffy/ens-normalize/-/ens-normalize-1.11.0.tgz#42cc67c5baa407ac25059fcd7d405cc5ecdb0c33"
   integrity sha512-/3DDPKHqqIqxUULp8yP4zODUY1i+2xvVWsv8A79xGWdCAG+8sb0hRh0Rk2QyOJUnnbyPUAZYcpBuRe3nS2OIUg==
 
-"@alchemy/aa-core@^3.12.3":
+"@alchemy/aa-core@^3.19.0":
   version "3.19.0"
   resolved "https://registry.yarnpkg.com/@alchemy/aa-core/-/aa-core-3.19.0.tgz#e59c0f1832de2b9e6b120022d49f995da3dc34fd"
   integrity sha512-gVSesLsXORMuiA3w/w+4eQikzrikpj1XN2Sbrcik0v25AKH5QrHn0HddhyrN1aCFW2NoXjyhwxlySiTDVfTgxQ==
@@ -1017,16 +1017,16 @@
   resolved "https://registry.yarnpkg.com/@protobufjs/utf8/-/utf8-1.1.0.tgz#a777360b5b39a1a2e5106f8e858f2fd2d060c570"
   integrity sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==
 
-"@runonflux/aa-schnorr-multisig-sdk@1.0.3":
-  version "1.0.3"
-  resolved "https://registry.yarnpkg.com/@runonflux/aa-schnorr-multisig-sdk/-/aa-schnorr-multisig-sdk-1.0.3.tgz#a48466437395b9417a357644bed7e94a0a7ad62d"
-  integrity sha512-Pxml+Kqh0LqiopHRUm4pD79/EU2PXZszHJBoeMtEfmv5qYqblkeOeKSOpBA0A7J3NHoK47Oupu5qIlcj3MCkCQ==
+"@runonflux/aa-schnorr-multisig-sdk@~1.0.4":
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/@runonflux/aa-schnorr-multisig-sdk/-/aa-schnorr-multisig-sdk-1.0.4.tgz#115a3dc2c765a80176f7b19d6a701473c7e99730"
+  integrity sha512-/qUnyrje/Lqb0HDiwTv/Y1NaUJlqTZuy501akteo+nvMD7adGdskovH+jaIpXkr+pdeW/Dc5G5dGEFu0zoleaQ==
   dependencies:
-    "@alchemy/aa-core" "^3.12.3"
+    "@alchemy/aa-core" "^3.19.0"
     bigi "^1.4.2"
     ecurve "^1.0.6"
-    ethers "^6.11.1"
-    secp256k1 "^5.0.0"
+    ethers "^6.13.4"
+    secp256k1 "^5.0.1"
 
 "@runonflux/utxo-lib@~1.0.0":
   version "1.0.0"
@@ -2711,7 +2711,7 @@ etag@~1.8.1:
   resolved "https://registry.yarnpkg.com/etag/-/etag-1.8.1.tgz#41ae2eeb65efa62268aebfea83ac7d79299b0887"
   integrity sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==
 
-ethers@^6.11.1:
+ethers@^6.13.4:
   version "6.13.4"
   resolved "https://registry.yarnpkg.com/ethers/-/ethers-6.13.4.tgz#bd3e1c3dc1e7dc8ce10f9ffb4ee40967a651b53c"
   integrity sha512-21YtnZVg4/zKkCQPjrDj38B1r4nQvTZLopUGMLQ1ePU2zV/joCfDC3t3iKQjWRzjjjbzR+mdAIoikeBRNkdllA==
@@ -4759,7 +4759,7 @@ secp256k1@^3.0.1, secp256k1@^3.5.2, secp256k1@^3.8.0:
     nan "^2.14.0"
     safe-buffer "^5.1.2"
 
-secp256k1@^5.0.0:
+secp256k1@^5.0.1:
   version "5.0.1"
   resolved "https://registry.yarnpkg.com/secp256k1/-/secp256k1-5.0.1.tgz#dc2c86187d48ff2da756f0f7e96417ee03c414b1"
   integrity sha512-lDFs9AAIaWP9UCdtWrotXWWF9t8PWgQDcxqgAnpM9rMqxb3Oaq2J0thzPVSxBwdJgyQtkU/sYtFtbM1RSt/iYA==
