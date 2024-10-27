@@ -64,6 +64,6 @@
     "node-mocks-http": "~1.16.1"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=18"
   }
 }
