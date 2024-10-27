@@ -5,7 +5,7 @@ Ensures proper communication between SSP Wallet and SSP Key
 
 ## Requirements
 
-Requires node version 18 and above, mongodb
+Requires node version 20 and above, mongodb
 
 ## Installation
 
