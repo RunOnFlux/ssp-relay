@@ -7,6 +7,8 @@ import { generated } from '@runonflux/aa-schnorr-multisig-sdk';
 import blockchains from './blockchains';
 import log from '../lib/log';
 
+import { getFromAlchemy } from './tokenServices';
+
 function getLibId(chain) {
   return blockchains[chain].libid;
 }
@@ -72,9 +74,16 @@ function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
       txInfo.token = decodedData.args[0] as string;
 
       // find the token in our token list
-      const token = blockchains[chain].tokens.find(
+      let token: any = {};
+
+      token = blockchains[chain].tokens.find(
         (t) => t.contract.toLowerCase() === txInfo.token.toLowerCase(),
       );
+      
+      if (Object.keys(token).length <= 0) {
+        token = getFromAlchemy(txInfo.token.toLowerCase(), chain.toLowerCase());
+      }
+
       if (token) {
         decimals = token.decimals;
       }
