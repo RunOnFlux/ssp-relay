@@ -139,7 +139,7 @@ describe('Transaction Decoder', function () {
       });
     });
 
-     it('should return error result if raw tx is invalid for sepolia', async function () {
+    it('should return error result if raw tx is invalid for sepolia', async function () {
       const response = await transactionDecoder.decodeTransactionForApproval(
         JSON.stringify(invalidRawTxSepolia),
         'sepolia',

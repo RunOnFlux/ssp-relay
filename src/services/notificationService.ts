@@ -29,7 +29,7 @@ async function sendNotificationKey(wkIdentity, data) {
     try {
       if (data.payload && data.action === 'tx') {
         const decodedTransaction: decodedTx =
-          transactionDecoder.decodeTransactionForApproval(
+          await transactionDecoder.decodeTransactionForApproval(
             data.payload,
             data.chain,
           );

@@ -13,7 +13,7 @@ function getLibId(chain) {
   return blockchains[chain].libid;
 }
 
-function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
+async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
   try {
     let { decimals } = blockchains[chain];
     const multisigUserOpJSON = JSON.parse(rawTx);
@@ -74,14 +74,20 @@ function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
       txInfo.token = decodedData.args[0] as string;
 
       // find the token in our token list
-      let token: any = {};
-
-      token = blockchains[chain].tokens.find(
+      let token = blockchains[chain].tokens.find(
         (t) => t.contract.toLowerCase() === txInfo.token.toLowerCase(),
       );
-      
-      if (Object.keys(token).length <= 0) {
-        token = getFromAlchemy(txInfo.token.toLowerCase(), chain.toLowerCase());
+
+      if (!token) {
+        token = await getFromAlchemy(
+          txInfo.token.toLowerCase(), // contract address
+          chain.toLowerCase(), // chain
+        ).catch((error) => {
+          log.error(
+            `Error getting token info from alchemy for ${txInfo.token} on ${chain}`,
+          );
+          log.error(error);
+        });
       }
 
       if (token) {
@@ -122,10 +128,11 @@ function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
   }
 }
 
-function decodeTransactionForApproval(rawTx, chain = 'btc') {
+async function decodeTransactionForApproval(rawTx, chain = 'btc') {
   try {
     if (blockchains[chain].chainType === 'evm') {
-      return decodeEVMTransactionForApproval(rawTx, chain);
+      const decoded = await decodeEVMTransactionForApproval(rawTx, chain);
+      return decoded;
     }
     log.info('Decoding transaction for approval');
     log.info(rawTx);
