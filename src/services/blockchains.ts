@@ -348,20 +348,20 @@ const eth = {
       decimals: 6,
     },
     {
-      contract: '0x582d872a1b094fc48f5de31d3b73f2d9be47def1',
-      name: 'Wrapped Toncoin',
-      symbol: 'TONCOIN',
-      decimals: 9,
+      contract: '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+      name: 'Wrapped Bitcoin',
+      symbol: 'BTC',
+      decimals: 8,
     },
     {
-      contract: '0x50327c6c5a14dcade707abad2e27eb517df87ab5',
-      name: 'TRON',
-      symbol: 'TRX',
-      decimals: 6,
+      contract: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+      name: 'Wrapped Ether',
+      symbol: 'WETH',
+      decimals: 18,
     },
     {
       contract: '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce',
-      name: 'SHIBA INU',
+      name: 'Shiba Inu',
       symbol: 'SHIB',
       decimals: 18,
     },
@@ -373,7 +373,7 @@ const eth = {
     },
     {
       contract: '0x2af5d2ad76741191d15dfe7bf6ac92d4bd912ca3',
-      name: 'UNUS SED LEO',
+      name: 'Unus Sed Leo',
       symbol: 'LEO',
       decimals: 18,
     },
@@ -409,7 +409,7 @@ const eth = {
     },
     {
       contract: '0x455e53cbb86018ac2b8092fdcd39d8444affc3f6',
-      name: 'POL',
+      name: 'Polygon Ecosystem',
       symbol: 'POL',
       decimals: 18,
     },
@@ -462,12 +462,6 @@ const eth = {
       decimals: 18,
     },
     {
-      contract: '0x8D983cb9388EaC77af0474fA441C4815500Cb7BB',
-      name: 'Cosmos',
-      symbol: 'ATOM',
-      decimals: 6,
-    },
-    {
       contract: '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2',
       name: 'Maker',
       symbol: 'MKR',
@@ -487,7 +481,7 @@ const eth = {
     },
     {
       contract: '0xcf0c122c6b73ff809c693db761e7baebe62b6a2e',
-      name: 'FLOKI',
+      name: 'Floki',
       symbol: 'FLOKI',
       decimals: 9,
     },
@@ -511,7 +505,7 @@ const eth = {
     },
     {
       contract: '0x3593d125a4f7849a1b059e64f4517a86dd60c95d',
-      name: 'MANTRA',
+      name: 'Mantra',
       symbol: 'OM',
       decimals: 18,
     },
@@ -553,7 +547,7 @@ const eth = {
     },
     {
       contract: '0x0c10bf8fcb7bf5412187a595ab97a3609160b5c6',
-      name: 'USDD',
+      name: 'Decentralized USD',
       symbol: 'USDD',
       decimals: 18,
     },
@@ -637,7 +631,7 @@ const eth = {
     },
     {
       contract: '0x45804880de22913dafe09f4980848ece6ecbaf78',
-      name: 'PAX Gold',
+      name: 'Paxos Gold',
       symbol: 'PAXG',
       decimals: 18,
     },
@@ -646,12 +640,6 @@ const eth = {
       name: 'Chiliz',
       symbol: 'CHZ',
       decimals: 18,
-    },
-    {
-      contract: '0xbd31ea8212119f94a611fa969881cba3ea06fa3d',
-      name: 'Terra Classic',
-      symbol: 'LUNC',
-      decimals: 6,
     },
     {
       contract: '0x152649eA73beAb28c5b49B26eb48f7EAD6d4c898',
@@ -687,12 +675,6 @@ const eth = {
       contract: '0x6985884C4392D348587B19cb9eAAf157F13271cd',
       name: 'LayerZero',
       symbol: 'ZRO',
-      decimals: 18,
-    },
-    {
-      contract: '0x26B80FBfC01b71495f477d5237071242e0d959d7',
-      name: 'Wrapped ROSE',
-      symbol: 'wROSE',
       decimals: 18,
     },
     {
@@ -748,12 +730,6 @@ const eth = {
       name: 'SafePal',
       symbol: 'SFP',
       decimals: 18,
-    },
-    {
-      contract: '0x0C356B7fD36a5357E5A017EF11887ba100C9AB76',
-      name: 'Kava',
-      symbol: 'KAVA',
-      decimals: 6,
     },
     {
       contract: '0xac57de9c1a09fec648e93eb98875b212db0d460b',
@@ -888,12 +864,6 @@ const eth = {
       decimals: 18,
     },
     {
-      contract: '0xa117000000f279d81a1d3cc75430faa017fa5a2e',
-      name: 'Aragon',
-      symbol: 'ANT',
-      decimals: 18,
-    },
-    {
       contract: '0xe41d2489571d322189246dafa5ebde1f4699f498',
       name: '0x Protocol',
       symbol: 'ZRX',
@@ -925,7 +895,7 @@ const eth = {
     },
     {
       contract: '0x2dfF88A56767223A5529eA5960Da7A3F5f766406',
-      name: 'SPACE ID',
+      name: 'Space ID',
       symbol: 'ID',
       decimals: 18,
     },
@@ -933,12 +903,6 @@ const eth = {
       contract: '0x69af81e73a73b40adf4f3d4223cd9b1ece623074',
       name: 'Mask Network',
       symbol: 'MASK',
-      decimals: 18,
-    },
-    {
-      contract: '0xCdF7028ceAB81fA0C6971208e83fa7872994beE5',
-      name: 'Threshold',
-      symbol: 'T',
       decimals: 18,
     },
     {
@@ -951,18 +915,6 @@ const eth = {
       contract: '0xd33526068d116ce69f19a9ee46f0bd304f21a51f',
       name: 'Rocket Pool',
       symbol: 'RPL',
-      decimals: 18,
-    },
-    {
-      contract: '0x4e3fbd56cd56c3e72c1403e103b45db9da5b9d2b',
-      name: 'Convex Finance',
-      symbol: 'CVX',
-      decimals: 18,
-    },
-    {
-      contract: '0xf8173a39c56a554837c4c7f104153a005d284d11',
-      name: 'Open Campus',
-      symbol: 'EDU',
       decimals: 18,
     },
   ],
