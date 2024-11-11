@@ -17,6 +17,7 @@
   "dependencies": {
     "@runonflux/aa-schnorr-multisig-sdk": "~1.0.4",
     "@runonflux/utxo-lib": "~1.0.0",
+    "alchemy-sdk": "~3.4.7",
     "apicache": "~1.6.3",
     "axios": "~1.7.7",
     "bchaddrjs": "~0.5.2",
@@ -35,7 +36,6 @@
     "qs": "~6.13.0",
     "socket.io": "~4.8.1",
     "viem": "~2.21.44",
-    "alchemy-sdk": "~3.4.7",
     "zelcorejs": "https://github.com/zelcore-io/zelcorejs"
   },
   "devDependencies": {
