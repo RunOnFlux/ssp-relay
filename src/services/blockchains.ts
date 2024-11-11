@@ -360,6 +360,18 @@ const eth = {
       decimals: 18,
     },
     {
+      contract: '0x50327c6c5a14dcade707abad2e27eb517df87ab5',
+      name: 'Tron',
+      symbol: 'TRX',
+      decimals: 6,
+    },
+    {
+      contract: '0x582d872a1b094fc48f5de31d3b73f2d9be47def1',
+      name: 'Wrapped Toncoin',
+      symbol: 'TON',
+      decimals: 9,
+    },
+    {
       contract: '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce',
       name: 'Shiba Inu',
       symbol: 'SHIB',
