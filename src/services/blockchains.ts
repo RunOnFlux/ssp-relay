@@ -350,7 +350,7 @@ const eth = {
     {
       contract: '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
       name: 'Wrapped Bitcoin',
-      symbol: 'BTC',
+      symbol: 'WBTC',
       decimals: 8,
     },
     {
