@@ -367,7 +367,7 @@ const eth = {
     },
     {
       contract: '0x582d872a1b094fc48f5de31d3b73f2d9be47def1',
-      name: 'Wrapped Toncoin',
+      name: 'Toncoin',
       symbol: 'TON',
       decimals: 9,
     },
