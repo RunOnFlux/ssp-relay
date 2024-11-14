@@ -4,6 +4,7 @@ import ratesApi from './apiServices/ratesApi';
 import ticketsApi from './apiServices/ticketsApi';
 import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
+import assetApi from './apiServices/assetApi';
 
 export default (app) => {
   // return sync data
@@ -35,6 +36,26 @@ export default (app) => {
   // freshdesk ticket
   app.post('/v1/ticket', (req, res) => {
     ticketsApi.postTicket(req, res);
+  });
+  // get fiat assets
+  app.get('/v1/assetinfo/assets/fiat', (req, res) => {
+    assetApi.getFiatAssets(req, res);
+  });
+  // get crypto assets
+  app.get('/v1/assetinfo/assets/crypto', (req, res) => {
+    assetApi.getCryptoAssets(req, res);
+  });
+  // get purchase by id
+  app.get('/v1/assetinfo/purchase/id/:purchaseid?', (req, res) => {
+    assetApi.getPurchaseDetailsByPurchaseId(req, res);
+  });
+  // send purchase
+  app.get('/v1/assetinfo/purchase/send/:purchaseid?/:providerid?', (req, res) => {
+    assetApi.sendPurchase(req, res);
+  });
+  // get purchase history
+  app.get('/v1/assetinfo/purchase/history/:zelid?', (req, res) => {
+    assetApi.getAllPurchase(req, res);
   });
   // get token information endpoint
   app.get('/v1/tokeninfo/:network?/:address?', (req, res) => {
