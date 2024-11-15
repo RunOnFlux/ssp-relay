@@ -37,6 +37,10 @@ export default (app) => {
   app.post('/v1/ticket', (req, res) => {
     ticketsApi.postTicket(req, res);
   });
+  // get token information endpoint
+  app.get('/v1/tokeninfo/:network?/:address?', (req, res) => {
+    tokenApi.getTokenInfo(req, res);
+  });
   // get fiat assets
   app.get('/v1/assetinfo/assets/fiat', (req, res) => {
     assetApi.getFiatAssets(req, res);
@@ -57,8 +61,19 @@ export default (app) => {
   app.get('/v1/assetinfo/purchase/history/:zelid?', (req, res) => {
     assetApi.getAllPurchase(req, res);
   });
-  // get token information endpoint
-  app.get('/v1/tokeninfo/:network?/:address?', (req, res) => {
-    tokenApi.getTokenInfo(req, res);
+  app.post('/v1/assetinfo/purchase/details', (req, res) => {
+    assetApi.getAllPurchaseDetails(req, res);
+  });
+  // send purchase
+  app.post('/v1/assetinfo/purchase/details/assets', (req, res) => {
+    assetApi.getPurchaseDetailsOnSelectedAsset(req, res);
+  });
+  // get purchase history
+  app.post('/v1/assetinfo/purchase/create/:zelid?', (req, res) => {
+    assetApi.createPurchaseDetails(req, res);
+  });
+  // get purchase history
+  app.post('/v1/assetinfo/purchase/status', (req, res) => {
+    assetApi.getAllPurchaseStatus(req, res);
   });
 };

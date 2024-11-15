@@ -4,7 +4,11 @@ import {
   showCryptoAssets,
   getPurchaseDetailByPurchaseId,
   submitPurchase,
-  getPurchaseHistory
+  getPurchaseHistory,
+  getPurchaseDetails,
+  getPurchaseDetailsSelectedAsset,
+  createPurchase,
+  getPurchaseStatus
 } from '../services/assetService';
 
 async function getFiatAssets(req, res) {
@@ -68,10 +72,63 @@ async function getAllPurchase(req, res) {
   }
 }
 
+async function getAllPurchaseDetails(req, res) {
+  try {
+    const data = req.data;
+    const value = await getPurchaseDetails(data);
+    res.json(value);
+  } catch (error) {
+    log.error(error);
+    res.sendStatus(404);
+  }
+}
+
+async function getPurchaseDetailsOnSelectedAsset(req, res) {
+  try {
+    const data = req.data;
+    const value = await getPurchaseDetailsSelectedAsset(data);
+    res.json(value);
+  } catch (error) {
+    log.error(error);
+    res.sendStatus(404);
+  }
+}
+
+async function createPurchaseDetails(req, res) {
+  try {
+    const data = req.data;
+
+    let { zelid } = req.params;
+    zelid = zelid ?? req.query.zelid;
+
+    const value = await createPurchase(data, zelid);
+    res.json(value);
+  } catch (error) {
+    log.error(error);
+    res.sendStatus(404);
+  }
+}
+
+async function getAllPurchaseStatus(req, res) {
+  try {
+    const data = req.data;
+    const value = await getPurchaseStatus(data);
+    res.json(value);
+  } catch (error) {
+    log.error(error);
+    res.sendStatus(404);
+  }
+}
+
+
 export default {
   getFiatAssets,
   getCryptoAssets,
   getPurchaseDetailsByPurchaseId,
   sendPurchase,
-  getAllPurchase
+  getAllPurchase,
+  getAllPurchaseDetails,
+  getPurchaseDetailsOnSelectedAsset,
+  createPurchaseDetails,
+  getAllPurchaseStatus
 }

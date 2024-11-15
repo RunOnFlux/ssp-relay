@@ -6,7 +6,7 @@ export async function showFiatAssets () {
     return response.data;
   } catch(error) {
     console.log(error);
-    return {};
+    return {message: "Error occured in processing"};
   };
 }
 
@@ -16,7 +16,7 @@ export async function showCryptoAssets () {
     return response.data;
   } catch(error) {
     console.log(error);
-    return {};
+    return {message: "Error occured in processing"};
   };
 }
 
@@ -26,7 +26,7 @@ export async function getPurchaseDetailByPurchaseId (purchaseid: string) {
     return response.data;
   } catch(error) {
     console.log(error);
-    return {};
+    return {message: "Error occured in processing"};
   };
 }
 
@@ -36,7 +36,7 @@ export async function submitPurchase (purchaseid: string, providerid: string) {
     return response.data;
   } catch(error) {
     console.log(error);
-    return {};
+    return {message: "Error occured in processing"};
   };
 }
 
@@ -46,9 +46,67 @@ export async function getPurchaseHistory (zelid: string) {
     return response.data;
   } catch(error) {
     console.log(error);
+    return {message: "Error occured in processing"};
+  };
+}
+
+export async function getPurchaseDetails (data: any) {
+  try {
+    const response = await axios.post(`https://abe.zelcore.io/v1/purchase/pairdetails`, data, {
+      headers: { 
+        'Content-Type' : 'application/json'
+      }
+    });
+    return response.data;
+  } catch(error) {
+    console.log(error);
+    return {message: "Error occured in processing"};
+  };
+}
+
+export async function getPurchaseDetailsSelectedAsset (data: any) {
+  try {
+    const response = await axios.post(`https://abe.zelcore.io/v1/purchase/pairdetailssellamount`, data, {
+      headers: { 
+        'Content-Type' : 'application/json'
+      }
+    });
+    return response.data;
+  } catch(error) {
+    console.log(error);
+    return {message: "Error occured in processing"};
+  };
+}
+
+export async function createPurchase (data: any, zelid: string) {
+  try {
+    const response = await axios.post(`https://abe.zelcore.io/v1/purchase/createpurchase`, data, {
+      headers: { 
+        'Content-Type' : 'application/json',
+        'zedid': zelid
+      }
+    });
+    return response.data;
+  } catch(error) {
+    console.log(error);
+    return {message: "Error occured in processing"};
+  };
+}
+
+export async function getPurchaseStatus (data: any) {
+  try {
+    const response = await axios.post(`https://abe.zelcore.io/v1/purchase/status`, data, {
+      headers: { 
+        'Content-Type' : 'application/json'
+      }
+    });
+    return response.data;
+  } catch(error) {
+    console.log(error);
     return {};
   };
 }
+
 
 
 
