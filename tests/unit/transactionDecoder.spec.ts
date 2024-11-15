@@ -118,6 +118,7 @@ describe('Transaction Decoder', function () {
       expect(response).to.deep.equal({
         amount: 'decodingError',
         receiver: 'decodingError',
+        tokenSymbol: 'decodingError',
       });
     });
 
@@ -127,6 +128,7 @@ describe('Transaction Decoder', function () {
       expect(response).to.deep.equal({
         amount: 'decodingError',
         receiver: 'decodingError',
+        tokenSymbol: 'decodingError',
       });
     });
 
@@ -136,6 +138,7 @@ describe('Transaction Decoder', function () {
       expect(response).to.deep.equal({
         amount: 'decodingError',
         receiver: 'decodingError',
+        tokenSymbol: 'decodingError',
       });
     });
 
@@ -150,6 +153,7 @@ describe('Transaction Decoder', function () {
         receiver: 'decodingError',
         sender: 'decodingError',
         token: 'decodingError',
+        tokenSymbol: 'decodingError',
       });
     });
 
@@ -164,6 +168,7 @@ describe('Transaction Decoder', function () {
         receiver: '0x66324EE406cCccdDdAd7f510a61Af22DeC391606',
         sender: '0xd447BA08b0d395fCAd6e480d270529c932289Ce1',
         token: '',
+        tokenSymbol: 'TEST-ETH',
       });
     });
   });
