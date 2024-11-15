@@ -68,6 +68,7 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
       amount,
       fee: totalFeeWei.toFixed(),
       token: '',
+      tokenSymbol: '',
     };
 
     if (amount === '0') {
@@ -92,6 +93,7 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
 
       if (token) {
         decimals = token.decimals;
+        txInfo.tokenSymbol = token.symbol;
       }
       const contractData = decodedData.args[2];
       // most likely we are dealing with a contract call, sending some erc20 token
@@ -112,6 +114,8 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
           .dividedBy(new BigNumber(10 ** decimals))
           .toFixed();
       }
+    } else {
+      txInfo.tokenSymbol = blockchains[chain].symbol;
     }
 
     return txInfo;
@@ -123,6 +127,7 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
       amount: 'decodingError',
       fee: 'decodingError',
       token: 'decodingError',
+      tokenSymbol: 'decodingError',
     };
     return txInfo;
   }
@@ -202,6 +207,7 @@ async function decodeTransactionForApproval(rawTx, chain = 'btc') {
     const txInfo = {
       receiver: txReceiver,
       amount,
+      tokenSymbol: blockchains[chain].symbol,
     };
     return txInfo;
   } catch (error) {
@@ -209,6 +215,7 @@ async function decodeTransactionForApproval(rawTx, chain = 'btc') {
     return {
       receiver: 'decodingError',
       amount: 'decodingError',
+      tokenSymbol: 'decodingError',
     };
   }
 }

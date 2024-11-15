@@ -291,12 +291,12 @@ const sepolia = {
       symbol: 'TEST-ETH',
       decimals: 18,
     },
-    {
-      contract: '0x690cc0235aBEA2cF89213E30D0F0Ea0fC054B909',
-      name: 'Fake Flux',
-      symbol: 'TEST-FLUX',
-      decimals: 8,
-    },
+    // {
+    //   contract: '0x690cc0235aBEA2cF89213E30D0F0Ea0fC054B909',
+    //   name: 'Fake Flux',
+    //   symbol: 'TEST-FLUX',
+    //   decimals: 8,
+    // },
   ],
 };
 
