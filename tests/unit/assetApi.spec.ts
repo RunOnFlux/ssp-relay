@@ -2,12 +2,11 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
 import chai from 'chai';
-import assetService from '../../src/services/assetService';
 import assetApi from '../../src/apiServices/assetApi';
 import sinon from 'sinon';
 import httpMocks from 'node-mocks-http';
 
-const { expect, assert } = chai;
+const { expect } = chai;
 
 describe('Asset API', function () {
   describe('Asset API: Correctly verifies asset data', function () {
