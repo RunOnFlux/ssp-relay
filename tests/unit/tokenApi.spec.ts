@@ -35,7 +35,7 @@ describe('Token API', function () {
             eventEmiiter: require('events').EventEmitter,
             req: request,
         });
-        const res = await tokenApi.getTokenInfo(request, res);
+        const res = await tokenApi.getTokenInfo(request, response);
         expect(res).to.have.property('decimal');
         expect(res).to.have.property('logo');
         expect(res).to.have.property('name');

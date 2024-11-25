@@ -128,7 +128,7 @@ describe('Asset API', function () {
                     "providerCardId": "d7b631c8-0ffe-499f-a661-93869e4d3454"
                 }
             });
-        const res = await assetApi.sendPurchase(request, res);
+        const res = await assetApi.sendPurchase(request, response);
         expect(res).to.have.property('status');
         expect(res).to.have.property('data');
         expect(res.data).to.have.property('purchaseId');
@@ -194,7 +194,7 @@ describe('Asset API', function () {
                     "providerCardId": "d7b631c8-0ffe-499f-a661-93869e4d3454"
                 }]
             });
-        const res = await assetApi.getAllPurchase(request, res);
+        const res = await assetApi.getAllPurchase(request, response);
         expect(res).to.have.property('status');
         expect(res).to.have.property('data');
         expect(res.data[0]).to.have.property('purchaseId');
@@ -254,7 +254,7 @@ describe('Asset API', function () {
                     ]
                 }
             });
-        const res = await assetApi.getAllPurchaseDetails(request, res);
+        const res = await assetApi.getAllPurchaseDetails(request, response);
         expect(res).to.have.property('status');
         expect(res).to.have.property('data');
         expect(res.data).to.have.property('buyAsset');
@@ -304,7 +304,7 @@ describe('Asset API', function () {
                     ]
                 }
             });
-        const res = await assetApi.getPurchaseDetailsOnSelectedAsset(request, res);
+        const res = await assetApi.getPurchaseDetailsOnSelectedAsset(request, response);
         expect(res).to.have.property('status');
         expect(res).to.have.property('data');
         expect(res.data).to.have.property('buyAsset');
@@ -360,7 +360,7 @@ describe('Asset API', function () {
                     "widget": "https://buy-sandbox.moonpay.com?apiKey=pk_test_1LCSMjhCP0H5FSywT0MJSPPNjLmJvv&theme=dark&currencyCode=btc&baseCurrencyCode=usd&walletAddress=1CbErtneaX2QVyUfwU7JGB7VzvPgrgc3uC&baseCurrencyAmount=300.00&walletAddressTag=1BoatSLRHtKNngkdXEeobR76b53LETtpyT&redirectURL=zel%3A&colorCode=#C556E2&signature=38770a45323a97a63aef2f0c0875af2a95d49305971078882cebec986491517e"
                 }
             });
-        const res = await assetApi.createPurchaseDetails(request, res);
+        const res = await assetApi.createPurchaseDetails(request, response);
         expect(res).to.have.property('status');
         expect(res).to.have.property('data');
         expect(res.data).to.have.property('providerId');
@@ -397,7 +397,7 @@ describe('Asset API', function () {
                 "status": "success",
                 "data": "finished"
             });
-        const res = await assetApi.createPurchaseDetails(request, res);
+        const res = await assetApi.createPurchaseDetails(request, response);
         expect(res).to.have.property('status');
         expect(res).to.have.property('data');
     });
