@@ -155,6 +155,26 @@ describe('Asset API', function () {
         expect(res.data).to.have.property('providerCardId');
     });
 
+    it('should return sendPurchase unsuccessful result if value is valid', async function () {
+        const request = httpMocks.createRequest({
+            method: 'GET',
+            url: 'test',
+            params: {
+                purchaseid: "58f9cce7-abcb-4468-96f1-d0bc75000ec4",
+                providerid: "idmoonpay"
+            }
+        });
+        const response = httpMocks.createResponse({
+            eventEmiiter: require('events').EventEmitter,
+            req: request,
+        });
+        await assetApi.sendPurchase(request, response);
+        expect(JSON.parse(response._getData())).to.have.property('status');
+        expect(JSON.parse(response._getData())).to.have.property('data');
+        expect(JSON.parse(response._getData()).data).to.have.property('name');
+        expect(JSON.parse(response._getData()).data).to.have.property('message');
+    });
+
     it('should return getAllPurchase successful result if value is valid', async function () {
         const request = httpMocks.createRequest({
             method: 'GET',
@@ -221,6 +241,26 @@ describe('Asset API', function () {
         expect(res.data[0]).to.have.property('providerCardId');
     });
 
+    it('should return getAllPurchase unsuccessful result if value is valid', async function () {
+        const request = httpMocks.createRequest({
+            method: 'GET',
+            url: 'test',
+            params: {
+                purchaseid: "58f9cce7-abcb-4468-96f1-d0bc75000ec4",
+                providerid: "idmoonpay"
+            }
+        });
+        const response = httpMocks.createResponse({
+            eventEmiiter: require('events').EventEmitter,
+            req: request,
+        });
+        await assetApi.getAllPurchase(request, response);
+        expect(JSON.parse(response._getData())).to.have.property('status');
+        expect(JSON.parse(response._getData())).to.have.property('data');
+        expect(JSON.parse(response._getData()).data).to.have.property('name');
+        expect(JSON.parse(response._getData()).data).to.have.property('message');
+    });
+
     it('should return getAllPurchaseDetails successful result if value is valid', async function () {
         const request = httpMocks.createRequest({
             method: 'POST',
@@ -266,6 +306,26 @@ describe('Asset API', function () {
         expect(res.data.providers[0]).to.have.property('precision');
         expect(res.data.providers[0]).to.have.property('networkFee');
         expect(res.data.providers[0]).to.have.property('transactionFee');
+    });
+
+    it('should return getAllPurchaseDetails unsuccessful result if value is valid', async function () {
+        const request = httpMocks.createRequest({
+            method: 'GET',
+            url: 'test',
+            params: {
+                purchaseid: "58f9cce7-abcb-4468-96f1-d0bc75000ec4",
+                providerid: "idmoonpay"
+            }
+        });
+        const response = httpMocks.createResponse({
+            eventEmiiter: require('events').EventEmitter,
+            req: request,
+        });
+        await assetApi.getAllPurchaseDetails(request, response);
+        expect(JSON.parse(response._getData())).to.have.property('status');
+        expect(JSON.parse(response._getData())).to.have.property('data');
+        expect(JSON.parse(response._getData()).data).to.have.property('name');
+        expect(JSON.parse(response._getData()).data).to.have.property('message');
     });
 
     it('should return getPurchaseDetailsOnSelectedAsset successful result if value is valid', async function () {
@@ -318,6 +378,26 @@ describe('Asset API', function () {
         expect(res.data.providers[0]).to.have.property('precision');
         expect(res.data.providers[0]).to.have.property('networkFee');
         expect(res.data.providers[0]).to.have.property('transactionFee');
+    });
+
+    it('should return getPurchaseDetailsOnSelectedAsset unsuccessful result if value is valid', async function () {
+        const request = httpMocks.createRequest({
+            method: 'GET',
+            url: 'test',
+            params: {
+                purchaseid: "58f9cce7-abcb-4468-96f1-d0bc75000ec4",
+                providerid: "idmoonpay"
+            }
+        });
+        const response = httpMocks.createResponse({
+            eventEmiiter: require('events').EventEmitter,
+            req: request,
+        });
+        await assetApi.getPurchaseDetailsOnSelectedAsset(request, response);
+        expect(JSON.parse(response._getData())).to.have.property('status');
+        expect(JSON.parse(response._getData())).to.have.property('data');
+        expect(JSON.parse(response._getData()).data).to.have.property('name');
+        expect(JSON.parse(response._getData()).data).to.have.property('message');
     });
 
     it('should return createPurchaseDetails successful result if value is valid', async function () {
@@ -378,7 +458,27 @@ describe('Asset API', function () {
         expect(res.data).to.have.property('widget');
     });
 
-    it('should return createPurchaseDetails successful result if value is valid', async function () {
+    it('should return createPurchaseDetails unsuccessful result if value is valid', async function () {
+        const request = httpMocks.createRequest({
+            method: 'GET',
+            url: 'test',
+            params: {
+                purchaseid: "58f9cce7-abcb-4468-96f1-d0bc75000ec4",
+                providerid: "idmoonpay"
+            }
+        });
+        const response = httpMocks.createResponse({
+            eventEmiiter: require('events').EventEmitter,
+            req: request,
+        });
+        await assetApi.createPurchaseDetails(request, response);
+        expect(JSON.parse(response._getData())).to.have.property('status');
+        expect(JSON.parse(response._getData())).to.have.property('data');
+        expect(JSON.parse(response._getData()).data).to.have.property('name');
+        expect(JSON.parse(response._getData()).data).to.have.property('message');
+    });
+
+    it('should return getAllPurchaseStatus successful result if value is valid', async function () {
         const request = httpMocks.createRequest({
             method: 'POST',
             url: 'test',
@@ -392,14 +492,34 @@ describe('Asset API', function () {
             req: request,
         });
         await sinon
-            .stub(assetApi, 'createPurchaseDetails')
+            .stub(assetApi, 'getAllPurchaseStatus')
             .returns({
                 "status": "success",
                 "data": "finished"
             });
-        const res = await assetApi.createPurchaseDetails(request, response);
+        const res = await assetApi.getAllPurchaseStatus(request, response);
         expect(res).to.have.property('status');
         expect(res).to.have.property('data');
+    });
+
+    it('should return getAllPurchaseStatus unsuccessful result if value is valid', async function () {
+        const request = httpMocks.createRequest({
+            method: 'GET',
+            url: 'test',
+            params: {
+                purchaseid: "58f9cce7-abcb-4468-96f1-d0bc75000ec4",
+                providerid: "idmoonpay"
+            }
+        });
+        const response = httpMocks.createResponse({
+            eventEmiiter: require('events').EventEmitter,
+            req: request,
+        });
+        await assetApi.getAllPurchaseStatus(request, response);
+        expect(JSON.parse(response._getData())).to.have.property('status');
+        expect(JSON.parse(response._getData())).to.have.property('data');
+        expect(JSON.parse(response._getData()).data).to.have.property('name');
+        expect(JSON.parse(response._getData()).data).to.have.property('message');
     });
   });
 });
