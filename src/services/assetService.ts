@@ -107,6 +107,16 @@ export async function getPurchaseStatus (data: any) {
   };
 }
 
+export async function getProviders () {
+  try {
+    const response = await axios.get('https://abe.zelcore.io/v1/purchases');
+    return response.data;
+  } catch(error) {
+    console.log(error);
+    return {message: "Error occured in processing"};
+  };
+}
+
 
 
 

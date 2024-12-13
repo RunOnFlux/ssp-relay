@@ -49,6 +49,10 @@ export default (app) => {
   app.get('/v1/assetinfo/assets/crypto', (req, res) => {
     assetApi.getCryptoAssets(req, res);
   });
+  // get asset providers
+  app.get('/v1/assetinfo/assets/providers', (req, res) => {
+    assetApi.getAssetProviders(req, res);
+  });
   // get purchase by id
   app.get('/v1/assetinfo/purchase/id/:purchaseid?', (req, res) => {
     assetApi.getPurchaseDetailsByPurchaseId(req, res);

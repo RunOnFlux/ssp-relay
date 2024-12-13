@@ -8,7 +8,8 @@ import {
   getPurchaseDetails,
   getPurchaseDetailsSelectedAsset,
   createPurchase,
-  getPurchaseStatus
+  getPurchaseStatus,
+  getProviders
 } from '../services/assetService';
 
 async function getFiatAssets(req, res) {
@@ -24,6 +25,16 @@ async function getFiatAssets(req, res) {
 async function getCryptoAssets(req, res) {
   try {
     const value = await showCryptoAssets();
+    res.json(value);
+  } catch (error) {
+    log.error(error);
+    res.sendStatus(404);
+  }
+}
+
+async function getAssetProviders(req, res) {
+  try {
+    const value = await getProviders();
     res.json(value);
   } catch (error) {
     log.error(error);
@@ -74,8 +85,11 @@ async function getAllPurchase(req, res) {
 
 async function getAllPurchaseDetails(req, res) {
   try {
-    const data = req.data;
-    const value = await getPurchaseDetails(data);
+    let body = '';
+    await req.on('data', (data) => {
+      body += data;
+    });
+    const value = await getPurchaseDetails(body);
     res.json(value);
   } catch (error) {
     log.error(error);
@@ -85,8 +99,11 @@ async function getAllPurchaseDetails(req, res) {
 
 async function getPurchaseDetailsOnSelectedAsset(req, res) {
   try {
-    const data = req.data;
-    const value = await getPurchaseDetailsSelectedAsset(data);
+    let body = '';
+    await req.on('data', (data) => {
+      body += data;
+    });
+    const value = await getPurchaseDetailsSelectedAsset(body);
     res.json(value);
   } catch (error) {
     log.error(error);
@@ -96,12 +113,15 @@ async function getPurchaseDetailsOnSelectedAsset(req, res) {
 
 async function createPurchaseDetails(req, res) {
   try {
-    const data = req.data;
+    let body = '';
+    await req.on('data', (data) => {
+      body += data;
+    });
 
     let { zelid } = req.params;
     zelid = zelid ?? req.query.zelid;
 
-    const value = await createPurchase(data, zelid);
+    const value = await createPurchase(body, zelid);
     res.json(value);
   } catch (error) {
     log.error(error);
@@ -111,8 +131,11 @@ async function createPurchaseDetails(req, res) {
 
 async function getAllPurchaseStatus(req, res) {
   try {
-    const data = req.data;
-    const value = await getPurchaseStatus(data);
+    let body = '';
+    await req.on('data', (data) => {
+      body += data;
+    });
+    const value = await getPurchaseStatus(body);
     res.json(value);
   } catch (error) {
     log.error(error);
@@ -130,5 +153,6 @@ export default {
   getAllPurchaseDetails,
   getPurchaseDetailsOnSelectedAsset,
   createPurchaseDetails,
-  getAllPurchaseStatus
+  getAllPurchaseStatus,
+  getAssetProviders
 }
