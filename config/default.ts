@@ -29,4 +29,9 @@ export default {
     groupId: freshdesksecrets.groupid,
     ips: freshdesksecrets.ips,
   },
+  services: {
+    onramp: true,
+    offramp: true,
+    swap: true,
+  },
 };

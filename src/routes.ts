@@ -1,3 +1,4 @@
+import config from 'config';
 import syncApi from './apiServices/syncApi';
 import actionApi from './apiServices/actionApi';
 import ratesApi from './apiServices/ratesApi';
@@ -39,5 +40,9 @@ export default (app) => {
   // get token information endpoint
   app.get('/v1/tokeninfo/:network?/:address?', (req, res) => {
     tokenApi.getTokenInfo(req, res);
+  });
+  // get enabled services, used to toggle off on third party features in the app
+  app.get('/v1/services', (req, res) => {
+    res.json(config.services);
   });
 };
