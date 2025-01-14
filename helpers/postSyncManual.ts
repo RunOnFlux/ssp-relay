@@ -5,6 +5,7 @@ async function postSync() {
     chain: 'btc',
     walletIdentity: 'testkappa',
     keyXpub: 'xpubaaaa',
+    generatedAddress: '0-0addressGeneratedonKeyMustMatchOnWallet',
     wkIdentity: 'asdadsadad',
     publicNonces: [{ kPublic: 'akk', kTwoPublic: 'asdd' }],
   };

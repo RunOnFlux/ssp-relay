@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-async function postSync() {
+async function postAction() {
   const data = {
     chain: 'btc',
     path: '0-0',
@@ -15,6 +15,6 @@ async function postSync() {
   console.log(response.data);
 }
 
-postSync().catch((error) => {
+postAction().catch((error) => {
   console.log(error);
 });

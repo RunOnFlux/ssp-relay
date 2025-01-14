@@ -7,6 +7,7 @@ interface syncData {
   walletIdentity: string;
   keyXpub: string;
   wkIdentity: string;
+  generatedAddress?: string;
   publicNonces?: string[];
 }
 
@@ -57,6 +58,7 @@ function postSync(req, res) {
         walletIdentity: processedBody.walletIdentity,
         keyXpub: processedBody.keyXpub,
         wkIdentity: processedBody.wkIdentity,
+        generatedAddress: processedBody.generatedAddress, // this is the address generated on the key that must match the address on the wallet, this is optional, verification is done on the wallet
       };
 
       // EVM sync
