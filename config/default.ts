@@ -21,6 +21,7 @@ export default {
   },
   keys: {
     cmc: apisecrets.cmcApiKey,
+    cmcb: apisecrets.cmcApiKeyB,
     freshdesk: freshdesksecrets.apikey,
     alchemy: alchemysecrets.alchemyApiKey,
   },
