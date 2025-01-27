@@ -1,7 +1,7 @@
 import admin, { ServiceAccount } from 'firebase-admin';
 import syncService from './syncService';
 import log from '../lib/log';
-import * as serviceAccount from '../../config/serviceAccountKey.json';
+import serviceAccount from '../../config/serviceAccountKey.json';
 import transactionDecoder from './transactionDecoder';
 import blockchains from './blockchains';
 
