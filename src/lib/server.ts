@@ -27,4 +27,9 @@ app.use(cors());
 app.use(limiter);
 routes(app);
 
+// Catch-all route for undefined routes
+app.use((req, res) => {
+  res.status(404).send('Not found.');
+});
+
 export default app;

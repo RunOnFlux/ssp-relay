@@ -15,8 +15,14 @@ async function getSync(req, res) {
   try {
     let { id } = req.params;
     id = id || req.query.id; // id is walletIdentity
-    if (!id) {
-      res.sendStatus(400);
+    if (
+      !id ||
+      typeof id !== 'string' ||
+      id.length > 200 ||
+      !/^[a-zA-Z0-9_-]+$/.test(id)
+    ) {
+      // send status code 400 and message of invalid id
+      res.status(400).send('Invalid ID');
       return;
     }
     const syncExist = await syncService.getSync(id);
@@ -40,17 +46,87 @@ function postSync(req, res) {
   req.on('end', async () => {
     try {
       const processedBody = serviceHelper.ensureObject(body);
-      if (!processedBody.chain) {
-        throw new Error('No Chain specified');
+      if (
+        !processedBody.chain ||
+        typeof processedBody.chain !== 'string' ||
+        processedBody.chain.length > 200 ||
+        !/^[a-zA-Z0-9_-]+$/.test(processedBody.chain)
+      ) {
+        throw new Error('Invalid Chain specified');
       }
-      if (!processedBody.walletIdentity) {
-        throw new Error('No Wallet identity specified');
+      if (
+        !processedBody.walletIdentity ||
+        typeof processedBody.walletIdentity !== 'string' ||
+        processedBody.walletIdentity.length > 200 ||
+        !/^[a-zA-Z0-9_-]+$/.test(processedBody.walletIdentity)
+      ) {
+        throw new Error('Invalid Wallet identity specified');
       }
-      if (!processedBody.keyXpub) {
-        throw new Error('No XPUB of Key specified');
+      if (
+        !processedBody.keyXpub ||
+        typeof processedBody.keyXpub !== 'string' ||
+        processedBody.keyXpub.length > 200 ||
+        !/^[a-zA-Z0-9_-]+$/.test(processedBody.keyXpub)
+      ) {
+        throw new Error('Invalid XPUB of Key specified');
       }
-      if (!processedBody.wkIdentity) {
-        throw new Error('No SSP Identity specified');
+      if (
+        !processedBody.wkIdentity ||
+        typeof processedBody.wkIdentity !== 'string' ||
+        processedBody.wkIdentity.length > 200 ||
+        !/^[a-zA-Z0-9_-]+$/.test(processedBody.wkIdentity)
+      ) {
+        throw new Error('Invalid SSP Identity specified');
+      }
+
+      // validations
+      // generated address
+      if (
+        processedBody.generatedAddress &&
+        typeof processedBody.generatedAddress !== 'string'
+      ) {
+        throw new Error('Invalid generated address');
+      }
+
+      if (
+        processedBody.generatedAddress &&
+        (processedBody.generatedAddress.length > 200 ||
+          !/^[a-zA-Z0-9_-]+$/.test(processedBody.generatedAddress))
+      ) {
+        throw new Error('Generated address is invalid');
+      }
+
+      // public nonces
+      if (
+        processedBody.publicNonces &&
+        !Array.isArray(processedBody.publicNonces)
+      ) {
+        throw new Error('Invalid public nonces');
+      }
+
+      if (processedBody.publicNonces && processedBody.publicNonces.length > 0) {
+        processedBody.publicNonces.forEach((nonce) => {
+          // nonce is object containing kPublic and kTwoPublic
+          if (
+            typeof nonce !== 'object' ||
+            typeof nonce.kPublic !== 'string' ||
+            typeof nonce.kTwoPublic !== 'string'
+          ) {
+            throw new Error('Invalid public nonce detected');
+          }
+
+          if (nonce.kPublic.length > 200 || nonce.kTwoPublic.length > 200) {
+            throw new Error('Public nonce is too long');
+          }
+        });
+      }
+
+      // too many nonces
+      if (
+        processedBody.publicNonces &&
+        processedBody.publicNonces.length > 1000
+      ) {
+        throw new Error('Too many public nonces submitted');
       }
 
       const data: syncData = {
@@ -98,12 +174,21 @@ function postToken(req, res) {
   req.on('end', async () => {
     try {
       const processedBody = serviceHelper.ensureObject(body);
-      if (!processedBody.wkIdentity) {
-        throw new Error('No SSP identity specified');
+      if (
+        !processedBody.wkIdentity ||
+        typeof processedBody.wkIdentity !== 'string' ||
+        processedBody.wkIdentity.length > 200 ||
+        !/^[a-zA-Z0-9_-]+$/.test(processedBody.wkIdentity)
+      ) {
+        throw new Error('Invalid SSP identity specified');
       }
 
-      if (!processedBody.keyToken) {
-        throw new Error('No SSP Key Token specified');
+      if (
+        !processedBody.keyToken ||
+        typeof processedBody.keyToken !== 'string' ||
+        processedBody.keyToken.length > 5000
+      ) {
+        throw new Error('Invalid SSP Key Token specified');
       }
 
       const tokenData = {

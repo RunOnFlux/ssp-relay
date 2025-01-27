@@ -10,7 +10,7 @@ export async function getFromAlchemy(contractAddress: string, network: string) {
   } else if (network === 'sepolia') {
     networkValue = Network.ETH_SEPOLIA;
   } else {
-    networkValue = Network.ETH_SEPOLIA;
+    throw new Error('Unsupported network');
   }
 
   const alchemy = new Alchemy({
