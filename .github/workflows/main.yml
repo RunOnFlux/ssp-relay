@@ -24,8 +24,10 @@ jobs:
           mongodb-username: ssp-relay-user
           mongodb-password: ssp-relay-password
           mongodb-db: ssp-relay
-      - name: npm install
-        run: npm i
+      - name: Install yarn
+        run: npm install -g yarn
+      - name: yarn install
+        run: yarn
       - name: Setup CI config
         run: |
           echo $SERVICE_ACCOUNT_CONFIG > config/serviceAccountKey.json
