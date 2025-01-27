@@ -1,13 +1,6 @@
-import axios from 'axios';
 import { MongoClient } from 'mongodb';
 import config from 'config';
-import bitcoinjs from 'bitcoinjs-lib';
-import utxolib from '@runonflux/utxo-lib';
-import zelcorejs from 'zelcorejs';
-import { randomBytes } from 'crypto';
 import qs from 'qs';
-
-import log from '../lib/log';
 
 const user = encodeURIComponent(config.database.username);
 const password = encodeURIComponent(config.database.password);
@@ -279,129 +272,6 @@ async function addMultipleDocuments(
   return result;
 }
 
-// Verification functions
-function verifyZelID(address) {
-  try {
-    if (!address) {
-      throw new Error('Missing zelID for verification');
-    }
-
-    if (!address.startsWith('1')) {
-      throw new Error('Invalid zelID');
-    }
-
-    if (address.length > 36) {
-      const btcPubKeyHash = '00';
-      zelcorejs.address.pubKeyToAddr(address, btcPubKeyHash);
-    }
-    utxolib.address.toOutputScript(address);
-    return true;
-  } catch (e) {
-    log.error(e);
-    return false;
-  }
-}
-
-// Verification functions
-function verifyPublicKey(pubKey) {
-  try {
-    if (!pubKey) {
-      throw new Error('Missing public key verification');
-    }
-    const re = /[0-9A-Fa-f]{64}/g; // 64 chars, hex
-    if (!re.test(pubKey)) {
-      throw new Error('Invalid public key');
-    }
-    const btcPubKeyHash = '00';
-    const address = zelcorejs.address.pubKeyToAddr(pubKey, btcPubKeyHash);
-    utxolib.address.toOutputScript(address);
-    return true;
-  } catch (e) {
-    log.error(e);
-    return false;
-  }
-}
-
-function verifyMessage(
-  message,
-  address,
-  signature,
-  pubKeyHash = '00',
-  strMessageMagic,
-  checkSegwitAlways,
-) {
-  let signingAddress = address;
-  try {
-    if (!address || !message || !signature) {
-      throw new Error('Missing parameters for message verification');
-    }
-
-    if (address.length > 36) {
-      const sigAddress = zelcorejs.address.pubKeyToAddr(address, pubKeyHash);
-      // const publicKeyBuffer = Buffer.from(address, 'hex');
-      // const publicKey = bitcoinjs.ECPair.fromPublicKeyBuffer(publicKeyBuffer);
-      // const sigAddress = bitcoinjs.payments.p2pkh({ pubkey: publicKeyBuffer }).address);
-      signingAddress = sigAddress;
-    }
-    const isValid = zelcorejs.message.verify(
-      message,
-      signingAddress,
-      signature,
-      strMessageMagic,
-      checkSegwitAlways,
-      pubKeyHash,
-    );
-    return isValid;
-  } catch (e) {
-    log.error(e);
-    return false;
-  }
-}
-
-function signMessage(message, pk, strMessageMagic) {
-  try {
-    // @ts-expect-error ECPair exists, todo types file
-    const keyPair = bitcoinjs.ECPair.fromWIF(pk);
-    const { privateKey } = keyPair;
-    // console.log(keyPair.privateKey.toString('hex'));
-    // console.log(keyPair.publicKey.toString('hex'));
-
-    let signature = zelcorejs.message.sign(
-      message,
-      privateKey,
-      keyPair.compressed,
-      strMessageMagic,
-      { extraEntropy: randomBytes(32) },
-    );
-    signature = signature.toString('base64');
-    // => different (but valid) signature each time
-    return signature;
-  } catch (e) {
-    log.error(e);
-    return e;
-  }
-}
-
-// helper function for timeout on axios connection
-const axiosGet = (
-  url,
-  options = {
-    timeout: 20000,
-  },
-) => {
-  const abort = axios.CancelToken.source();
-  const id = setTimeout(
-    () => abort.cancel(`Timeout of ${options.timeout}ms.`),
-    options.timeout,
-  );
-  return axios
-    .get(url, { cancelToken: abort.token, ...options })
-    .then((res) => {
-      clearTimeout(id);
-      return res;
-    });
-};
-
 export default {
   ensureBoolean,
   ensureNumber,
@@ -421,16 +291,11 @@ export default {
   dropCollection,
   collectionStats,
   addMultipleDocuments,
-  signMessage,
-  verifyMessage,
-  verifyPublicKey,
   createDataMessage,
   createSuccessMessage,
   createWarningMessage,
   createErrorMessage,
   errUnauthorizedMessage,
-  axiosGet,
-  verifyZelID,
   delay,
   initiateDB,
   databaseConnection,
