@@ -11,10 +11,10 @@ const { expect, assert } = chai;
 
 const reqValid = {
   params: {
-    id: 141,
+    id: 'bc1walletidentity',
   },
   query: {
-    id: 141,
+    id: 'bc1walletidentity',
   },
 };
 
@@ -25,24 +25,28 @@ describe('Action API', function () {
     });
 
     // Testing using stub data
-    it('should return successful result 141 if stub value is valid', async function () {
+    it('should return successful result bc1walletidentity if stub value is valid', async function () {
       const request = httpMocks.createRequest({
         method: 'GET',
         url: 'test',
         body: reqValid,
-        query: { id: 141 },
+        query: { id: 'bc1walletidentity' },
       });
       const res = httpMocks.createResponse({
         eventEmiiter: require('events').EventEmitter,
         req: request,
       });
-      await sinon.stub(actionService, 'getAction').returns({ wkIdentity: 141 });
+      await sinon
+        .stub(actionService, 'getAction')
+        .returns({ wkIdentity: 'bc1walletidentity' });
       await actionApi.getAction(request, res);
       expect(JSON.parse(res._getData())).to.have.property('wkIdentity');
-      expect(JSON.parse(res._getData())).to.deep.equal({ wkIdentity: 141 });
+      expect(JSON.parse(res._getData())).to.deep.equal({
+        wkIdentity: 'bc1walletidentity',
+      });
     });
 
-    it('should return Bad Request result 141 if stub value is invalid', async function () {
+    it('should return Bad Request result c1walletidentityif stub value is invalid', async function () {
       const request = httpMocks.createRequest({
         method: 'GET',
         url: 'test',
@@ -52,17 +56,19 @@ describe('Action API', function () {
         eventEmiiter: require('events').EventEmitter,
         req: request,
       });
-      await sinon.stub(actionService, 'getAction').returns({ wkIdentity: 141 });
+      await sinon
+        .stub(actionService, 'getAction')
+        .returns({ wkIdentity: 'bc1walletidentity' });
       await actionApi.getAction(request, res);
       expect(res._getData()).to.deep.equal('Bad Request');
     });
 
-    it('should return error result 141 if stub value is valid', async function () {
+    it('should return error result bc1walletidentity if stub value is valid', async function () {
       const request = httpMocks.createRequest({
         method: 'GET',
         url: 'test',
         body: reqValid,
-        query: { id: 141 },
+        query: { id: 'bc1walletidentity' },
       });
       const res = httpMocks.createResponse({
         eventEmiiter: require('events').EventEmitter,
