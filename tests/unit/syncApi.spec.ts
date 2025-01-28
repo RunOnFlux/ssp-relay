@@ -46,7 +46,7 @@ describe('Sync API', function () {
       });
     });
 
-    it('should return Bad Request result 141 if stub value is false', async function () {
+    it('should return Invalid ID result bc1walletidentity141 if stub value is false', async function () {
       const request = httpMocks.createRequest({
         method: 'GET',
         url: 'test',
@@ -58,10 +58,10 @@ describe('Sync API', function () {
       });
       await sinon.stub(syncService, 'getSync').returns(false);
       await syncApi.getSync(request, res);
-      expect(res._getData()).to.deep.equal('Bad Request');
+      expect(res._getData()).to.deep.equal('Invalid ID');
     });
 
-    it('should return Bad Request result bc1walletidentity141 if stub value is undefined', async function () {
+    it('should return Invalid ID result bc1walletidentity141 if stub value is undefined', async function () {
       const request = httpMocks.createRequest({
         method: 'GET',
         url: 'test',
@@ -73,10 +73,10 @@ describe('Sync API', function () {
       });
       await sinon.stub(syncService, 'getSync').returns(undefined);
       await syncApi.getSync(request, res);
-      expect(res._getData()).to.deep.equal('Bad Request');
+      expect(res._getData()).to.deep.equal('Invalid ID');
     });
 
-    it('should return Bad Request result bc1walletidentity141 if stub value is null', async function () {
+    it('should return Invalid ID result bc1walletidentity141 if stub value is null', async function () {
       const request = httpMocks.createRequest({
         method: 'GET',
         url: 'test',
@@ -88,7 +88,7 @@ describe('Sync API', function () {
       });
       await sinon.stub(syncService, 'getSync').returns(null);
       await syncApi.getSync(request, res);
-      expect(res._getData()).to.deep.equal('Bad Request');
+      expect(res._getData()).to.deep.equal('Invalid ID');
     });
   });
 

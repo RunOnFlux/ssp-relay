@@ -46,7 +46,7 @@ describe('Action API', function () {
       });
     });
 
-    it('should return Bad Request result c1walletidentityif stub value is invalid', async function () {
+    it('should return Invalid ID result bc1walletidentityif stub value is invalid', async function () {
       const request = httpMocks.createRequest({
         method: 'GET',
         url: 'test',
@@ -60,7 +60,7 @@ describe('Action API', function () {
         .stub(actionService, 'getAction')
         .returns({ wkIdentity: 'bc1walletidentity' });
       await actionApi.getAction(request, res);
-      expect(res._getData()).to.deep.equal('Bad Request');
+      expect(res._getData()).to.deep.equal('Invalid ID');
     });
 
     it('should return error result bc1walletidentity if stub value is valid', async function () {
