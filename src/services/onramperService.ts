@@ -6,7 +6,7 @@ const secretKey = config.keys.onramper;
 
 export function generateSignature(data: string): string {
   try {
-    if (data.length < 100) {
+    if (data.length < 30) {
       throw new Error('Data is too short');
     }
     const hmac = crypto.createHmac('sha256', secretKey);

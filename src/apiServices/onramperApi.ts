@@ -12,7 +12,7 @@ function postDataToSign(req, res) {
       if (!dataToSign || typeof dataToSign !== 'string') {
         throw new Error('Invalid data to sign');
       }
-      if (dataToSign.length < 100) {
+      if (dataToSign.length < 30) {
         throw new Error('Data is too short');
       }
       if (dataToSign.length > 5000) {
