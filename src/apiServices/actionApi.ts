@@ -209,12 +209,7 @@ function postAction(req, res) {
       res.json(result);
     } catch (error) {
       log.error(error);
-      const errMessage = serviceHelper.createErrorMessage(
-        error.message,
-        error.name,
-        error.code,
-      );
-      res.json(errMessage);
+      res.sendStatus(400);
     }
   });
 }

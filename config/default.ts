@@ -2,6 +2,7 @@ import dbsecrets from './dbsecrets';
 import apisecrets from './apisecrets';
 import freshdesksecrets from './freshdesksecrets';
 import alchemysecrets from './alchemysecrets';
+import onrampersecrets from './onrampersecrets';
 
 export default {
   server: {
@@ -24,6 +25,7 @@ export default {
     cmcb: apisecrets.cmcApiKeyB,
     freshdesk: freshdesksecrets.apikey,
     alchemy: alchemysecrets.alchemyApiKey,
+    onramper: onrampersecrets.secretKey,
   },
   freshdesk: {
     namespace: freshdesksecrets.namespace,

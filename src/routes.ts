@@ -5,6 +5,7 @@ import ratesApi from './apiServices/ratesApi';
 import ticketsApi from './apiServices/ticketsApi';
 import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
+import onramperApi from './apiServices/onramperApi';
 
 export default (app) => {
   // return sync data
@@ -44,5 +45,9 @@ export default (app) => {
   // get enabled services, used to toggle off on third party features in the app
   app.get('/v1/services', (req, res) => {
     res.json(config.services);
+  });
+  // onramper endpoint
+  app.post('/v1/sign/onramper', (req, res) => {
+    onramperApi.postDataToSign(req, res);
   });
 };
