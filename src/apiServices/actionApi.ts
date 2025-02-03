@@ -117,7 +117,11 @@ function postAction(req, res) {
         }
         // utxos must be an array of utxo objects. Not all fields have to be specified there
         processedBody.utxos.forEach((utxo) => {
-          if (typeof utxo !== 'object' || !utxo.txid || !utxo.vout) {
+          if (
+            typeof utxo !== 'object' ||
+            !utxo.txid ||
+            (typeof utxo.vout !== 'number' && typeof utxo.vout !== 'string')
+          ) {
             throw new Error('Invalid UTXO specified');
           }
           if (typeof utxo.txid !== 'string' || utxo.txid.length > 200) {
