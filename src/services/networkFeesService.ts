@@ -87,7 +87,7 @@ async function obtainEthFees() {
       priorityFee = 1250000000;
     }
     const baseFee = +(
-      Math.floor(parseInt(resA.data.result, 16) * 1.8) / 1e9
+      Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
     ).toFixed(9);
     const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
     const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
@@ -128,7 +128,7 @@ async function obtainSepoliaFees() {
       priorityFee = 1250000000;
     }
     const baseFee = +(
-      Math.floor(parseInt(resA.data.result, 16) * 1.8) / 1e9
+      Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
     ).toFixed(9);
     const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
     const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
