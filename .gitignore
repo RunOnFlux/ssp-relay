@@ -105,3 +105,16 @@ dist
 
 # DS_STORE
 .DS_STORE
+
+
+# Ignore Yarn cache and temporary files
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+
+# Commit these
+!.yarn/releases/
+!.yarn/plugins/
+!.yarn/patches/
+!.yarnrc.yml
+!.pnp.cjs
