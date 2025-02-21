@@ -1355,16 +1355,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@runonflux/aa-schnorr-multisig-sdk@npm:1.1.1":
-  version: 1.1.1
-  resolution: "@runonflux/aa-schnorr-multisig-sdk@npm:1.1.1"
+"@runonflux/aa-schnorr-multisig-sdk@npm:1.2.0":
+  version: 1.2.0
+  resolution: "@runonflux/aa-schnorr-multisig-sdk@npm:1.2.0"
   dependencies:
     "@alchemy/aa-core": "npm:^3.19.0"
     bigi: "npm:^1.4.2"
     ecurve: "npm:^1.0.6"
-    ethers: "npm:^6.13.4"
+    ethers: "npm:^6.13.5"
     secp256k1: "npm:^5.0.1"
-  checksum: 10c0/8f547d7e804721891bcafaf3b195dbfaac6c08b785a8e23af0c776cf64e8fcda486bd7bd635cf62d9ca4c262624382ecd19d10ea97d6d574555391eb643182fd
+  checksum: 10c0/0be4ca9124b2f6cb43399c000bd726dc689401339e8aaa28fc8d3d66c962064aa8aec46712b60ff4cafe93e318770edaf64b5ba65e2c925550ef5256bee0378a
   languageName: node
   linkType: hard
 
@@ -3559,7 +3559,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethers@npm:^6.13.4":
+"ethers@npm:^6.13.5":
   version: 6.13.5
   resolution: "ethers@npm:6.13.5"
   dependencies:
@@ -6874,7 +6874,7 @@ __metadata:
   resolution: "ssp-relay@workspace:."
   dependencies:
     "@eslint/js": "npm:9.20.0"
-    "@runonflux/aa-schnorr-multisig-sdk": "npm:1.1.1"
+    "@runonflux/aa-schnorr-multisig-sdk": "npm:1.2.0"
     "@runonflux/utxo-lib": "npm:1.0.1"
     "@types/chai": "npm:5.0.1"
     "@types/compression": "npm:1.7.5"
@@ -6915,7 +6915,7 @@ __metadata:
     tsx: "npm:4.19.2"
     typescript: "npm:5.7.3"
     typescript-eslint: "npm:8.24.1"
-    viem: "npm:2.23.2"
+    viem: "npm:2.23.3"
   languageName: unknown
   linkType: soft
 
@@ -7478,9 +7478,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"viem@npm:2.23.2":
-  version: 2.23.2
-  resolution: "viem@npm:2.23.2"
+"viem@npm:2.23.3":
+  version: 2.23.3
+  resolution: "viem@npm:2.23.3"
   dependencies:
     "@noble/curves": "npm:1.8.1"
     "@noble/hashes": "npm:1.7.1"
@@ -7495,7 +7495,7 @@ __metadata:
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10c0/39332d008d2ab0700aa57f541bb199350daecdfb722ae1b262404b02944e11205368fcc696cc0ab8327b9f90bf7172014687ae3e5d9091978e9d174885ccff2d
+  checksum: 10c0/21384e8fc1c35f11c2b0f059b0174abc6b7a20f1fe1565f5e1691135b3f6545df1c57622739a841329c128c10c4f0732f8376d9d38632a5ebeefb78d3b0dd74e
   languageName: node
   linkType: hard
 
