@@ -630,6 +630,115 @@ function eth() {
       symbol: 'RPL',
       decimals: 18,
     },
+    {
+      contract: '0x0C356B7fD36a5357E5A017EF11887ba100C9AB76',
+      name: 'Kava',
+      symbol: 'KAVA',
+      decimals: 6,
+    },
+    {
+      contract: '0x44ff8620b8cA30902395A7bD3F2407e1A091BF73',
+      name: 'Virtual Protocol',
+      symbol: 'VIRTUAL',
+      decimals: 18,
+    },
+    {
+      contract: '0xA2cd3D43c775978A96BdBf12d733D5A1ED94fb18',
+      name: 'Onyxcoin',
+      symbol: 'XCN',
+      decimals: 18,
+    },
+    {
+      contract: '0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0',
+      name: 'Polygon',
+      symbol: 'MATIC',
+      decimals: 18,
+    },
+    {
+      contract: '0xe0f63a424a4439cbe457d80e4f4b51ad25b2c56c',
+      name: 'SPX6900',
+      symbol: 'SPX',
+      decimals: 8,
+    },
+    {
+      contract: '0xa3ee21c306a700e682abcdfe9baa6a08f3820419',
+      name: 'Creditcoin',
+      symbol: 'CTC',
+      decimals: 18,
+    },
+    {
+      contract: '0x58D97B57BB95320F9a05dC918Aef65434969c2B2',
+      name: 'Morpho',
+      symbol: 'MORPHO',
+      decimals: 18,
+    },
+    {
+      contract: '0xec53bF9167f50cDEB3Ae105f56099aaaB9061F83',
+      name: 'EigenLayer',
+      symbol: 'EIGEN',
+      decimals: 18,
+    },
+    {
+      contract: '0xbe0ed4138121ecfc5c0e56b40517da27e6c5226b',
+      name: 'Aethir',
+      symbol: 'ATH',
+      decimals: 18,
+    },
+    {
+      contract: '0xC71B5F631354BE6853eFe9C3Ab6b9590F8302e81',
+      name: 'Polyhedra Network',
+      symbol: 'ZKJ',
+      decimals: 18,
+    },
+    {
+      contract: '0x26B80FBfC01b71495f477d5237071242e0d959d7',
+      name: 'Oasis',
+      symbol: 'ROSE',
+      decimals: 18,
+    },
+    {
+      contract: '0x05f4a42e251f2d52b8ed15e9fedaacfcef1fad27',
+      name: 'Zilliqa',
+      symbol: 'ZIL',
+      decimals: 12,
+    },
+    {
+      contract: '0xed04915c23f00a313a544955524eb7dbd823143d',
+      name: 'Alchemy Pay',
+      symbol: 'ACH',
+      decimals: 8,
+    },
+
+
+    auction: response.data.data['2943'].quote.USD.price,
+    cvx: response.data.data['2943'].quote.USD.price,
+    moca: response.data.data['2943'].quote.USD.price,
+    red: response.data.data['2943'].quote.USD.price,
+
+
+
+
+
+
+    {
+      contract: '0xd33526068d116ce69f19a9ee46f0bd304f21a51f',
+      name: 'Rocket Pool',
+      symbol: 'RPL',
+      decimals: 18,
+    },
+    {
+      contract: '0xd33526068d116ce69f19a9ee46f0bd304f21a51f',
+      name: 'Rocket Pool',
+      symbol: 'RPL',
+      decimals: 18,
+    },
+    {
+      contract: '0xd33526068d116ce69f19a9ee46f0bd304f21a51f',
+      name: 'Rocket Pool',
+      symbol: 'RPL',
+      decimals: 18,
+    },
+
   ];
   return tokens;
 }
