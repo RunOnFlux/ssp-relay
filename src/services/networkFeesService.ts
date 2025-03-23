@@ -71,7 +71,7 @@ async function obtainEthFees() {
   const url = `https://eth-mainnet.g.alchemy.com/v2/${config.keys.alchemy}`;
   try {
     const dataA = {
-      id: new Date().getTime,
+      id: Math.floor(Math.random() * 100000000),
       jsonrpc: '2.0',
       method: 'eth_gasPrice',
     };
@@ -112,7 +112,7 @@ async function obtainSepoliaFees() {
   const url = `https://eth-sepolia.g.alchemy.com/v2/${config.keys.alchemy}`;
   try {
     const dataA = {
-      id: new Date().getTime,
+      id: Math.floor(Math.random() * 100000000),
       jsonrpc: '2.0',
       method: 'eth_gasPrice',
     };
@@ -153,7 +153,7 @@ async function obtainAmoyFees() {
   const url = `https://polygon-amoy.g.alchemy.com/v2/${config.keys.alchemy}`;
   try {
     const dataA = {
-      id: new Date().getTime,
+      id: Math.floor(Math.random() * 100000000),
       jsonrpc: '2.0',
       method: 'eth_gasPrice',
     };
@@ -194,7 +194,7 @@ async function obtainPolygonFees() {
   const url = `https://polygon-mainnet.g.alchemy.com/v2/${config.keys.alchemy}`;
   try {
     const dataA = {
-      id: new Date().getTime,
+      id: Math.floor(Math.random() * 100000000),
       jsonrpc: '2.0',
       method: 'eth_gasPrice',
     };
