@@ -14,8 +14,7 @@ export async function getFromAlchemy(contractAddress: string, network: string) {
   }
 
   const alchemy = new Alchemy({
-    apiKey: "U6aOhjmaLQzmOhKeMCpx16c9aUlcGgpW",
-    // apiKey: `${config.keys.alchemy}`,
+    apiKey: `${config.keys.alchemy}`,
     network: networkValue,
   });
 

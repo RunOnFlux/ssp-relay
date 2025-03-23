@@ -708,37 +708,30 @@ function eth() {
       symbol: 'ACH',
       decimals: 8,
     },
-
-
-    auction: response.data.data['2943'].quote.USD.price,
-    cvx: response.data.data['2943'].quote.USD.price,
-    moca: response.data.data['2943'].quote.USD.price,
-    red: response.data.data['2943'].quote.USD.price,
-
-
-
-
-
-
     {
-      contract: '0xd33526068d116ce69f19a9ee46f0bd304f21a51f',
-      name: 'Rocket Pool',
-      symbol: 'RPL',
+      contract: '0xa9b1eb5908cfc3cdf91f9b8b3a74108598009096',
+      name: 'Bounce Token',
+      symbol: 'AUCTION',
       decimals: 18,
     },
     {
-      contract: '0xd33526068d116ce69f19a9ee46f0bd304f21a51f',
-      name: 'Rocket Pool',
-      symbol: 'RPL',
+      contract: '0x4e3fbd56cd56c3e72c1403e103b45db9da5b9d2b',
+      name: 'Convex Finance',
+      symbol: 'CVX',
       decimals: 18,
     },
     {
-      contract: '0xd33526068d116ce69f19a9ee46f0bd304f21a51f',
-      name: 'Rocket Pool',
-      symbol: 'RPL',
+      contract: '0xf944e35f95e819e752f3ccb5faf40957d311e8c5',
+      name: 'Moca Network',
+      symbol: 'MOCA',
       decimals: 18,
     },
-
+    {
+      contract: '0xc43c6bfeda065fe2c4c11765bf838789bd0bb5de',
+      name: 'RedStone',
+      symbol: 'RED',
+      decimals: 18,
+    },
   ];
   return tokens;
 }
