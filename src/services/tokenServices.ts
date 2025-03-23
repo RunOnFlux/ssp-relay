@@ -9,6 +9,10 @@ export async function getFromAlchemy(contractAddress: string, network: string) {
     networkValue = Network.ETH_MAINNET;
   } else if (network === 'sepolia') {
     networkValue = Network.ETH_SEPOLIA;
+  } else if (network === 'polygon') {
+    networkValue = Network.MATIC_MAINNET;
+  } else if (network === 'amoy') {
+    networkValue = Network.MATIC_AMOY;
   } else {
     throw new Error('Unsupported network');
   }

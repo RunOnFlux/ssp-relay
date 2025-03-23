@@ -634,7 +634,33 @@ function eth() {
   return tokens;
 }
 
+function amoy() {
+  const tokens = [
+    {
+      contract: '', // first is always the native 'no contract' token 0x0000000000000000000000000000000000000000
+      name: 'Testnet Polygon Amoy',
+      symbol: 'TEST-POL',
+      decimals: 18,
+    },
+  ];
+  return tokens;
+}
+
+function polygon() {
+  const tokens = [
+    {
+      contract: '', // first is always the native 'no contract' token 0x0000000000000000000000000000000000000000
+      name: 'Polygon',
+      symbol: 'POL',
+      decimals: 18,
+    },
+  ];
+  return tokens;
+}
+
 export const tokens = {
   eth,
   sepolia,
+  polygon,
+  amoy,
 };

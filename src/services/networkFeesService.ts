@@ -149,6 +149,88 @@ async function obtainSepoliaFees() {
   }
 }
 
+async function obtainAmoyFees() {
+  const url = `https://polygon-amoy.g.alchemy.com/v2/${config.keys.alchemy}`;
+  try {
+    const dataA = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'eth_gasPrice',
+    };
+    const dataB = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'rundler_maxPriorityFeePerGas',
+    };
+    const resA = await axios.post(url, dataA);
+    const resB = await axios.post(url, dataB);
+    let priorityFee = parseInt(resB.data.result, 16);
+    if (priorityFee < 1250000000) {
+      priorityFee = 1250000000;
+    }
+    const baseFee = +(
+      Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
+    ).toFixed(9);
+    const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 1.2) / 1e9).toFixed(9);
+
+    const feesObject = {
+      coin: 'amoy',
+      base: baseFee,
+      economy: economyFee,
+      normal: normalFee,
+      fast: fastFee,
+      recommended: fastFee,
+    };
+    return feesObject;
+  } catch (error) {
+    log.error(error);
+    return false;
+  }
+}
+
+async function obtainPolygonFees() {
+  const url = `https://polygon-mainnet.g.alchemy.com/v2/${config.keys.alchemy}`;
+  try {
+    const dataA = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'eth_gasPrice',
+    };
+    const dataB = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'rundler_maxPriorityFeePerGas',
+    };
+    const resA = await axios.post(url, dataA);
+    const resB = await axios.post(url, dataB);
+    let priorityFee = parseInt(resB.data.result, 16);
+    if (priorityFee < 1250000000) {
+      priorityFee = 1250000000;
+    }
+    const baseFee = +(
+      Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
+    ).toFixed(9);
+    const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 1.2) / 1e9).toFixed(9);
+
+    const feesObject = {
+      coin: 'polygon',
+      base: baseFee,
+      economy: economyFee,
+      normal: normalFee,
+      fast: fastFee,
+      recommended: fastFee,
+    };
+    return feesObject;
+  } catch (error) {
+    log.error(error);
+    return false;
+  }
+}
+
 let i = -1;
 
 async function fetchFees() {
@@ -167,6 +249,8 @@ async function fetchFees() {
   }
   const ethFee = await obtainEthFees();
   const sepFee = await obtainSepoliaFees();
+  const amoyFee = await obtainAmoyFees();
+  const polygonFee = await obtainPolygonFees();
   if (btcFee) {
     fees.push(btcFee);
   }
@@ -178,6 +262,12 @@ async function fetchFees() {
   }
   if (sepFee) {
     fees.push(sepFee);
+  }
+  if (amoyFee) {
+    fees.push(amoyFee);
+  }
+  if (polygonFee) {
+    fees.push(polygonFee);
   }
   currentFees = fees;
   await serviceHelper.delay(18000); // every 18 seconds
@@ -198,4 +288,6 @@ export default {
   obtainLitecoinFees,
   obtainEthFees,
   obtainSepoliaFees,
+  obtainAmoyFees,
+  obtainPolygonFees,
 };
