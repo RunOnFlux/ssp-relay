@@ -62,7 +62,7 @@ async function fetchCryptoRates() {
       imx: response.data.data['10603'].quote.USD.price,
       aave: response.data.data['7278'].quote.USD.price,
       arb: response.data.data['11841'].quote.USD.price,
-      mnt: response.data.data['12437'].quote.USD.price,
+      mnt: response.data.data['27075'].quote.USD.price,
       inj: response.data.data['7226'].quote.USD.price,
       mkr: response.data.data['1518'].quote.USD.price,
       grt: response.data.data['6719'].quote.USD.price,
