@@ -162,8 +162,8 @@ describe('Blockchain', function () {
       assert.equal(blockchains.rvn.bip32.private, 0x0488ade4);
       assert.equal(blockchains.rvn.backend, 'blockbook');
       assert.equal(blockchains.rvn.dustLimit, 546);
-      assert.equal(blockchains.rvn.minFeePerByte, 4);
-      assert.equal(blockchains.rvn.feePerByte, 4);
+      assert.equal(blockchains.rvn.minFeePerByte, 1000);
+      assert.equal(blockchains.rvn.feePerByte, 1050);
       assert.equal(blockchains.rvn.maxMessage, 80);
       assert.equal(blockchains.rvn.maxTxSize, 100000);
       assert.equal(blockchains.rvn.rbf, true);
