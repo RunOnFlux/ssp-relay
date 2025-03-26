@@ -269,6 +269,13 @@ async function fetchFees() {
   if (polygonFee) {
     fees.push(polygonFee);
   }
+  fees.push({
+    coin: 'rvn',
+    economy: 1000,
+    normal: 1025,
+    fast: 1050,
+    recommended: 1050,
+  });
   currentFees = fees;
   await serviceHelper.delay(18000); // every 18 seconds
   fetchFees();
