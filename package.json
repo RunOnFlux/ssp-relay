@@ -1,6 +1,6 @@
 {
   "name": "ssp-relay",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "SSP Relay",
   "main": "index.ts",
   "type": "module",

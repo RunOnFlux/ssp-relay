@@ -231,6 +231,129 @@ async function obtainPolygonFees() {
   }
 }
 
+async function obtainBaseFees() {
+  const url = `https://base-mainnet.g.alchemy.com/v2/${config.keys.alchemy}`;
+  try {
+    const dataA = {
+      id: Math.floor(Math.random() * 100000000),
+      jsonrpc: '2.0',
+      method: 'eth_gasPrice',
+    };
+    const dataB = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'rundler_maxPriorityFeePerGas',
+    };
+    const resA = await axios.post(url, dataA);
+    const resB = await axios.post(url, dataB);
+    let priorityFee = parseInt(resB.data.result, 16);
+    if (priorityFee < 1250000000) {
+      priorityFee = 1250000000;
+    }
+    const baseFee = +(
+      Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
+    ).toFixed(9);
+    const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 1.2) / 1e9).toFixed(9);
+
+    const feesObject = {
+      coin: 'base',
+      base: baseFee,
+      economy: economyFee,
+      normal: normalFee,
+      fast: fastFee,
+      recommended: fastFee,
+    };
+    return feesObject;
+  } catch (error) {
+    log.error(error);
+    return false;
+  }
+}
+
+async function obtainBscFees() {
+  const url = `https://node.bsc-mainnet.runonflux.io`;
+  try {
+    const dataA = {
+      id: Math.floor(Math.random() * 100000000),
+      jsonrpc: '2.0',
+      method: 'eth_gasPrice',
+    };
+    const dataB = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'rundler_maxPriorityFeePerGas',
+    };
+    const resA = await axios.post(url, dataA);
+    const resB = await axios.post(url, dataB);
+    let priorityFee = parseInt(resB.data.result, 16);
+    if (priorityFee < 1250000000) {
+      priorityFee = 1250000000;
+    }
+    const baseFee = +(
+      Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
+    ).toFixed(9);
+    const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 1.2) / 1e9).toFixed(9);
+
+    const feesObject = {
+      coin: 'bsc',
+      base: baseFee,
+      economy: economyFee,
+      normal: normalFee,
+      fast: fastFee,
+      recommended: fastFee,
+    };
+    return feesObject;
+  } catch (error) {
+    log.error(error);
+    return false;
+  }
+}
+
+async function obtainAvaxFees() {
+  const url = `https://node.avax-mainnet.runonflux.io`;
+  try {
+    const dataA = {
+      id: Math.floor(Math.random() * 100000000),
+      jsonrpc: '2.0',
+      method: 'eth_gasPrice',
+    };
+    const dataB = {
+      id: new Date().getTime,
+      jsonrpc: '2.0',
+      method: 'rundler_maxPriorityFeePerGas',
+    };
+    const resA = await axios.post(url, dataA);
+    const resB = await axios.post(url, dataB);
+    let priorityFee = parseInt(resB.data.result, 16);
+    if (priorityFee < 1250000000) {
+      priorityFee = 1250000000;
+    }
+    const baseFee = +(
+      Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
+    ).toFixed(9);
+    const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 1.2) / 1e9).toFixed(9);
+
+    const feesObject = {
+      coin: 'avax',
+      base: baseFee,
+      economy: economyFee,
+      normal: normalFee,
+      fast: fastFee,
+      recommended: fastFee,
+    };
+    return feesObject;
+  } catch (error) {
+    log.error(error);
+    return false;
+  }
+}
+
 let i = -1;
 
 async function fetchFees() {
@@ -251,6 +374,9 @@ async function fetchFees() {
   const sepFee = await obtainSepoliaFees();
   const amoyFee = await obtainAmoyFees();
   const polygonFee = await obtainPolygonFees();
+  const baseFee = await obtainBaseFees();
+  const bscFee = await obtainBscFees();
+  const avaxFee = await obtainAvaxFees();
   if (btcFee) {
     fees.push(btcFee);
   }
@@ -268,6 +394,15 @@ async function fetchFees() {
   }
   if (polygonFee) {
     fees.push(polygonFee);
+  }
+  if (baseFee) {
+    fees.push(baseFee);
+  }
+  if (bscFee) {
+    fees.push(bscFee);
+  }
+  if (avaxFee) {
+    fees.push(avaxFee);
   }
   fees.push({
     coin: 'rvn',
@@ -297,4 +432,7 @@ export default {
   obtainSepoliaFees,
   obtainAmoyFees,
   obtainPolygonFees,
+  obtainBaseFees,
+  obtainBscFees,
+  obtainAvaxFees,
 };

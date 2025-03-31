@@ -13,6 +13,12 @@ export async function getFromAlchemy(contractAddress: string, network: string) {
     networkValue = Network.MATIC_MAINNET;
   } else if (network === 'amoy') {
     networkValue = Network.MATIC_AMOY;
+  } else if (network === 'base') {
+    networkValue = Network.BASE_MAINNET;
+  } else if (network === 'bsc') {
+    networkValue = Network.BNB_MAINNET;
+  } else if (network === 'avax') {
+    networkValue = Network.AVAX_MAINNET;
   } else {
     throw new Error('Unsupported network');
   }

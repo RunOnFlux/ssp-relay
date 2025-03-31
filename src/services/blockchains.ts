@@ -367,14 +367,98 @@ const polygon = {
   onramperNetwork: 'polygon',
 };
 
+const base = {
+  id: 'base',
+  libid: 'base',
+  name: 'Base',
+  symbol: 'ETH',
+  slip: 8453,
+  decimals: 18,
+  bip32: {
+    // not specified, use default
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  scriptType: 'p2sh', // not specified, use default
+  chainType: 'evm',
+  chainId: '8453',
+  backend: 'alchemy',
+  accountSalt: 'aasalt', // ssp uses this salt for smart accounts
+  factorySalt: 'aafactorysalt', // factory uses this salt
+  factoryAddress: '0x3974821943e9cA3549744D910999332eE387Fda4',
+  entrypointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+  baseFee: 0.1, // 0.1 gwei
+  priorityFee: 0.01, // 0.01 gwei
+  gasLimit: 750000, // 750k gas
+  tokens: tokens.base(),
+  onramperNetwork: 'base',
+};
+
+const bsc = {
+  id: 'bsc',
+  libid: 'bsc',
+  name: 'Binance Smart Chain',
+  symbol: 'BNB',
+  slip: 9006,
+  decimals: 18,
+  bip32: {
+    // not specified, use default
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  scriptType: 'p2sh', // not specified, use default
+  chainType: 'evm',
+  chainId: '56',
+  backend: 'etherspot',
+  accountSalt: 'aasalt', // ssp uses this salt for smart accounts
+  factorySalt: 'aafactorysalt', // factory uses this salt
+  factoryAddress: '0x3974821943e9cA3549744D910999332eE387Fda4',
+  entrypointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+  baseFee: 3, // 50 gwei
+  priorityFee: 1, // 5 gwei
+  gasLimit: 750000, // 750k gas
+  tokens: tokens.bsc(),
+  onramperNetwork: 'bsc',
+};
+
+const avax = {
+  id: 'avax',
+  libid: 'avalanche',
+  name: 'Avalanche C-Chain',
+  symbol: 'AVAX',
+  slip: 9005,
+  decimals: 18,
+  bip32: {
+    // not specified, use default
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  scriptType: 'p2sh', // not specified, use default
+  chainType: 'evm',
+  chainId: '43114',
+  backend: 'etherspot',
+  accountSalt: 'aasalt', // ssp uses this salt for smart accounts
+  factorySalt: 'aafactorysalt', // factory uses this salt
+  factoryAddress: '0x3974821943e9cA3549744D910999332eE387Fda4',
+  entrypointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+  baseFee: 10, // 50 gwei
+  priorityFee: 1, // 5 gwei
+  gasLimit: 750000, // 750k gas
+  tokens: tokens.avax(),
+  onramperNetwork: 'avax',
+};
+
 export default {
   btc,
   flux,
   eth,
+  bsc,
   doge,
+  avax,
   ltc,
   bch,
   polygon,
+  base,
   rvn,
   zec,
   btcTestnet,
