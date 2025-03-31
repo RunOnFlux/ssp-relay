@@ -246,10 +246,7 @@ async function obtainBaseFees() {
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
-    let priorityFee = parseInt(resB.data.result, 16);
-    if (priorityFee < 1250000000) {
-      priorityFee = 1250000000;
-    }
+    const priorityFee = parseInt(resB.data.result, 16);
     const baseFee = +(
       Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
     ).toFixed(9);
@@ -287,10 +284,7 @@ async function obtainBscFees() {
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
-    let priorityFee = parseInt(resB.data.result, 16);
-    if (priorityFee < 1250000000) {
-      priorityFee = 1250000000;
-    }
+    const priorityFee = parseInt(resB.data.result, 16);
     const baseFee = +(
       Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
     ).toFixed(9);
@@ -328,10 +322,7 @@ async function obtainAvaxFees() {
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
-    let priorityFee = parseInt(resB.data.result, 16);
-    if (priorityFee < 1250000000) {
-      priorityFee = 1250000000;
-    }
+    const priorityFee = parseInt(resB.data.result, 16);
     const baseFee = +(
       Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
     ).toFixed(9);
