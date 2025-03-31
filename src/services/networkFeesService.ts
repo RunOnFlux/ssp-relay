@@ -283,7 +283,7 @@ async function obtainBscFees() {
     const dataB = {
       id: new Date().getTime,
       jsonrpc: '2.0',
-      method: 'rundler_maxPriorityFeePerGas',
+      method: 'eth_maxPriorityFeePerGas',
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
@@ -324,7 +324,7 @@ async function obtainAvaxFees() {
     const dataB = {
       id: new Date().getTime,
       jsonrpc: '2.0',
-      method: 'rundler_maxPriorityFeePerGas',
+      method: 'eth_maxPriorityFeePerGas',
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
