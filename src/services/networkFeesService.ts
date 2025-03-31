@@ -248,11 +248,11 @@ async function obtainBaseFees() {
     const resB = await axios.post(url, dataB);
     const priorityFee = parseInt(resB.data.result, 16);
     const baseFee = +(
-      Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
+      Math.floor(parseInt(resA.data.result, 16) * 3) / 1e9
     ).toFixed(9);
-    const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
-    const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
-    const fastFee = +(Math.floor(priorityFee * 1.2) / 1e9).toFixed(9);
+    const economyFee = +(Math.floor(priorityFee * 2) / 1e9).toFixed(9);
+    const normalFee = +(Math.floor(priorityFee * 2.2) / 1e9).toFixed(9);
+    const fastFee = +(Math.floor(priorityFee * 2.4) / 1e9).toFixed(9);
 
     const feesObject = {
       coin: 'base',
