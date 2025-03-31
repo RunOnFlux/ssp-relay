@@ -1353,16 +1353,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@runonflux/aa-schnorr-multisig-sdk@npm:1.2.0":
-  version: 1.2.0
-  resolution: "@runonflux/aa-schnorr-multisig-sdk@npm:1.2.0"
+"@runonflux/aa-schnorr-multisig-sdk@npm:1.2.1":
+  version: 1.2.1
+  resolution: "@runonflux/aa-schnorr-multisig-sdk@npm:1.2.1"
   dependencies:
     "@alchemy/aa-core": "npm:^3.19.0"
     bigi: "npm:^1.4.2"
     ecurve: "npm:^1.0.6"
     ethers: "npm:^6.13.5"
     secp256k1: "npm:^5.0.1"
-  checksum: 10c0/0be4ca9124b2f6cb43399c000bd726dc689401339e8aaa28fc8d3d66c962064aa8aec46712b60ff4cafe93e318770edaf64b5ba65e2c925550ef5256bee0378a
+  checksum: 10c0/c6e95409df5715514b2496572bef3bdd80b9a485665c8139aa6d65e75e6fb09683674496c8418fa3ce12585b58771b484d1556355b7393970d8ffa11a67c5cef
   languageName: node
   linkType: hard
 
@@ -1992,9 +1992,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"alchemy-sdk@npm:3.5.5":
-  version: 3.5.5
-  resolution: "alchemy-sdk@npm:3.5.5"
+"alchemy-sdk@npm:3.5.6":
+  version: 3.5.6
+  resolution: "alchemy-sdk@npm:3.5.6"
   dependencies:
     "@ethersproject/abi": "npm:^5.7.0"
     "@ethersproject/abstract-provider": "npm:^5.7.0"
@@ -2010,7 +2010,7 @@ __metadata:
     axios: "npm:^1.7.4"
     sturdy-websocket: "npm:^0.2.1"
     websocket: "npm:^1.0.34"
-  checksum: 10c0/8af28a35bfa43cf6d3d886db49951a3e8c633e1727bc8c73d60d526953aa057d9512127d07453295d0e1d7335b915aa1a4f20e42758166c0d2a4e5552ac1229e
+  checksum: 10c0/0539926925916114ad2179a64872d976df81c29b219ce40f2cc103f68ed957997e5809f3ef451865f7d87c3adc069fbb72b8ab73a2b5596c081c9982968cf6cd
   languageName: node
   linkType: hard
 
@@ -5896,9 +5896,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ox@npm:0.6.7":
-  version: 0.6.7
-  resolution: "ox@npm:0.6.7"
+"ox@npm:0.6.9":
+  version: 0.6.9
+  resolution: "ox@npm:0.6.9"
   dependencies:
     "@adraffy/ens-normalize": "npm:^1.10.1"
     "@noble/curves": "npm:^1.6.0"
@@ -5912,7 +5912,7 @@ __metadata:
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10c0/f556804e7246cc8aa56e43c6bb91302a792649638afe086a86ed3a71a5a583c05d3ad4318b212835cb8167fe561024db1625253c118018380393e161af3c3edf
+  checksum: 10c0/02a7ea9795eaac0a7a672e983094f62ae6f19b7d0c786e6d7ef4584683faf535b5b133e42452dd3abb77115382e16b2cb5c0f629d5a0f2b80832c47756e0ecd1
   languageName: node
   linkType: hard
 
@@ -6895,7 +6895,7 @@ __metadata:
   resolution: "ssp-relay@workspace:."
   dependencies:
     "@eslint/js": "npm:9.23.0"
-    "@runonflux/aa-schnorr-multisig-sdk": "npm:1.2.0"
+    "@runonflux/aa-schnorr-multisig-sdk": "npm:1.2.1"
     "@runonflux/utxo-lib": "npm:1.0.1"
     "@types/chai": "npm:5.2.0"
     "@types/compression": "npm:1.7.5"
@@ -6903,7 +6903,7 @@ __metadata:
     "@types/express": "npm:5.0.1"
     "@types/mocha": "npm:10.0.10"
     "@types/morgan": "npm:1.9.9"
-    alchemy-sdk: "npm:3.5.5"
+    alchemy-sdk: "npm:3.5.6"
     apicache: "npm:1.6.3"
     axios: "npm:1.8.4"
     bchaddrjs: "npm:0.5.2"
@@ -6936,7 +6936,7 @@ __metadata:
     tsx: "npm:4.19.3"
     typescript: "npm:5.8.2"
     typescript-eslint: "npm:8.27.0"
-    viem: "npm:2.23.3"
+    viem: "npm:2.24.2"
   languageName: unknown
   linkType: soft
 
@@ -7499,9 +7499,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"viem@npm:2.23.3":
-  version: 2.23.3
-  resolution: "viem@npm:2.23.3"
+"viem@npm:2.24.2":
+  version: 2.24.2
+  resolution: "viem@npm:2.24.2"
   dependencies:
     "@noble/curves": "npm:1.8.1"
     "@noble/hashes": "npm:1.7.1"
@@ -7509,14 +7509,14 @@ __metadata:
     "@scure/bip39": "npm:1.5.4"
     abitype: "npm:1.0.8"
     isows: "npm:1.0.6"
-    ox: "npm:0.6.7"
-    ws: "npm:8.18.0"
+    ox: "npm:0.6.9"
+    ws: "npm:8.18.1"
   peerDependencies:
     typescript: ">=5.0.4"
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10c0/21384e8fc1c35f11c2b0f059b0174abc6b7a20f1fe1565f5e1691135b3f6545df1c57622739a841329c128c10c4f0732f8376d9d38632a5ebeefb78d3b0dd74e
+  checksum: 10c0/f6f91ce3c447e79828ed03771d68f7cb00a4d6780b2f29f907777083d3b384a736b62743873a380b9279796eaf6dca49d4c92a64ed9cc59ea2802b9bdd393d18
   languageName: node
   linkType: hard
 
@@ -7720,9 +7720,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:8.18.0":
-  version: 8.18.0
-  resolution: "ws@npm:8.18.0"
+"ws@npm:8.18.1":
+  version: 8.18.1
+  resolution: "ws@npm:8.18.1"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ">=5.0.2"
@@ -7731,7 +7731,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 10c0/25eb33aff17edcb90721ed6b0eb250976328533ad3cd1a28a274bd263682e7296a6591ff1436d6cbc50fa67463158b062f9d1122013b361cec99a05f84680e06
+  checksum: 10c0/e498965d6938c63058c4310ffb6967f07d4fa06789d3364829028af380d299fe05762961742971c764973dce3d1f6a2633fe8b2d9410c9b52e534b4b882a99fa
   languageName: node
   linkType: hard
 
