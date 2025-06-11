@@ -195,7 +195,7 @@ function postAction(req, res) {
       if (
         data.action === 'tx' ||
         data.action === 'publicnoncesrequest' ||
-        data.action === 'walletconnect'
+        data.action === 'evmsigningrequest'
       ) {
         const ioKey = socket.getIOKey();
         ioKey.to(data.wkIdentity).emit(data.action, data);
@@ -210,7 +210,8 @@ function postAction(req, res) {
         data.action === 'txid' ||
         data.action === 'publicnoncesrejected' ||
         data.action === 'publicnonces' ||
-        data.action === 'walletconnect_response'
+        data.action === 'evmsigningrejected' ||
+        data.action === 'evmsigned'
       ) {
         const ioWallet = socket.getIOWallet();
         ioWallet.to(data.wkIdentity).emit(data.action, data);
