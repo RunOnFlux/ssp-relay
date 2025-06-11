@@ -22,7 +22,7 @@ export default (app) => {
   app.post('/v1/token', (req, res) => {
     syncApi.postToken(req, res);
   });
-  // post sync data
+  // post action data
   app.post('/v1/action', (req, res) => {
     actionApi.postAction(req, res);
   });
