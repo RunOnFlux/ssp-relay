@@ -26,6 +26,9 @@ async function sendNotificationKey(wkIdentity, data) {
     if (data.action === 'publicnoncesrequest') {
       title = 'Public Nonces Request';
       body = 'Your Wallet is requesting public nonces synchronisation.';
+    } else if (data.action === 'evmsigningrequest') {
+      title = 'EVM Signing Request';
+      body = 'An EVM signing request has been initiated on your wallet.';
     }
     try {
       if (data.payload && data.action === 'tx') {
