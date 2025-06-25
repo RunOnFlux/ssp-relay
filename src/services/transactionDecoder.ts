@@ -69,6 +69,7 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
       fee: totalFeeWei.toFixed(),
       token: '',
       tokenSymbol: '',
+      data: '',
     };
 
     if (amount === '0') {
@@ -85,7 +86,7 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
           chain.toLowerCase(), // chain
         ).catch((error) => {
           log.error(
-            `Error getting token info from alchemy for ${txInfo.token} on ${chain}`,
+            `Error getting token info from alchemy for ${txInfo.token} on ${chain}. Might be a contract execution.`,
           );
           log.error(error);
         });
@@ -94,25 +95,28 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
       if (token) {
         decimals = token.decimals;
         txInfo.tokenSymbol = token.symbol;
-      }
-      const contractData = decodedData.args[2];
-      // most likely we are dealing with a contract call, sending some erc20 token
-      // docode args[2] which is operation
-      const decodedDataContract = viem.decodeFunctionData({
-        abi: viem.erc20Abi,
-        data: contractData as `0x${string}`,
-      });
-      console.log(decodedDataContract);
-      if (
-        decodedDataContract &&
-        decodedDataContract.functionName === 'transfer' &&
-        decodedDataContract.args &&
-        decodedDataContract.args.length >= 2
-      ) {
-        txInfo.receiver = decodedDataContract.args[0];
-        txInfo.amount = new BigNumber(decodedDataContract.args[1].toString())
-          .dividedBy(new BigNumber(10 ** decimals))
-          .toFixed();
+        const contractData = decodedData.args[2];
+        // most likely we are dealing with a contract call, sending some erc20 token
+        // docode args[2] which is operation
+        const decodedDataContract = viem.decodeFunctionData({
+          abi: viem.erc20Abi,
+          data: contractData as `0x${string}`,
+        });
+        console.log(decodedDataContract);
+        if (
+          decodedDataContract &&
+          decodedDataContract.functionName === 'transfer' &&
+          decodedDataContract.args &&
+          decodedDataContract.args.length >= 2
+        ) {
+          txInfo.receiver = decodedDataContract.args[0];
+          txInfo.amount = new BigNumber(decodedDataContract.args[1].toString())
+            .dividedBy(new BigNumber(10 ** decimals))
+            .toFixed();
+        }
+      } else {
+        // this is not a standard token transfer, treat it as a contract execution and only display data information
+        txInfo.data = decodedData.args[2] as `0x${string}`;
       }
     } else {
       txInfo.tokenSymbol = blockchains[chain].symbol;
@@ -128,6 +132,7 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
       fee: 'decodingError',
       token: 'decodingError',
       tokenSymbol: 'decodingError',
+      data: 'decodingError',
     };
     return txInfo;
   }
