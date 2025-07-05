@@ -35,7 +35,7 @@ Assist by fixing bugs, adding features, or improving performance. Contributions 
 ## Development Environment  
 
 ### Prerequisites  
-- **Node.js**: Version 20 or higher  
+- **Node.js**: Version 22 or higher  
 - **MongoDB**: A running MongoDB instance  
 
 ### Setting Up  
