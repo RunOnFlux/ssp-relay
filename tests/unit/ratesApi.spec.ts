@@ -1,13 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import chai from 'chai';
+import { expect, assert } from 'chai';
 import ratesService from '../../src/services/ratesService';
 import ratesApi from '../../src/apiServices/ratesApi';
 import sinon from 'sinon';
 import httpMocks from 'node-mocks-http';
-
-const { expect, assert } = chai;
 
 describe('Rates API', function () {
   describe('Get Rates API: Correctly verifies rates', function () {

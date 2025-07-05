@@ -1,13 +1,12 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import chai from 'chai';
+import { expect, assert } from 'chai';
 import syncService from '../../src/services/syncService';
 import serviceHelper from '../../src/services/serviceHelper';
 import syncApi from '../../src/apiServices/syncApi';
 import sinon from 'sinon';
 import httpMocks from 'node-mocks-http';
 
-const { expect, assert } = chai;
 
 const reqValid = {
   params: {

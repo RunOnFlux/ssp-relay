@@ -1,12 +1,10 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import chai from 'chai';
+import { expect, assert } from 'chai';
 import config from 'config';
 import socketService from '../../src/services/socketService';
 import serviceHelper from '../../src/services/serviceHelper';
 import sinon from 'sinon';
-
-const { expect, assert } = chai;
 
 const testInsert = [
   {

@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import chai from 'chai';
+import { expect, assert } from 'chai';
 import config from 'config';
 import actionService from '../../src/services/actionService';
 import serviceHelper from '../../src/services/serviceHelper';
 import sinon from 'sinon';
 
-const { expect, assert } = chai;
 
 const testInsert = [
   {

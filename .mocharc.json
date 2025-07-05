@@ -1,0 +1,6 @@
+{
+  "spec": ["tests/**/*.spec.ts"],
+  "timeout": 10000,
+  "exit": true,
+  "require": ["tests/test-setup.js"]
+} 

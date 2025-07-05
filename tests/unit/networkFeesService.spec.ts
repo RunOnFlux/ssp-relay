@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import chai from 'chai';
+import { expect, assert } from 'chai';
 import networkFeesService from '../../src/services/networkFeesService';
 import sinon from 'sinon';
 
-const { expect, assert } = chai;
 
 describe('Network Fees Service', function () {
   describe('Obtain Fess: Correctly verifies fees', function () {

@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import chai from 'chai';
+import { expect } from 'chai';
 import config from 'config';
 import databaseIndexCreationService from '../../src/services/databaseIndexCreationService';
 import serviceHelper from '../../src/services/serviceHelper';
 
-const { expect } = chai;
 
 const testInsertV1action = [
   {
