@@ -294,7 +294,7 @@ async function obtainBscFees() {
 
     const feesObject = {
       coin: 'bsc',
-      base: baseFee,
+      base: 0, // always 0!
       economy: economyFee,
       normal: normalFee,
       fast: fastFee,
