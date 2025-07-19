@@ -3,6 +3,7 @@ import apisecrets from './apisecrets';
 import freshdesksecrets from './freshdesksecrets';
 import alchemysecrets from './alchemysecrets';
 import onrampersecrets from './onrampersecrets';
+import emailsecrets from './emailsecrets';
 
 export default {
   server: {
@@ -31,6 +32,17 @@ export default {
     namespace: freshdesksecrets.namespace,
     groupId: freshdesksecrets.groupid,
     ips: freshdesksecrets.ips,
+  },
+  email: {
+    smtp: {
+      host: emailsecrets.smtp.host,
+      port: emailsecrets.smtp.port,
+      secure: emailsecrets.smtp.secure,
+      user: emailsecrets.smtp.user,
+      pass: emailsecrets.smtp.pass,
+    },
+    from: emailsecrets.from,
+    to: emailsecrets.to,
   },
   services: {
     onramp: true,

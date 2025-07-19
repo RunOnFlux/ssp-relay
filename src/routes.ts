@@ -3,6 +3,7 @@ import syncApi from './apiServices/syncApi';
 import actionApi from './apiServices/actionApi';
 import ratesApi from './apiServices/ratesApi';
 import ticketsApi from './apiServices/ticketsApi';
+import contactApi from './apiServices/contactApi';
 import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
 import onramperApi from './apiServices/onramperApi';
@@ -37,6 +38,10 @@ export default (app) => {
   // freshdesk ticket
   app.post('/v1/ticket', (req, res) => {
     ticketsApi.postTicket(req, res);
+  });
+  // contact form
+  app.post('/v1/contact', (req, res) => {
+    contactApi.postContact(req, res);
   });
   // get token information endpoint
   app.get('/v1/tokeninfo/:network?/:address?', (req, res) => {
