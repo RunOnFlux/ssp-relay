@@ -5,7 +5,7 @@ import log from '../lib/log';
 async function postContact(data) {
   try {
     // Create transporter using SMTP configuration
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: config.email.smtp.host,
       port: config.email.smtp.port,
       secure: config.email.smtp.secure,
@@ -94,7 +94,7 @@ This message was sent via the SSP Wallet contact form.
 
     return 'Contact message sent successfully.';
   } catch (error) {
-    log.error('Failed to send contact email:', error);
+    log.error(`Failed to send contact email: ${error.message || error}`);
 
     // Fallback: still log the contact attempt even if email fails
     log.info(
