@@ -29,7 +29,7 @@ async function getAction(req, res) {
       !id ||
       typeof id !== 'string' ||
       id.length > 200 ||
-      !/^[a-zA-Z0-9_-]+$/.test(id)
+      !/^[a-zA-Z0-9_:-]+$/.test(id)
     ) {
       // send status code 400 and message of invalid id
       res.status(400).send('Invalid ID');
@@ -61,7 +61,7 @@ function postAction(req, res) {
         !processedBody.chain ||
         typeof processedBody.chain !== 'string' ||
         processedBody.chain.length > 200 ||
-        !/^[a-zA-Z0-9_-]+$/.test(processedBody.chain)
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.chain)
       ) {
         throw new Error('Invalid Chain specified');
       }
@@ -69,7 +69,7 @@ function postAction(req, res) {
         !processedBody.wkIdentity ||
         typeof processedBody.wkIdentity !== 'string' ||
         processedBody.wkIdentity.length > 200 ||
-        !/^[a-zA-Z0-9_-]+$/.test(processedBody.wkIdentity)
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.wkIdentity)
       ) {
         throw new Error('Invalid Wallet-Key Identity specified');
       }
@@ -77,7 +77,7 @@ function postAction(req, res) {
         !processedBody.action ||
         typeof processedBody.action !== 'string' ||
         processedBody.action.length > 200 ||
-        !/^[a-zA-Z0-9_-]+$/.test(processedBody.action)
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.action)
       ) {
         throw new Error('Invalid Action specified');
       }
@@ -96,7 +96,7 @@ function postAction(req, res) {
         if (
           typeof processedBody.path !== 'string' ||
           processedBody.path.length > 200 ||
-          !/^[a-zA-Z0-9_-]+$/.test(processedBody.path)
+          !/^[a-zA-Z0-9_:-]+$/.test(processedBody.path)
         ) {
           throw new Error('Invalid Derivation Path specified');
         }

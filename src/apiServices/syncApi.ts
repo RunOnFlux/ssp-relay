@@ -19,7 +19,7 @@ async function getSync(req, res) {
       !id ||
       typeof id !== 'string' ||
       id.length > 200 ||
-      !/^[a-zA-Z0-9_-]+$/.test(id)
+      !/^[a-zA-Z0-9_:-]+$/.test(id)
     ) {
       // send status code 400 and message of invalid id
       res.status(400).send('Invalid ID');
@@ -50,7 +50,7 @@ function postSync(req, res) {
         !processedBody.chain ||
         typeof processedBody.chain !== 'string' ||
         processedBody.chain.length > 200 ||
-        !/^[a-zA-Z0-9_-]+$/.test(processedBody.chain)
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.chain)
       ) {
         throw new Error('Invalid Chain specified');
       }
@@ -58,7 +58,7 @@ function postSync(req, res) {
         !processedBody.walletIdentity ||
         typeof processedBody.walletIdentity !== 'string' ||
         processedBody.walletIdentity.length > 200 ||
-        !/^[a-zA-Z0-9_-]+$/.test(processedBody.walletIdentity)
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.walletIdentity)
       ) {
         throw new Error('Invalid Wallet identity specified');
       }
@@ -66,7 +66,7 @@ function postSync(req, res) {
         !processedBody.keyXpub ||
         typeof processedBody.keyXpub !== 'string' ||
         processedBody.keyXpub.length > 200 ||
-        !/^[a-zA-Z0-9_-]+$/.test(processedBody.keyXpub)
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.keyXpub)
       ) {
         throw new Error('Invalid XPUB of Key specified');
       }
@@ -74,7 +74,7 @@ function postSync(req, res) {
         !processedBody.wkIdentity ||
         typeof processedBody.wkIdentity !== 'string' ||
         processedBody.wkIdentity.length > 200 ||
-        !/^[a-zA-Z0-9_-]+$/.test(processedBody.wkIdentity)
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.wkIdentity)
       ) {
         throw new Error('Invalid SSP Identity specified');
       }
@@ -91,7 +91,7 @@ function postSync(req, res) {
       if (
         processedBody.generatedAddress &&
         (processedBody.generatedAddress.length > 200 ||
-          !/^[a-zA-Z0-9_-]+$/.test(processedBody.generatedAddress))
+          !/^[a-zA-Z0-9_:-]+$/.test(processedBody.generatedAddress))
       ) {
         throw new Error('Generated address is invalid');
       }
@@ -178,7 +178,7 @@ function postToken(req, res) {
         !processedBody.wkIdentity ||
         typeof processedBody.wkIdentity !== 'string' ||
         processedBody.wkIdentity.length > 200 ||
-        !/^[a-zA-Z0-9_-]+$/.test(processedBody.wkIdentity)
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.wkIdentity)
       ) {
         throw new Error('Invalid SSP identity specified');
       }

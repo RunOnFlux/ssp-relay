@@ -13,7 +13,7 @@ async function getTokenInfo(req, res) {
       !address ||
       typeof address !== 'string' ||
       address.length > 100 ||
-      !/^[a-zA-Z0-9_-]+$/.test(address)
+      !/^[a-zA-Z0-9_:-]+$/.test(address)
     ) {
       // send status code 400 and message of invalid address
       res.status(400).send('Invalid contract address');
@@ -24,7 +24,7 @@ async function getTokenInfo(req, res) {
       !network ||
       typeof network !== 'string' ||
       network.length > 100 ||
-      !/^[a-zA-Z0-9_-]+$/.test(network)
+      !/^[a-zA-Z0-9_:-]+$/.test(network)
     ) {
       // send status code 400 and message of invalid network
       res.status(400).send('Invalid network');
