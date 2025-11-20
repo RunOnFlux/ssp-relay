@@ -272,22 +272,22 @@ async function obtainBaseFees() {
 async function obtainBscFees() {
   const url = `https://node.bsc-mainnet.runonflux.io`;
   try {
-    const dataA = {
-      id: Math.floor(Math.random() * 100000000),
-      jsonrpc: '2.0',
-      method: 'eth_gasPrice',
-    };
+    // const dataA = {
+    //   id: Math.floor(Math.random() * 100000000),
+    //   jsonrpc: '2.0',
+    //   method: 'eth_gasPrice',
+    // };
     const dataB = {
       id: new Date().getTime,
       jsonrpc: '2.0',
       method: 'eth_maxPriorityFeePerGas',
     };
-    const resA = await axios.post(url, dataA);
+    // const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
     const priorityFee = parseInt(resB.data.result, 16);
-    const baseFee = +(
-      Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
-    ).toFixed(9);
+    // const baseFee = +(
+    //   Math.floor(parseInt(resA.data.result, 16) * 2) / 1e9
+    // ).toFixed(9);
     const economyFee = +(Math.floor(priorityFee * 1) / 1e9).toFixed(9);
     const normalFee = +(Math.floor(priorityFee * 1.1) / 1e9).toFixed(9);
     const fastFee = +(Math.floor(priorityFee * 1.2) / 1e9).toFixed(9);

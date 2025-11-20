@@ -1,6 +1,6 @@
 {
   "name": "ssp-relay",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "SSP Relay",
   "main": "index.ts",
   "type": "module",
@@ -53,7 +53,7 @@
     "@types/mocha": "10.0.10",
     "@types/morgan": "1.9.10",
     "@types/nodemailer": "7.0.4",
-    "chai": "5.2.0",
+    "chai": "6.2.1",
     "eslint": "9.39.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-mocha": "11.2.0",
