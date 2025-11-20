@@ -5,11 +5,11 @@ const sinon = require('sinon');
 const mockFirebaseAdmin = {
   initializeApp: sinon.stub(),
   credential: {
-    cert: sinon.stub().returns({})
+    cert: sinon.stub().returns({}),
   },
   messaging: sinon.stub().returns({
-    send: sinon.stub().resolves()
-  })
+    send: sinon.stub().resolves(),
+  }),
 };
 
 // Store original require
@@ -17,9 +17,9 @@ const Module = require('module');
 const originalRequire = Module.prototype.require;
 
 // Override require to return mock for firebase-admin
-Module.prototype.require = function(id) {
+Module.prototype.require = function (id) {
   if (id === 'firebase-admin') {
     return mockFirebaseAdmin;
   }
   return originalRequire.apply(this, arguments);
-}; 
+};

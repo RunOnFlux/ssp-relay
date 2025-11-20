@@ -7,7 +7,6 @@ import syncService from '../../src/services/syncService';
 import serviceHelper from '../../src/services/serviceHelper';
 import sinon from 'sinon';
 
-
 const testInsertV1Sync = [
   {
     walletIdentity: 141,

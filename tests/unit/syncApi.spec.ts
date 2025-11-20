@@ -7,7 +7,6 @@ import syncApi from '../../src/apiServices/syncApi';
 import sinon from 'sinon';
 import httpMocks from 'node-mocks-http';
 
-
 const reqValid = {
   params: {
     id: 'bc1walletidentity141',

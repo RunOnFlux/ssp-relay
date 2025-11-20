@@ -6,7 +6,6 @@ import config from 'config';
 import databaseIndexCreationService from '../../src/services/databaseIndexCreationService';
 import serviceHelper from '../../src/services/serviceHelper';
 
-
 const testInsertV1action = [
   {
     createdAt: 1,

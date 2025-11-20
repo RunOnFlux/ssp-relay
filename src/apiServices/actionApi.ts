@@ -195,7 +195,8 @@ function postAction(req, res) {
       if (
         data.action === 'tx' ||
         data.action === 'publicnoncesrequest' ||
-        data.action === 'evmsigningrequest'
+        data.action === 'evmsigningrequest' ||
+        data.action === 'wksigningrequest'
       ) {
         const ioKey = socket.getIOKey();
         ioKey.to(data.wkIdentity).emit(data.action, data);
@@ -211,7 +212,9 @@ function postAction(req, res) {
         data.action === 'publicnoncesrejected' ||
         data.action === 'publicnonces' ||
         data.action === 'evmsigningrejected' ||
-        data.action === 'evmsigned'
+        data.action === 'evmsigned' ||
+        data.action === 'wksigningrejected' ||
+        data.action === 'wksigned'
       ) {
         const ioWallet = socket.getIOWallet();
         ioWallet.to(data.wkIdentity).emit(data.action, data);

@@ -5,7 +5,6 @@ import { expect, assert } from 'chai';
 import networkFeesService from '../../src/services/networkFeesService';
 import sinon from 'sinon';
 
-
 describe('Network Fees Service', function () {
   describe('Obtain Fess: Correctly verifies fees', function () {
     afterEach(function () {

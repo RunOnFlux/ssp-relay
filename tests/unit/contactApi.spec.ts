@@ -1,6 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import { expect, assert } from 'chai';
+import { assert } from 'chai';
 import serviceHelper from '../../src/services/serviceHelper';
 import contactApi from '../../src/apiServices/contactApi';
 import sinon from 'sinon';
@@ -87,9 +87,11 @@ describe('Contact API', function () {
         eventEmiiter: require('events').EventEmitter,
         req: request,
       });
-      await sinon
-        .stub(serviceHelper, 'ensureObject')
-        .returns({ message: 'test message', name: 'John Doe', email: 'test@test.com' });
+      await sinon.stub(serviceHelper, 'ensureObject').returns({
+        message: 'test message',
+        name: 'John Doe',
+        email: 'test@test.com',
+      });
       await sinon
         .stub(contactApi, 'postContact')
         .returns('Error: Invalid request');
@@ -109,9 +111,11 @@ describe('Contact API', function () {
         req: request,
       });
       const longMessage = 'a'.repeat(50001); // Over the 50000 char limit
-      await sinon
-        .stub(serviceHelper, 'ensureObject')
-        .returns({ message: longMessage, name: 'John Doe', email: 'test@test.com' });
+      await sinon.stub(serviceHelper, 'ensureObject').returns({
+        message: longMessage,
+        name: 'John Doe',
+        email: 'test@test.com',
+      });
       await sinon
         .stub(contactApi, 'postContact')
         .returns('Error: Message is too long');
@@ -131,9 +135,11 @@ describe('Contact API', function () {
         req: request,
       });
       const longName = 'a'.repeat(1001); // Over the 1000 char limit
-      await sinon
-        .stub(serviceHelper, 'ensureObject')
-        .returns({ message: 'test message', name: longName, email: 'test@test.com' });
+      await sinon.stub(serviceHelper, 'ensureObject').returns({
+        message: 'test message',
+        name: longName,
+        email: 'test@test.com',
+      });
       await sinon
         .stub(contactApi, 'postContact')
         .returns('Error: Name is too long');
@@ -152,9 +158,11 @@ describe('Contact API', function () {
         eventEmiiter: require('events').EventEmitter,
         req: request,
       });
-      await sinon
-        .stub(serviceHelper, 'ensureObject')
-        .returns({ message: 'test message', name: 'John Doe', email: 'invalid-email' });
+      await sinon.stub(serviceHelper, 'ensureObject').returns({
+        message: 'test message',
+        name: 'John Doe',
+        email: 'invalid-email',
+      });
       await sinon
         .stub(contactApi, 'postContact')
         .returns('Error: Email is invalid');
@@ -174,9 +182,11 @@ describe('Contact API', function () {
         req: request,
       });
       const longEmail = 'a'.repeat(490) + '@test.com'; // Over the 500 char limit
-      await sinon
-        .stub(serviceHelper, 'ensureObject')
-        .returns({ message: 'test message', name: 'John Doe', email: longEmail });
+      await sinon.stub(serviceHelper, 'ensureObject').returns({
+        message: 'test message',
+        name: 'John Doe',
+        email: longEmail,
+      });
       await sinon
         .stub(contactApi, 'postContact')
         .returns('Error: Email is invalid');
@@ -195,9 +205,11 @@ describe('Contact API', function () {
         eventEmiiter: require('events').EventEmitter,
         req: request,
       });
-      await sinon
-        .stub(serviceHelper, 'ensureObject')
-        .returns({ message: 'test message', name: 'John Doe', email: 'test@test.com' });
+      await sinon.stub(serviceHelper, 'ensureObject').returns({
+        message: 'test message',
+        name: 'John Doe',
+        email: 'test@test.com',
+      });
       await sinon
         .stub(contactApi, 'postContact')
         .returns('Error: Contact already submitted');
@@ -253,7 +265,7 @@ Type: business
 
 Message:
 We are interested in exploring a partnership opportunity with SSP Wallet.`;
-      
+
       await sinon.stub(serviceHelper, 'ensureObject').returns({
         message: structuredMessage,
         name: 'Jane Smith',

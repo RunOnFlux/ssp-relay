@@ -4,7 +4,6 @@ import { assert } from 'chai';
 import ticketService from '../../src/services/ticketService';
 import sinon from 'sinon';
 
-
 const data = [
   {
     type: 'Incident',

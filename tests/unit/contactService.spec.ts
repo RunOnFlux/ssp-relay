@@ -1,6 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import { expect, assert } from 'chai';
+import { assert } from 'chai';
 
 describe('Contact Service Logic', function () {
   describe('Subject extraction from structured messages', function () {
@@ -16,9 +16,9 @@ We want to partner with you.`;
 
       // Test the logic that would be in the service
       const lines = message.split('\n');
-      const subjectLine = lines.find(line => line.startsWith('Subject:'));
+      const subjectLine = lines.find((line) => line.startsWith('Subject:'));
       let extractedSubject = '';
-      
+
       if (subjectLine) {
         extractedSubject = subjectLine.replace('Subject:', '').trim();
       }
@@ -35,9 +35,9 @@ Message:
 The subject was empty.`;
 
       const lines = message.split('\n');
-      const subjectLine = lines.find(line => line.startsWith('Subject:'));
+      const subjectLine = lines.find((line) => line.startsWith('Subject:'));
       let extractedSubject = '';
-      
+
       if (subjectLine) {
         extractedSubject = subjectLine.replace('Subject:', '').trim();
       }
@@ -54,8 +54,8 @@ Message:
 Just a regular message.`;
 
       const lines = message.split('\n');
-      const subjectLine = lines.find(line => line.startsWith('Subject:'));
-      
+      const subjectLine = lines.find((line) => line.startsWith('Subject:'));
+
       assert.isUndefined(subjectLine);
     });
   });
@@ -69,7 +69,7 @@ Just a regular message.`;
       };
 
       const timestamp = new Date().toISOString();
-      
+
       const expectedText = `
 Contact Form Submission
 =======================
@@ -95,14 +95,14 @@ This message was sent via the SSP Wallet contact form.
     it('should generate correct subject line', function () {
       const name = 'Jane Smith';
       const defaultSubject = `Contact Form: Message from ${name}`;
-      
+
       assert.equal(defaultSubject, 'Contact Form: Message from Jane Smith');
     });
 
     it('should generate correct subject with extracted data', function () {
       const extractedSubject = 'Partnership Inquiry';
       const customSubject = `Contact Form: ${extractedSubject}`;
-      
+
       assert.equal(customSubject, 'Contact Form: Partnership Inquiry');
     });
   });
@@ -162,10 +162,10 @@ Message:
 We need help with integration.`;
 
       const lines = structuredMessage.split('\n');
-      const subjectLine = lines.find(line => line.startsWith('Subject:'));
-      const companyLine = lines.find(line => line.startsWith('Company:'));
-      const typeLine = lines.find(line => line.startsWith('Type:'));
-      const messageLine = lines.find(line => line.startsWith('Message:'));
+      const subjectLine = lines.find((line) => line.startsWith('Subject:'));
+      const companyLine = lines.find((line) => line.startsWith('Company:'));
+      const typeLine = lines.find((line) => line.startsWith('Type:'));
+      const messageLine = lines.find((line) => line.startsWith('Message:'));
 
       assert.isDefined(subjectLine);
       assert.isDefined(companyLine);

@@ -16,7 +16,6 @@ async function postContact(data) {
     });
 
     // Parse form data from message if it contains structured data
-    let formattedMessage = data.message;
     let subject = `Contact Form: Message from ${data.name}`;
 
     // Check if message contains structured form data

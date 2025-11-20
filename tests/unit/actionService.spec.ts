@@ -7,7 +7,6 @@ import actionService from '../../src/services/actionService';
 import serviceHelper from '../../src/services/serviceHelper';
 import sinon from 'sinon';
 
-
 const testInsert = [
   {
     wkIdentity: 'bc1walletidentity',

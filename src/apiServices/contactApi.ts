@@ -12,10 +12,7 @@ function postContact(req, res) {
   req.on('end', async () => {
     try {
       const processedBody = serviceHelper.ensureObject(body);
-      if (
-        !processedBody.message ||
-        typeof processedBody.message !== 'string'
-      ) {
+      if (!processedBody.message || typeof processedBody.message !== 'string') {
         throw new Error('No message specified');
       }
       if (!processedBody.name || typeof processedBody.name !== 'string') {

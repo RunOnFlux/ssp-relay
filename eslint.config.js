@@ -2,10 +2,8 @@ import globals from 'globals';
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
-import mochaPlugin from 'eslint-plugin-mocha';
 
 export default [
-  mochaPlugin.configs.flat.recommended,
   eslint.configs.recommended,
   ...tseslint.configs.recommended, // TBD recommendedTypeChecked
   eslintPluginPrettierRecommended,

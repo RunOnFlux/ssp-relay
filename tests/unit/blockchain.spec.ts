@@ -3,7 +3,6 @@
 import { assert } from 'chai';
 import blockchains from '../../src/services/blockchains';
 
-
 describe('Blockchain', function () {
   describe('Correctly verifies data', function () {
     it('should return valid btc data', async function () {

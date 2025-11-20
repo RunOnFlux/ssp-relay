@@ -3,7 +3,6 @@
 import { expect } from 'chai';
 import transactionDecoder from '../../src/services/transactionDecoder';
 
-
 const rawTxSepolia = {
   id: '0x8b18236447c918b3b217da857a787a7561313b730374430596eaa6f9c2d0ee16',
   opHash: '0xc195efc3bf3541c0e4b75591c0a8bf36484fef6ef6feb85f501ed1b4daa4ba68',
