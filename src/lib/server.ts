@@ -22,13 +22,16 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+app.use(express.text({ limit: '10mb' }));
 app.use(compression());
 app.use(cors());
 app.use(limiter);
 routes(app);
 
 // Catch-all route for undefined routes
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).send('Not found.');
 });
 
