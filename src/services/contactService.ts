@@ -2,6 +2,15 @@ import nodemailer from 'nodemailer';
 import config from 'config';
 import log from '../lib/log';
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 async function postContact(data) {
   try {
     // Create transporter using SMTP configuration
@@ -58,12 +67,12 @@ This message was sent via the SSP Wallet contact form.
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
             <tr>
               <td style="padding: 8px; background-color: #f8f9fa; font-weight: bold; width: 120px;">Name:</td>
-              <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${data.name}</td>
+              <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${escapeHtml(data.name)}</td>
             </tr>
             <tr>
               <td style="padding: 8px; background-color: #f8f9fa; font-weight: bold;">Email:</td>
               <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">
-                <a href="mailto:${data.email}" style="color: #007bff;">${data.email}</a>
+                <a href="mailto:${escapeHtml(data.email)}" style="color: #007bff;">${escapeHtml(data.email)}</a>
               </td>
             </tr>
             <tr>
@@ -74,7 +83,7 @@ This message was sent via the SSP Wallet contact form.
 
           <div style="margin: 20px 0;">
             <h3 style="color: #333; margin-bottom: 10px;">Message:</h3>
-            <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; white-space: pre-wrap;">${data.message}</div>
+            <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; white-space: pre-wrap;">${escapeHtml(data.message)}</div>
           </div>
 
           <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">

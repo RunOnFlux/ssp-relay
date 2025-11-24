@@ -76,7 +76,7 @@ async function obtainEthFees() {
       method: 'eth_gasPrice',
     };
     const dataB = {
-      id: new Date().getTime,
+      id: new Date().getTime(),
       jsonrpc: '2.0',
       method: 'rundler_maxPriorityFeePerGas',
     };
@@ -117,7 +117,7 @@ async function obtainSepoliaFees() {
       method: 'eth_gasPrice',
     };
     const dataB = {
-      id: new Date().getTime,
+      id: new Date().getTime(),
       jsonrpc: '2.0',
       method: 'rundler_maxPriorityFeePerGas',
     };
@@ -158,7 +158,7 @@ async function obtainAmoyFees() {
       method: 'eth_gasPrice',
     };
     const dataB = {
-      id: new Date().getTime,
+      id: new Date().getTime(),
       jsonrpc: '2.0',
       method: 'rundler_maxPriorityFeePerGas',
     };
@@ -199,7 +199,7 @@ async function obtainPolygonFees() {
       method: 'eth_gasPrice',
     };
     const dataB = {
-      id: new Date().getTime,
+      id: new Date().getTime(),
       jsonrpc: '2.0',
       method: 'rundler_maxPriorityFeePerGas',
     };
@@ -240,7 +240,7 @@ async function obtainBaseFees() {
       method: 'eth_gasPrice',
     };
     const dataB = {
-      id: new Date().getTime,
+      id: new Date().getTime(),
       jsonrpc: '2.0',
       method: 'rundler_maxPriorityFeePerGas',
     };
@@ -278,7 +278,7 @@ async function obtainBscFees() {
     //   method: 'eth_gasPrice',
     // };
     const dataB = {
-      id: new Date().getTime,
+      id: new Date().getTime(),
       jsonrpc: '2.0',
       method: 'eth_maxPriorityFeePerGas',
     };
@@ -316,7 +316,7 @@ async function obtainAvaxFees() {
       method: 'eth_gasPrice',
     };
     const dataB = {
-      id: new Date().getTime,
+      id: new Date().getTime(),
       jsonrpc: '2.0',
       method: 'eth_maxPriorityFeePerGas',
     };
@@ -408,9 +408,19 @@ async function fetchFees() {
 }
 
 async function networkFees(res) {
+  const timeout = 10000; // 10 second timeout
+  const startTime = Date.now();
+
   while (currentFees.length === 0) {
+    if (Date.now() - startTime > timeout) {
+      return res.status(503).json({
+        status: 'error',
+        data: 'Network fees not yet available. Please try again in a moment.',
+      });
+    }
     await serviceHelper.delay(500);
   }
+
   res.json(currentFees);
 }
 

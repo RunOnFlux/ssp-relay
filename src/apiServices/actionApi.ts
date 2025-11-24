@@ -3,6 +3,7 @@ import serviceHelper from '../services/serviceHelper';
 import notificationService from '../services/notificationService';
 import log from '../lib/log';
 import socket from '../lib/socket';
+import blockchains from '../services/blockchains';
 
 interface utxo {
   txid: string;
@@ -81,7 +82,30 @@ async function postAction(req, res) {
       typeof processedBody.payload !== 'string' ||
       processedBody.payload.length > 1000000
     ) {
-      throw new Error('Invalid Payload specified'); // can be large
+      throw new Error('Invalid Payload specified'); // max 1MB
+    }
+
+    // Validate payload format based on chain type
+    const blockchain = blockchains[processedBody.chain];
+    if (blockchain && blockchain.chainType === 'evm') {
+      // For EVM chains, validate payload is valid JSON with expected structure
+      if (processedBody.action === 'tx' || processedBody.action === 'evmsigningrequest') {
+        try {
+          const parsedPayload = JSON.parse(processedBody.payload);
+          if (!parsedPayload || typeof parsedPayload !== 'object') {
+            throw new Error('Payload must be valid JSON object for EVM chains');
+          }
+        } catch (error) {
+          throw new Error('Invalid EVM payload format: must be valid JSON');
+        }
+      }
+    } else if (blockchain && blockchain.chainType === 'utxo') {
+      // For UTXO chains, validate payload is hex string
+      if (processedBody.action === 'tx') {
+        if (!/^[0-9a-fA-F]+$/.test(processedBody.payload)) {
+          throw new Error('Invalid UTXO payload format: must be hex string');
+        }
+      }
     }
     if (processedBody.action === 'tx' && !processedBody.path) {
       throw new Error('No Derivation Path specified');

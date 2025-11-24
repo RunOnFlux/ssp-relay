@@ -11,7 +11,7 @@ function getFilesizeInBytes(filename) {
     const fileSizeInBytes = stats.size;
     return fileSizeInBytes;
   } catch (e) {
-    console.log(e);
+    // Failed to get file size, return 0 to trigger file creation
     return 0;
   }
 }
@@ -39,89 +39,69 @@ function writeToFile(filepath, args) {
 
 function debug(args) {
   try {
-    console.log(args);
-    // write to file
     const filepath = `${logsDirPath}debug.log`;
     writeToFile(filepath, args);
   } catch (err) {
-    console.error('This shall not have happened');
-    console.error(err);
+    // Failed to write debug log - log to stderr as last resort
+    process.stderr.write(`Failed to write debug log: ${err}\n`);
   }
 }
 
 function error(args) {
   try {
-    // console.error(args);
-    // write to file
     const filepath = `${logsDirPath}error.log`;
     writeToFile(filepath, args);
     debug(args);
   } catch (err) {
-    console.error('This shall not have happened');
-    console.error(err);
+    process.stderr.write(`Failed to write error log: ${err}\n`);
   }
 }
 
 function warn(args) {
   try {
-    // console.warn(args);
-    // write to file
     const filepath = `${logsDirPath}warn.log`;
     writeToFile(filepath, args);
     debug(args);
   } catch (err) {
-    console.error('This shall not have happened');
-    console.error(err);
+    process.stderr.write(`Failed to write warn log: ${err}\n`);
   }
 }
 
 function info(args) {
   try {
-    // console.log(args);
-    // write to file
     const filepath = `${logsDirPath}info.log`;
     writeToFile(filepath, args);
     debug(args);
   } catch (err) {
-    console.error('This shall not have happened');
-    console.error(err);
+    process.stderr.write(`Failed to write info log: ${err}\n`);
   }
 }
 
 function bugtrack(args) {
   try {
-    // console.log(args);
-    // write to file
     const filepath = `${logsDirPath}bugtrack.log`;
     writeToFile(filepath, args);
     debug(args);
   } catch (err) {
-    console.error('This shall not have happened');
-    console.error(err);
+    process.stderr.write(`Failed to write bugtrack log: ${err}\n`);
   }
 }
 
 function bugtrackB(args) {
   try {
-    // console.log(args);
-    // write to file
     const filepath = `${logsDirPath}bugtrackB.log`;
     writeToFile(filepath, args);
   } catch (err) {
-    console.error('This shall not have happened');
-    console.error(err);
+    process.stderr.write(`Failed to write bugtrackB log: ${err}\n`);
   }
 }
 
 function bugtrackC(args) {
   try {
-    // console.log(args);
-    // write to file
     const filepath = `${logsDirPath}bugtrackC.log`;
     writeToFile(filepath, args);
   } catch (err) {
-    console.error('This shall not have happened');
-    console.error(err);
+    process.stderr.write(`Failed to write bugtrackC log: ${err}\n`);
   }
 }
 

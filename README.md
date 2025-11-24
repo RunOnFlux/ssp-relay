@@ -21,7 +21,7 @@
 ## Requirements
 
 To run SSP Relay, ensure your environment meets the following prerequisites:
-- **Node.js**: Version 20 or higher  
+- **Node.js**: Version 24 or higher
 - **MongoDB**: A running MongoDB instance for data storage and processing  
 
 ---

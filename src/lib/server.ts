@@ -1,38 +1,44 @@
 import express from 'express';
-import morgan from 'morgan';
 import cors from 'cors';
 import compression from 'compression';
 import { rateLimit } from 'express-rate-limit';
 import routes from '../routes';
-
-const nodeEnv = process.env.NODE_ENV;
+import { errorHandler, notFoundHandler, timeoutHandler } from './errorHandler';
 
 const app = express();
 
 app.set('trust proxy', 1);
 
-if (nodeEnv !== 'test') {
-  app.use(morgan('combined'));
-}
+// Request timeout middleware
+app.use(timeoutHandler(30000)); // 30 second timeout
 
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+app.use(express.text({ limit: '10mb' }));
+
+// Compression
+app.use(compression());
+
+// CORS
+app.use(cors());
+
+// Rate limiting
 const limiter = rateLimit({
   windowMs: 30 * 1000, // 30 seconds
   max: 120, // Limit each IP to 120 requests per windowMs
   standardHeaders: 'draft-8',
   legacyHeaders: false,
 });
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: false, limit: '10mb' }));
-app.use(express.text({ limit: '10mb' }));
-app.use(compression());
-app.use(cors());
 app.use(limiter);
+
+// Routes
 routes(app);
 
-// Catch-all route for undefined routes
-app.use((_req, res) => {
-  res.status(404).send('Not found.');
-});
+// 404 handler
+app.use(notFoundHandler);
+
+// Global error handler (must be last)
+app.use(errorHandler);
 
 export default app;

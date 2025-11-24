@@ -98,6 +98,16 @@ async function postToken(data) {
       createdAt: 1,
     },
   };
+  if (data.keyToken && typeof data.keyToken !== 'string') {
+    throw new Error('Invalid keyToken type');
+  }
+  if (data.walletToken && typeof data.walletToken !== 'string') {
+    throw new Error('Invalid walletToken type');
+  }
+  if (data.wkIdentity && typeof data.wkIdentity !== 'string') {
+    throw new Error('Invalid wkIdentity type');
+  }
+
   const newData = {
     wkIdentity: data.wkIdentity,
     keyToken: data.keyToken,
@@ -105,7 +115,7 @@ async function postToken(data) {
     createdAt: new Date(),
   };
   // a token can be associated ONLY with one wkIdentity
-  const queryTokens = { keyToken: newData.keyToken };
+  const queryTokens = { keyToken: String(newData.keyToken) };
   const existingTokens = await serviceHelper.findInDatabase(
     database,
     tokenCollection,
@@ -113,11 +123,18 @@ async function postToken(data) {
     projection,
   );
   if (existingTokens.length > 1) {
-    // token associated with many wkIdentities. Delete all of them
-    for (const existingToken of existingTokens) {
-      await serviceHelper
-        .findOneAndDeleteInDatabase(database, tokenCollection, existingToken)
-        .catch((error) => log.error(error));
+    try {
+      await serviceHelper.removeDocumentsFromCollection(
+        database,
+        tokenCollection,
+        queryTokens,
+      );
+    } catch (error) {
+      log.error({
+        message: 'Failed to bulk delete duplicate tokens',
+        error,
+        keyToken: newData.keyToken,
+      });
     }
   }
   const existingRecords = await serviceHelper.findInDatabase(

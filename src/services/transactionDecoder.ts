@@ -15,8 +15,29 @@ function getLibId(chain) {
 
 async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
   try {
+    // Validate and parse JSON safely
+    if (typeof rawTx !== 'string') {
+      throw new Error('Invalid transaction format: must be string');
+    }
+    if (rawTx.length > 500000) {
+      throw new Error('Invalid transaction format: too large');
+    }
+
+    let multisigUserOpJSON;
+    try {
+      multisigUserOpJSON = JSON.parse(rawTx);
+    } catch (error) {
+      throw new Error('Invalid transaction format: invalid JSON');
+    }
+
+    if (!multisigUserOpJSON || typeof multisigUserOpJSON !== 'object') {
+      throw new Error('Invalid transaction format: must be object');
+    }
+    if (!multisigUserOpJSON.userOpRequest || typeof multisigUserOpJSON.userOpRequest !== 'object') {
+      throw new Error('Invalid transaction format: missing userOpRequest');
+    }
+
     let { decimals } = blockchains[chain];
-    const multisigUserOpJSON = JSON.parse(rawTx);
     const {
       callData,
       sender,
@@ -37,7 +58,10 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
 
     const totalFeeWei = totalGasLimit.multipliedBy(totalMaxWeiPerGas);
 
-    console.log(multisigUserOpJSON);
+    log.debug({
+      message: 'Decoding EVM transaction',
+      multisigUserOpJSON,
+    });
 
     // callGasLimit":"0x5ea6","verificationGasLimit":"0x11b5a","preVerificationGas":"0xdf89","maxFeePerGas":"0xee6b28000","maxPriorityFeePerGas":"0x77359400",
     const decodedData = viem.decodeFunctionData({
@@ -102,7 +126,10 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
           abi: viem.erc20Abi,
           data: contractData as `0x${string}`,
         });
-        console.log(decodedDataContract);
+        log.debug({
+          message: 'Decoded ERC20 contract data',
+          decodedDataContract,
+        });
         if (
           decodedDataContract &&
           decodedDataContract.functionName === 'transfer' &&
@@ -124,7 +151,10 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
 
     return txInfo;
   } catch (error) {
-    console.log(error);
+    log.error({
+      message: 'Error decoding EVM transaction',
+      error,
+    });
     const txInfo = {
       sender: 'decodingError',
       receiver: 'decodingError',

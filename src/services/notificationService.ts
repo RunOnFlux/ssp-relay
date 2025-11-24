@@ -42,27 +42,68 @@ async function sendNotificationKey(wkIdentity, data) {
     } catch (error) {
       log.error(error);
     }
-    for (const sync of syncs) {
-      try {
-        if (sync.keyToken) {
-          await admin.messaging().send({
-            token: sync.keyToken,
-            notification: {
-              title,
-              body,
-            },
-          });
-        }
-      } catch (error) {
-        // delete this from database
-        if (
-          typeof error.message === 'string' &&
-          error.message.includes === 'not found'
-        ) {
+
+    // Prepare messages for batch sending
+    const validTokens = syncs
+      .filter((sync) => sync.keyToken)
+      .map((sync) => sync.keyToken);
+
+    if (validTokens.length === 0) {
+      return;
+    }
+
+    // Use Firebase batch messaging API
+    const messages = validTokens.map((token) => ({
+      token,
+      notification: {
+        title,
+        body,
+      },
+    }));
+
+    try {
+      const batchResponse = await admin.messaging().sendEach(messages);
+
+      // Handle failed messages and clean up invalid tokens
+      if (batchResponse.failureCount > 0) {
+        const tokensToDelete = [];
+
+        batchResponse.responses.forEach((response, index) => {
+          if (!response.success && response.error) {
+            const errorCode = response.error.code;
+            // Remove tokens that are invalid or not registered
+            if (
+              errorCode === 'messaging/invalid-registration-token' ||
+              errorCode === 'messaging/registration-token-not-registered'
+            ) {
+              tokensToDelete.push(syncs[index]);
+            }
+            log.error({
+              message: 'Failed to send notification',
+              error: response.error,
+              token: validTokens[index],
+            });
+          }
+        });
+
+        // Clean up invalid tokens from database
+        for (const sync of tokensToDelete) {
           await syncService.deleteToken(sync).catch((er) => log.error(er));
         }
-        log.error(error);
       }
+
+      log.info({
+        message: 'Batch notification sent',
+        successCount: batchResponse.successCount,
+        failureCount: batchResponse.failureCount,
+        totalTokens: validTokens.length,
+      });
+    } catch (error) {
+      log.error({
+        message: 'Failed to send batch notifications',
+        error,
+        wkIdentity,
+      });
     }
   } catch (error) {
     log.error(error);
