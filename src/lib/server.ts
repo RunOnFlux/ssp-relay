@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import compression from 'compression';
+import morgan from 'morgan';
 import { rateLimit } from 'express-rate-limit';
 import routes from '../routes';
 import { errorHandler, notFoundHandler, timeoutHandler } from './errorHandler';
@@ -8,6 +9,9 @@ import { errorHandler, notFoundHandler, timeoutHandler } from './errorHandler';
 const app = express();
 
 app.set('trust proxy', 1);
+
+// Request logging
+app.use(morgan('dev'));
 
 // Request timeout middleware
 app.use(timeoutHandler(30000)); // 30 second timeout
