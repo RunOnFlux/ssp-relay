@@ -256,13 +256,13 @@ describe('Sync Service', function () {
     });
 
     it('should return data with wkIdentity when id is valid', async function () {
-      await syncService.postToken({ wkIdentity: 144 }).then((r) => {
+      await syncService.postToken({ wkIdentity: '144' }).then((r) => {
         expect(r).to.have.property('wkIdentity');
-        expect(r.wkIdentity).equal(144);
+        expect(r.wkIdentity).equal('144');
       });
-      await syncService.postToken({ wkIdentity: 191 }).then((r) => {
+      await syncService.postToken({ wkIdentity: '191' }).then((r) => {
         expect(r).to.have.property('wkIdentity');
-        expect(r.wkIdentity).equal(191);
+        expect(r.wkIdentity).equal('191');
       });
     });
 
@@ -275,11 +275,11 @@ describe('Sync Service', function () {
     // Testing using stub data
     it('should return successful result 141 if stub value is valid', async function () {
       const call = await sinon.stub(serviceHelper, 'findInDatabase');
-      await call.onCall(0).returns([{ wkIdentity: 141 }]);
+      await call.onCall(0).returns([{ wkIdentity: '141' }]);
       await call.onCall(1).returns([]);
-      await syncService.postToken({ wkIdentity: 141 }).then((r) => {
+      await syncService.postToken({ wkIdentity: '141' }).then((r) => {
         expect(r).to.have.property('wkIdentity');
-        expect(r).to.deep.equal({ wkIdentity: 141 });
+        expect(r).to.deep.equal({ wkIdentity: '141' });
       });
     });
 
@@ -403,9 +403,9 @@ describe('Sync Service', function () {
 
   describe('Delete Token: Correctly verifies delete token', function () {
     it('should return successfully', async function () {
-      await syncService.postToken({ wkIdentity: 188 });
-      await syncService.deleteToken({ wkIdentity: 188 }).then(async () => {
-        await syncService.getTokens({ wkIdentity: 188 }).catch((e) => {
+      await syncService.postToken({ wkIdentity: '188' });
+      await syncService.deleteToken({ wkIdentity: '188' }).then(async () => {
+        await syncService.getTokens({ wkIdentity: '188' }).catch((e) => {
           assert.equal(e, 'Error: Sync [object Object] not found');
         });
       });
