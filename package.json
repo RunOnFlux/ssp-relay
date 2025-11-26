@@ -1,6 +1,6 @@
 {
   "name": "ssp-relay",
-  "version": "1.11.0",
+  "version": "1.11.1",
   "description": "SSP Relay",
   "main": "index.ts",
   "type": "module",
@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@runonflux/aa-schnorr-multisig-sdk": "1.2.1",
-    "@runonflux/utxo-lib": "1.0.1",
+    "@runonflux/utxo-lib": "1.0.2",
     "alchemy-sdk": "3.6.5",
     "apicache": "1.6.3",
     "axios": "1.13.2",
