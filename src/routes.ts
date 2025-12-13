@@ -1,4 +1,5 @@
 import config from 'config';
+import express from 'express';
 import syncApi from './apiServices/syncApi';
 import actionApi from './apiServices/actionApi';
 import ratesApi from './apiServices/ratesApi';
@@ -7,6 +8,9 @@ import contactApi from './apiServices/contactApi';
 import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
 import onramperApi from './apiServices/onramperApi';
+
+// Middleware to parse body as raw text for onramper signing endpoint
+const textBodyParser = express.text({ type: '*/*', limit: '10mb' });
 
 export default (app) => {
   // return sync data
@@ -51,8 +55,8 @@ export default (app) => {
   app.get('/v1/services', (req, res) => {
     res.json(config.services);
   });
-  // onramper endpoint
-  app.post('/v1/sign/onramper', (req, res) => {
+  // onramper endpoint - uses text body parser to preserve raw body for signing
+  app.post('/v1/sign/onramper', textBodyParser, (req, res) => {
     onramperApi.postDataToSign(req, res);
   });
 };

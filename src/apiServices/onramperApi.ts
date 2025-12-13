@@ -3,10 +3,8 @@ import log from '../lib/log';
 
 async function postDataToSign(req, res) {
   try {
-    // For text/plain requests, req.body will be a string
-    // For JSON requests, we might need to stringify it
-    const dataToSign =
-      typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    // Body is always a string due to text body parser middleware in routes
+    const dataToSign = req.body;
     if (!dataToSign || typeof dataToSign !== 'string') {
       throw new Error('Invalid data to sign');
     }
