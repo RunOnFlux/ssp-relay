@@ -1,11 +1,21 @@
+import qs from 'qs';
 import { generateSignature } from '../services/onramperService';
 import log from '../lib/log';
 
 async function postDataToSign(req, res) {
   try {
-    // Body is always a string due to text body parser middleware in routes
-    const dataToSign = req.body;
-    if (!dataToSign || typeof dataToSign !== 'string') {
+    // Convert body to query string format for signing
+    // If body is already a string (text/plain), use it directly
+    // If body is an object (parsed JSON), convert to query string format
+    let dataToSign: string;
+    if (typeof req.body === 'string') {
+      dataToSign = req.body;
+    } else if (typeof req.body === 'object' && req.body !== null) {
+      dataToSign = qs.stringify(req.body, { encode: false });
+    } else {
+      throw new Error('Invalid data to sign');
+    }
+    if (!dataToSign) {
       throw new Error('Invalid data to sign');
     }
     if (dataToSign.length < 30) {

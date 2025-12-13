@@ -34,8 +34,11 @@ describe('Onramper API', function () {
       );
     });
 
-    it('should return 400 error for non-string body (JSON object)', async function () {
-      const payload = { data: 'some-data-that-is-long-enough-to-pass' };
+    it('should convert JSON object to query string and return correct signature', async function () {
+      // JSON object { networkWallets: "flux:..." } should be converted to "networkWallets=flux:..."
+      const payload = {
+        networkWallets: 'flux:t3TRUNKvgywghL1vU5bsGQqs9eVC17XcUnV',
+      };
       const request = httpMocks.createRequest({
         method: 'POST',
         url: '/v1/onramper/sign',
@@ -49,9 +52,12 @@ describe('Onramper API', function () {
       await onramperApi.postDataToSign(request, res);
 
       const data = JSON.parse(res._getData());
-      expect(res.statusCode).to.equal(400);
-      expect(data).to.have.property('error');
-      expect(data.error).to.equal('Invalid data to sign');
+      expect(res.statusCode).to.equal(200);
+      expect(data).to.have.property('signature');
+      // Should produce same signature as the text/plain version
+      expect(data.signature).to.equal(
+        '0c30da188858431a08be88a7042fca4ac03ec9197af0f0bd4b4e11725d794e18',
+      );
     });
 
     it('should return 400 error when body is empty', async function () {
