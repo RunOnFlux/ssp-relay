@@ -11,7 +11,11 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Request logging
-app.use(morgan(':date[iso] :remote-addr :method :url :status :res[content-length] - :response-time ms'));
+app.use(
+  morgan(
+    ':date[iso] :remote-addr :method :url :status :res[content-length] - :response-time ms',
+  ),
+);
 
 // Request timeout middleware
 app.use(timeoutHandler(30000)); // 30 second timeout

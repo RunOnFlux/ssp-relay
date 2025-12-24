@@ -33,7 +33,10 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
     if (!multisigUserOpJSON || typeof multisigUserOpJSON !== 'object') {
       throw new Error('Invalid transaction format: must be object');
     }
-    if (!multisigUserOpJSON.userOpRequest || typeof multisigUserOpJSON.userOpRequest !== 'object') {
+    if (
+      !multisigUserOpJSON.userOpRequest ||
+      typeof multisigUserOpJSON.userOpRequest !== 'object'
+    ) {
       throw new Error('Invalid transaction format: missing userOpRequest');
     }
 

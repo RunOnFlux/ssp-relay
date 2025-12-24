@@ -175,7 +175,9 @@ export class CircuitBreaker {
 
       if (this.failures >= this.threshold) {
         this.state = 'open';
-        log.error(`Circuit breaker opened: ${this.name} (${this.failures} failures)`);
+        log.error(
+          `Circuit breaker opened: ${this.name} (${this.failures} failures)`,
+        );
       }
 
       throw error;
