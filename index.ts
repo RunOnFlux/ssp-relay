@@ -3,7 +3,10 @@ import config from './config/default';
 import app from './src/lib/server';
 import log from './src/lib/log';
 import socket from './src/lib/socket';
-import { setupGracefulShutdown, registerShutdownDependency } from './src/lib/shutdown';
+import {
+  setupGracefulShutdown,
+  registerShutdownDependency,
+} from './src/lib/shutdown';
 
 import serviceHelper from './src/services/serviceHelper';
 import databaseService from './src/services/databaseIndexCreationService';
@@ -49,7 +52,9 @@ async function startServer() {
     // Start HTTP server
     await new Promise<void>((resolve, reject) => {
       server.listen(config.server.port, () => {
-        log.info(`SSP Relay started successfully on port ${config.server.port}`);
+        log.info(
+          `SSP Relay started successfully on port ${config.server.port}`,
+        );
         resolve();
       });
 
@@ -60,7 +65,6 @@ async function startServer() {
     });
 
     registerShutdownDependency('httpServer', server);
-
   } catch (error) {
     log.error(error);
     process.exit(1);
