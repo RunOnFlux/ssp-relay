@@ -1,43 +1,151 @@
 import { Server } from 'socket.io';
 import log from './log';
 import socketService from '../services/socketService';
+import {
+  verifyMultisigAuth,
+  detectNetworkFromAddress,
+  isMultisigIdentity,
+  AuthFields,
+  SignaturePayload,
+} from './identityAuth';
 
 let ioKey;
 let ioWallet;
 
+/**
+ * Verify socket authentication for wkIdentity (multisig).
+ *
+ * @param data - The join event data
+ * @returns Whether authentication is valid
+ */
+function verifySocketAuth(data: {
+  wkIdentity: string;
+  signature?: string;
+  message?: string;
+  publicKey?: string;
+  witnessScript?: string;
+}): { valid: boolean; error?: string } {
+  const { wkIdentity, signature, message, publicKey, witnessScript } = data;
+
+  // If no auth fields provided, allow for backward compatibility
+  // TODO: Make auth required after clients are updated
+  if (!signature || !message || !publicKey) {
+    log.warn(
+      `Unauthenticated socket join for ${wkIdentity} (auth fields missing)`,
+    );
+    return { valid: true }; // Allow for backward compatibility
+  }
+
+  // For multisig identity, require witness script
+  if (isMultisigIdentity(wkIdentity) && !witnessScript) {
+    return {
+      valid: false,
+      error: 'witnessScript required for multisig identity',
+    };
+  }
+
+  // Verify the signature payload action is 'join'
+  try {
+    const payload: SignaturePayload = JSON.parse(message);
+    if (payload.action !== 'join') {
+      return {
+        valid: false,
+        error: `Invalid action in payload: expected 'join', got '${payload.action}'`,
+      };
+    }
+    if (payload.identity !== wkIdentity) {
+      return {
+        valid: false,
+        error: `Identity mismatch in payload`,
+      };
+    }
+  } catch {
+    return {
+      valid: false,
+      error: 'Invalid message format',
+    };
+  }
+
+  const network = detectNetworkFromAddress(wkIdentity);
+  const authData: AuthFields = {
+    signature,
+    message,
+    publicKey,
+    witnessScript,
+  };
+
+  const result = verifyMultisigAuth(authData, wkIdentity, network);
+
+  if (!result.valid) {
+    log.warn(`Socket auth failed for ${wkIdentity}: ${result.error}`);
+    return { valid: false, error: result.error };
+  }
+
+  log.info(
+    `Authenticated socket join for ${wkIdentity} (signer: ${result.signerPublicKey?.substring(0, 16)}...)`,
+  );
+  return { valid: true };
+}
+
 function initIOKey(httpServer?, path = '/v1/socket/key') {
   ioKey = new Server(httpServer, { path });
   ioKey.on('connection', async (socket) => {
-    socket.on('join', async ({ wkIdentity }) => {
-      // Validate wkIdentity before joining room
-      if (!wkIdentity || typeof wkIdentity !== 'string') {
-        log.warn('Invalid wkIdentity provided to socket join');
-        socket.disconnect();
-        return;
-      }
-      if (wkIdentity.length < 10 || wkIdentity.length > 500) {
-        log.warn(`Invalid wkIdentity length: ${wkIdentity.length}`);
-        socket.disconnect();
-        return;
-      }
+    socket.on(
+      'join',
+      async (data: {
+        wkIdentity: string;
+        signature?: string;
+        message?: string;
+        publicKey?: string;
+        witnessScript?: string;
+      }) => {
+        const { wkIdentity } = data;
 
-      socket.join(wkIdentity);
-      const actionToSend = await socketService
-        .getAction(wkIdentity)
-        .catch((error) => {
-          log.error(error);
-        });
-      if (!actionToSend) {
-        log.warn(`No action to send for ${wkIdentity}`);
-        return;
-      }
-      if (
-        actionToSend.action === 'tx' ||
-        actionToSend.action === 'publicnoncesrequest'
-      ) {
-        ioKey.to(wkIdentity).emit(actionToSend.action, actionToSend);
-      }
-    });
+        // Validate wkIdentity before joining room
+        if (!wkIdentity || typeof wkIdentity !== 'string') {
+          log.warn('Invalid wkIdentity provided to socket join');
+          socket.emit('error', { message: 'Invalid wkIdentity' });
+          socket.disconnect();
+          return;
+        }
+        if (wkIdentity.length < 10 || wkIdentity.length > 500) {
+          log.warn(`Invalid wkIdentity length: ${wkIdentity.length}`);
+          socket.emit('error', { message: 'Invalid wkIdentity length' });
+          socket.disconnect();
+          return;
+        }
+
+        // Verify authentication
+        const authResult = verifySocketAuth(data);
+        if (!authResult.valid) {
+          log.warn(
+            `Socket authentication failed for ${wkIdentity}: ${authResult.error}`,
+          );
+          socket.emit('error', {
+            message: authResult.error || 'Authentication failed',
+          });
+          socket.disconnect();
+          return;
+        }
+
+        socket.join(wkIdentity);
+        const actionToSend = await socketService
+          .getAction(wkIdentity)
+          .catch((error) => {
+            log.error(error);
+          });
+        if (!actionToSend) {
+          log.warn(`No action to send for ${wkIdentity}`);
+          return;
+        }
+        if (
+          actionToSend.action === 'tx' ||
+          actionToSend.action === 'publicnoncesrequest'
+        ) {
+          ioKey.to(wkIdentity).emit(actionToSend.action, actionToSend);
+        }
+      },
+    );
 
     socket.on('leave', ({ wkIdentity }) => {
       if (!wkIdentity || typeof wkIdentity !== 'string') {
@@ -69,20 +177,47 @@ function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
     },
   });
   ioWallet.on('connection', (socket) => {
-    socket.on('join', ({ wkIdentity }) => {
-      // Validate wkIdentity before joining room
-      if (!wkIdentity || typeof wkIdentity !== 'string') {
-        log.warn('Invalid wkIdentity provided to wallet socket join');
-        socket.disconnect();
-        return;
-      }
-      if (wkIdentity.length < 10 || wkIdentity.length > 500) {
-        log.warn(`Invalid wkIdentity length: ${wkIdentity.length}`);
-        socket.disconnect();
-        return;
-      }
-      socket.join(wkIdentity);
-    });
+    socket.on(
+      'join',
+      (data: {
+        wkIdentity: string;
+        signature?: string;
+        message?: string;
+        publicKey?: string;
+        witnessScript?: string;
+      }) => {
+        const { wkIdentity } = data;
+
+        // Validate wkIdentity before joining room
+        if (!wkIdentity || typeof wkIdentity !== 'string') {
+          log.warn('Invalid wkIdentity provided to wallet socket join');
+          socket.emit('error', { message: 'Invalid wkIdentity' });
+          socket.disconnect();
+          return;
+        }
+        if (wkIdentity.length < 10 || wkIdentity.length > 500) {
+          log.warn(`Invalid wkIdentity length: ${wkIdentity.length}`);
+          socket.emit('error', { message: 'Invalid wkIdentity length' });
+          socket.disconnect();
+          return;
+        }
+
+        // Verify authentication
+        const authResult = verifySocketAuth(data);
+        if (!authResult.valid) {
+          log.warn(
+            `Wallet socket authentication failed for ${wkIdentity}: ${authResult.error}`,
+          );
+          socket.emit('error', {
+            message: authResult.error || 'Authentication failed',
+          });
+          socket.disconnect();
+          return;
+        }
+
+        socket.join(wkIdentity);
+      },
+    );
     socket.on('leave', ({ wkIdentity }) => {
       if (!wkIdentity || typeof wkIdentity !== 'string') {
         return;

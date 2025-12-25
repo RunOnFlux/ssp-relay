@@ -1,6 +1,7 @@
 import syncService from '../services/syncService';
 import serviceHelper from '../services/serviceHelper';
 import log from '../lib/log';
+import { stripAuthFields } from '../middleware/authMiddleware';
 
 interface syncData {
   chain: string;
@@ -40,7 +41,8 @@ async function getSync(req, res) {
 
 async function postSync(req, res) {
   try {
-    const processedBody = req.body;
+    // Strip auth fields before processing
+    const processedBody = stripAuthFields(req.body);
     if (
       !processedBody.chain ||
       typeof processedBody.chain !== 'string' ||
@@ -162,7 +164,8 @@ async function postSync(req, res) {
 
 async function postToken(req, res) {
   try {
-    const processedBody = req.body;
+    // Strip auth fields before processing
+    const processedBody = stripAuthFields(req.body);
     if (
       !processedBody.wkIdentity ||
       typeof processedBody.wkIdentity !== 'string' ||

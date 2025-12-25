@@ -7,24 +7,44 @@ import contactApi from './apiServices/contactApi';
 import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
 import onramperApi from './apiServices/onramperApi';
+import {
+  requireAuth,
+  optionalWkIdentityAuth,
+} from './middleware/authMiddleware';
+import { startNonceCacheCleanup } from './lib/identityAuth';
+
+// Start nonce cache cleanup on module load
+startNonceCacheCleanup();
 
 export default (app) => {
-  // return sync data
+  // return sync data (no auth needed for GET)
   app.get('/v1/sync{/:id}', (req, res) => {
     syncApi.getSync(req, res);
   });
   app.get('/v1/action{/:id}', (req, res) => {
     actionApi.getAction(req, res);
   });
-  // post sync data
-  app.post('/v1/sync', (req, res) => {
-    syncApi.postSync(req, res);
-  });
-  app.post('/v1/token', (req, res) => {
+
+  // post sync data - requires walletIdentity auth (from SSP Key)
+  // Note: Using optional auth during transition period
+  // TODO: Change to requireAuth('walletIdentity') after clients are updated
+  app.post(
+    '/v1/sync',
+    requireAuth('wkIdentity', { required: false }),
+    (req, res) => {
+      syncApi.postSync(req, res);
+    },
+  );
+
+  // post token - requires wkIdentity auth
+  // Note: Using optional auth during transition period
+  app.post('/v1/token', optionalWkIdentityAuth, (req, res) => {
     syncApi.postToken(req, res);
   });
-  // post action data
-  app.post('/v1/action', (req, res) => {
+
+  // post action data - requires wkIdentity auth
+  // Note: Using optional auth during transition period
+  app.post('/v1/action', optionalWkIdentityAuth, (req, res) => {
     actionApi.postAction(req, res);
   });
   // rates endpoint

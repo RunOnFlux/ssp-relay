@@ -4,6 +4,7 @@ import notificationService from '../services/notificationService';
 import log from '../lib/log';
 import socket from '../lib/socket';
 import blockchains from '../services/blockchains';
+import { stripAuthFields } from '../middleware/authMiddleware';
 
 interface utxo {
   txid: string;
@@ -51,7 +52,8 @@ async function getAction(req, res) {
 
 async function postAction(req, res) {
   try {
-    const processedBody = req.body;
+    // Strip auth fields before processing
+    const processedBody = stripAuthFields(req.body);
     log.info(processedBody);
     if (
       !processedBody.chain ||
@@ -89,7 +91,10 @@ async function postAction(req, res) {
     const blockchain = blockchains[processedBody.chain];
     if (blockchain && blockchain.chainType === 'evm') {
       // For EVM chains, validate payload is valid JSON with expected structure
-      if (processedBody.action === 'tx' || processedBody.action === 'evmsigningrequest') {
+      if (
+        processedBody.action === 'tx' ||
+        processedBody.action === 'evmsigningrequest'
+      ) {
         try {
           const parsedPayload = JSON.parse(processedBody.payload);
           if (!parsedPayload || typeof parsedPayload !== 'object') {
