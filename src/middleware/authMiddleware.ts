@@ -77,10 +77,14 @@ export function requireAuth(
       // Check if auth fields are present
       const hasAuthFields = signature && message && publicKey;
 
+      log.info(
+        `[AUTH] ${req.method} ${req.path} - identity: ${identity || 'none'}, hasAuth: ${hasAuthFields}`,
+      );
+
       // If auth is not required and no auth fields provided, continue
       if (!required && !hasAuthFields) {
         log.warn(
-          `Unauthenticated request to ${req.path} for ${identity || 'unknown identity'} (auth optional)`,
+          `[AUTH] SKIPPED - Unauthenticated request to ${req.path} for ${identity || 'unknown identity'} (auth optional)`,
         );
         req.isAuthenticated = false;
         return next();
@@ -196,7 +200,7 @@ export function requireAuth(
 
       if (!result.valid) {
         log.warn(
-          `Authentication failed for ${identity} on ${req.path}: ${result.error}`,
+          `[AUTH] FAILED - ${identity} on ${req.path}: ${result.error}`,
         );
         return res
           .status(401)
@@ -208,6 +212,10 @@ export function requireAuth(
             ),
           );
       }
+
+      log.info(
+        `[AUTH] SIGNATURE VALID - ${identity} signed by ${result.signerPublicKey?.substring(0, 16)}...`,
+      );
 
       // Verify request body hash matches signed data hash
       let signedPayload: SignaturePayload;
@@ -242,11 +250,11 @@ export function requireAuth(
               ),
             );
         }
-        log.debug(`Body hash verified for ${identity} on ${req.path}`);
+        log.info(`[AUTH] BODY HASH VERIFIED - ${identity} on ${req.path}`);
       } else {
         // No data hash in signature - log warning but allow during transition period
         log.warn(
-          `Request for ${identity} on ${req.path} has no body hash in signature (legacy client)`,
+          `[AUTH] NO BODY HASH - ${identity} on ${req.path} (legacy client, signature valid but no data binding)`,
         );
       }
 
@@ -256,7 +264,7 @@ export function requireAuth(
       req.isAuthenticated = true;
 
       log.info(
-        `Authenticated request for ${identity} on ${req.path} (signer: ${result.signerPublicKey?.substring(0, 16)}...)`,
+        `[AUTH] SUCCESS - ${identity} on ${req.path} fully authenticated`,
       );
 
       next();

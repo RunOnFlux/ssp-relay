@@ -31,10 +31,12 @@ function verifySocketAuth(data: {
   // TODO: Make auth required after clients are updated
   if (!signature || !message || !publicKey) {
     log.warn(
-      `Unauthenticated socket join for ${wkIdentity} (auth fields missing)`,
+      `[SOCKET AUTH] SKIPPED - ${wkIdentity} (no auth fields, legacy client)`,
     );
     return { valid: true }; // Allow for backward compatibility
   }
+
+  log.info(`[SOCKET AUTH] Verifying join for ${wkIdentity}...`);
 
   // For multisig identity, require witness script
   if (isMultisigIdentity(wkIdentity) && !witnessScript) {
@@ -77,12 +79,12 @@ function verifySocketAuth(data: {
   const result = verifyMultisigAuth(authData, wkIdentity, network);
 
   if (!result.valid) {
-    log.warn(`Socket auth failed for ${wkIdentity}: ${result.error}`);
+    log.warn(`[SOCKET AUTH] FAILED - ${wkIdentity}: ${result.error}`);
     return { valid: false, error: result.error };
   }
 
   log.info(
-    `Authenticated socket join for ${wkIdentity} (signer: ${result.signerPublicKey?.substring(0, 16)}...)`,
+    `[SOCKET AUTH] SUCCESS - ${wkIdentity} (signer: ${result.signerPublicKey?.substring(0, 16)}...)`,
   );
   return { valid: true };
 }
@@ -90,6 +92,7 @@ function verifySocketAuth(data: {
 function initIOKey(httpServer?, path = '/v1/socket/key') {
   ioKey = new Server(httpServer, { path });
   ioKey.on('connection', async (socket) => {
+    log.info(`[SOCKET KEY] New connection: ${socket.id}`);
     socket.on(
       'join',
       async (data: {
@@ -129,6 +132,7 @@ function initIOKey(httpServer?, path = '/v1/socket/key') {
         }
 
         socket.join(wkIdentity);
+        log.info(`[SOCKET KEY] ${socket.id} joined room: ${wkIdentity}`);
         const actionToSend = await socketService
           .getAction(wkIdentity)
           .catch((error) => {
@@ -177,6 +181,7 @@ function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
     },
   });
   ioWallet.on('connection', (socket) => {
+    log.info(`[SOCKET WALLET] New connection: ${socket.id}`);
     socket.on(
       'join',
       (data: {
@@ -206,7 +211,7 @@ function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
         const authResult = verifySocketAuth(data);
         if (!authResult.valid) {
           log.warn(
-            `Wallet socket authentication failed for ${wkIdentity}: ${authResult.error}`,
+            `[SOCKET WALLET] Auth failed for ${wkIdentity}: ${authResult.error}`,
           );
           socket.emit('error', {
             message: authResult.error || 'Authentication failed',
@@ -216,6 +221,7 @@ function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
         }
 
         socket.join(wkIdentity);
+        log.info(`[SOCKET WALLET] ${socket.id} joined room: ${wkIdentity}`);
       },
     );
     socket.on('leave', ({ wkIdentity }) => {

@@ -20,7 +20,7 @@ import {
 } from '../types/auth';
 
 // Constants
-const MAX_TIMESTAMP_DRIFT_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_TIMESTAMP_DRIFT_MS = 10 * 60 * 1000; // 10 minutes
 const NONCE_CACHE_SIZE = 10000;
 const NONCE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
