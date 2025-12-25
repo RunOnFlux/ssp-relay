@@ -210,7 +210,7 @@ describe('Identity Authentication Library', function () {
 
     it('should reject payload with old timestamp', function () {
       const payload = {
-        timestamp: Date.now() - 10 * 60 * 1000, // 10 minutes ago
+        timestamp: Date.now() - 15 * 60 * 1000, // 15 minutes ago (exceeds 10 min limit)
         action: 'join' as const,
         identity: 'test-identity',
         nonce: crypto.randomBytes(32).toString('hex'),
@@ -222,7 +222,7 @@ describe('Identity Authentication Library', function () {
 
     it('should reject payload with future timestamp', function () {
       const payload = {
-        timestamp: Date.now() + 10 * 60 * 1000, // 10 minutes in future
+        timestamp: Date.now() + 15 * 60 * 1000, // 15 minutes in future (exceeds 10 min limit)
         action: 'join' as const,
         identity: 'test-identity',
         nonce: crypto.randomBytes(32).toString('hex'),
