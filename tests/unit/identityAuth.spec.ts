@@ -1,7 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
 import { expect } from 'chai';
-import * as bitcoin from '@runonflux/utxo-lib';
+import utxolib from '@runonflux/utxo-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 import crypto from 'crypto';
 import {
@@ -37,7 +37,7 @@ const TEST_PUBKEY_2 =
 function generateTestWitnessScript(): string {
   const pubKeys = [TEST_PUBKEY_1, TEST_PUBKEY_2].sort();
   const pubKeyBuffers = pubKeys.map((pk) => Buffer.from(pk, 'hex'));
-  const witnessScript = bitcoin.script.multisig.output.encode(2, pubKeyBuffers);
+  const witnessScript = utxolib.script.multisig.output.encode(2, pubKeyBuffers);
   return Buffer.from(witnessScript).toString('hex');
 }
 
@@ -51,9 +51,9 @@ describe('Identity Authentication Library', function () {
   describe('verifyBitcoinSignature', function () {
     it('should verify a valid signature', function () {
       const message = 'test message';
-      const keyPair = bitcoin.ECPair.fromWIF(
+      const keyPair = utxolib.ECPair.fromWIF(
         TEST_PRIVATE_KEY_WIF,
-        bitcoin.networks.bitcoin,
+        utxolib.networks.bitcoin,
       );
       // utxo-lib uses 'd' (BigInteger) instead of 'privateKey'
       const privateKeyBuffer = keyPair.d.toBuffer(32);
@@ -81,9 +81,9 @@ describe('Identity Authentication Library', function () {
     });
 
     it('should reject signature for wrong message', function () {
-      const keyPair = bitcoin.ECPair.fromWIF(
+      const keyPair = utxolib.ECPair.fromWIF(
         TEST_PRIVATE_KEY_WIF,
-        bitcoin.networks.bitcoin,
+        utxolib.networks.bitcoin,
       );
       const privateKeyBuffer = keyPair.d.toBuffer(32);
       const signature = bitcoinMessage.sign(
@@ -355,9 +355,9 @@ describe('Identity Authentication Library', function () {
       const payload = createSignaturePayload('action', TEST_ADDRESS);
       const message = JSON.stringify(payload);
 
-      const keyPair = bitcoin.ECPair.fromWIF(
+      const keyPair = utxolib.ECPair.fromWIF(
         TEST_PRIVATE_KEY_WIF,
-        bitcoin.networks.bitcoin,
+        utxolib.networks.bitcoin,
       );
       const privateKeyBuffer = keyPair.d.toBuffer(32);
       const signature = bitcoinMessage.sign(
@@ -442,9 +442,9 @@ describe('Identity Authentication Library', function () {
       const message = JSON.stringify(payload);
 
       // Sign with the key that's in the witness script (TEST_PUBKEY_1 = TEST_PUBLIC_KEY)
-      const keyPair = bitcoin.ECPair.fromWIF(
+      const keyPair = utxolib.ECPair.fromWIF(
         TEST_PRIVATE_KEY_WIF,
-        bitcoin.networks.bitcoin,
+        utxolib.networks.bitcoin,
       );
       const privateKeyBuffer = keyPair.d.toBuffer(32);
       const signature = bitcoinMessage.sign(

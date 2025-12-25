@@ -7,7 +7,7 @@
  * Supports both single-sig (P2PKH) and multisig (P2WSH) addresses.
  */
 
-import * as bitcoin from '@runonflux/utxo-lib';
+import utxolib from '@runonflux/utxo-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 import crypto from 'crypto';
 import log from './log';
@@ -34,10 +34,10 @@ let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 /**
  * Get the Bitcoin network object based on network name.
  */
-function getNetwork(network: BitcoinNetwork): typeof bitcoin.networks.bitcoin {
+function getNetwork(network: BitcoinNetwork): typeof utxolib.networks.bitcoin {
   return network === 'testnet'
-    ? bitcoin.networks.testnet
-    : bitcoin.networks.bitcoin;
+    ? utxolib.networks.testnet
+    : utxolib.networks.bitcoin;
 }
 
 /**
@@ -90,7 +90,7 @@ export function deriveP2PKHAddress(
     );
   }
 
-  const keyPair = bitcoin.ECPair.fromPublicKeyBuffer(pubKeyBuffer, networkObj);
+  const keyPair = utxolib.ECPair.fromPublicKeyBuffer(pubKeyBuffer, networkObj);
   return keyPair.getAddress();
 }
 
@@ -109,11 +109,11 @@ export function deriveP2WSHAddress(
   const witnessScript = Buffer.from(witnessScriptHex, 'hex');
 
   // Create the scriptPubKey: OP_0 <32-byte-sha256-hash>
-  const scriptPubKey = bitcoin.script.witnessScriptHash.output.encode(
-    bitcoin.crypto.sha256(witnessScript),
+  const scriptPubKey = utxolib.script.witnessScriptHash.output.encode(
+    utxolib.crypto.sha256(witnessScript),
   );
 
-  return bitcoin.address.fromOutputScript(scriptPubKey, networkObj);
+  return utxolib.address.fromOutputScript(scriptPubKey, networkObj);
 }
 
 /**
@@ -131,7 +131,7 @@ export function parseWitnessScript(
   const scriptBuffer = Buffer.from(witnessScriptHex, 'hex');
 
   // Decode the script using utxo-lib
-  const decompiled = bitcoin.script.decompile(scriptBuffer);
+  const decompiled = utxolib.script.decompile(scriptBuffer);
 
   if (!decompiled || decompiled.length < 4) {
     throw new Error('Invalid witness script: too short');
