@@ -6,13 +6,12 @@ import {
   validateWkSigningRequestPayload,
 } from '../../src/lib/wkSignValidation';
 
-// Helper to create a hex-encoded message with timestamp
+// Helper to create a plain text message with timestamp
 function createTestMessage(
   timestamp: number,
   randomPart: string = 'abc123randomxyz456',
 ): string {
-  const message = `${timestamp}${randomPart}`;
-  return Buffer.from(message, 'utf8').toString('hex');
+  return `${timestamp}${randomPart}`;
 }
 
 // Test fixtures
@@ -26,8 +25,8 @@ describe('WK Sign Validation', function () {
     describe('valid messages', function () {
       it('should accept a valid message with current timestamp', function () {
         const timestamp = Date.now();
-        const hexMessage = createTestMessage(timestamp);
-        const result = validateWkSignMessage(hexMessage);
+        const message = createTestMessage(timestamp);
+        const result = validateWkSignMessage(message);
 
         expect(result.valid).to.be.true;
         expect(result.timestamp).to.equal(timestamp);
@@ -36,8 +35,8 @@ describe('WK Sign Validation', function () {
 
       it('should accept a message from 5 minutes ago', function () {
         const timestamp = Date.now() - 5 * 60 * 1000;
-        const hexMessage = createTestMessage(timestamp);
-        const result = validateWkSignMessage(hexMessage);
+        const message = createTestMessage(timestamp);
+        const result = validateWkSignMessage(message);
 
         expect(result.valid).to.be.true;
         expect(result.timestamp).to.equal(timestamp);
@@ -45,16 +44,16 @@ describe('WK Sign Validation', function () {
 
       it('should accept a message from 14 minutes ago (not yet expired)', function () {
         const timestamp = Date.now() - 14 * 60 * 1000;
-        const hexMessage = createTestMessage(timestamp);
-        const result = validateWkSignMessage(hexMessage);
+        const message = createTestMessage(timestamp);
+        const result = validateWkSignMessage(message);
 
         expect(result.valid).to.be.true;
       });
 
       it('should accept a message from 1 minute in the future', function () {
         const timestamp = Date.now() + 1 * 60 * 1000;
-        const hexMessage = createTestMessage(timestamp);
-        const result = validateWkSignMessage(hexMessage);
+        const message = createTestMessage(timestamp);
+        const result = validateWkSignMessage(message);
 
         expect(result.valid).to.be.true;
       });
@@ -73,18 +72,6 @@ describe('WK Sign Validation', function () {
         expect(result.error).to.include('required');
       });
 
-      it('should reject non-hex message', function () {
-        const result = validateWkSignMessage('not-hex-string!@#');
-        expect(result.valid).to.be.false;
-        expect(result.error).to.include('hex');
-      });
-
-      it('should reject message with invalid characters', function () {
-        const result = validateWkSignMessage('123abc!@#');
-        expect(result.valid).to.be.false;
-        expect(result.error).to.include('hex');
-      });
-
       it('should reject message that is too short', function () {
         const result = validateWkSignMessage('abcd');
         expect(result.valid).to.be.false;
@@ -92,16 +79,15 @@ describe('WK Sign Validation', function () {
       });
 
       it('should reject message with invalid timestamp', function () {
-        const hexMessage = Buffer.from('abcdefghijklmnopqrstuvwxyz', 'utf8').toString('hex');
-        const result = validateWkSignMessage(hexMessage);
+        const result = validateWkSignMessage('abcdefghijklmnopqrstuvwxyz');
         expect(result.valid).to.be.false;
         expect(result.error).to.include('timestamp');
       });
 
       it('should reject expired message (16 minutes old)', function () {
         const timestamp = Date.now() - 16 * 60 * 1000;
-        const hexMessage = createTestMessage(timestamp);
-        const result = validateWkSignMessage(hexMessage);
+        const message = createTestMessage(timestamp);
+        const result = validateWkSignMessage(message);
 
         expect(result.valid).to.be.false;
         expect(result.error).to.include('expired');
@@ -109,28 +95,27 @@ describe('WK Sign Validation', function () {
 
       it('should reject message with timestamp too far in the future (10 minutes)', function () {
         const timestamp = Date.now() + 10 * 60 * 1000;
-        const hexMessage = createTestMessage(timestamp);
-        const result = validateWkSignMessage(hexMessage);
+        const message = createTestMessage(timestamp);
+        const result = validateWkSignMessage(message);
 
         expect(result.valid).to.be.false;
         expect(result.error).to.include('future');
       });
 
       it('should reject message with unreasonable timestamp (year 1970)', function () {
-        const hexMessage = createTestMessage(0);
-        const result = validateWkSignMessage(hexMessage);
+        const message = createTestMessage(0);
+        const result = validateWkSignMessage(message);
 
         expect(result.valid).to.be.false;
         expect(result.error).to.include('range');
       });
 
-      it('should reject message without random component', function () {
+      it('should reject message without random component (too short)', function () {
         const timestamp = Date.now();
-        const hexMessage = Buffer.from(`${timestamp}`, 'utf8').toString('hex');
-        const result = validateWkSignMessage(hexMessage);
+        const result = validateWkSignMessage(`${timestamp}`);
 
         expect(result.valid).to.be.false;
-        expect(result.error).to.include('random');
+        expect(result.error).to.include('short');
       });
     });
   });
@@ -180,9 +165,9 @@ describe('WK Sign Validation', function () {
         expect(result.error).to.include('message');
       });
 
-      it('should reject payload with invalid message format', function () {
+      it('should reject payload with invalid message format (bad timestamp)', function () {
         const payload = {
-          message: 'not-hex',
+          message: 'abcdefghijklmnopqrstuvwxyz', // doesn't start with timestamp
           walletSignature: 'signature',
           walletPubKey: VALID_PUBLIC_KEY,
           witnessScript: VALID_WITNESS_SCRIPT,
