@@ -7,9 +7,10 @@ import {
 } from '../../src/lib/wkSignValidation';
 
 // Helper to create a plain text message with timestamp
+// Default random part is 32 chars (16 bytes as hex) for proper security
 function createTestMessage(
   timestamp: number,
-  randomPart: string = 'abc123randomxyz456',
+  randomPart: string = 'abc123randomxyz456def789ghijk012',
 ): string {
   return `${timestamp}${randomPart}`;
 }
@@ -79,7 +80,8 @@ describe('WK Sign Validation', function () {
       });
 
       it('should reject message with invalid timestamp', function () {
-        const result = validateWkSignMessage('abcdefghijklmnopqrstuvwxyz');
+        // Message with 45+ chars but doesn't start with valid timestamp
+        const result = validateWkSignMessage('abcdefghijklmnopqrstuvwxyz01234567890123456789');
         expect(result.valid).to.be.false;
         expect(result.error).to.include('timestamp');
       });
@@ -103,19 +105,33 @@ describe('WK Sign Validation', function () {
       });
 
       it('should reject message with unreasonable timestamp (year 1970)', function () {
-        const message = createTestMessage(0);
+        // Pad with enough chars to pass length check (45 min)
+        const message = '0000000000000' + 'a'.repeat(32); // timestamp 0 + 32 random chars
         const result = validateWkSignMessage(message);
 
         expect(result.valid).to.be.false;
         expect(result.error).to.include('range');
       });
 
-      it('should reject message without random component (too short)', function () {
+      it('should reject message without enough random data (too short)', function () {
         const timestamp = Date.now();
+        // Only 13 chars timestamp, no random data - should be rejected
         const result = validateWkSignMessage(`${timestamp}`);
 
         expect(result.valid).to.be.false;
         expect(result.error).to.include('short');
+        expect(result.error).to.include('45');
+      });
+
+      it('should reject message that exceeds maximum length', function () {
+        const timestamp = Date.now();
+        // Create a message longer than 500 characters
+        const longMessage = createTestMessage(timestamp, 'a'.repeat(500));
+        const result = validateWkSignMessage(longMessage);
+
+        expect(result.valid).to.be.false;
+        expect(result.error).to.include('long');
+        expect(result.error).to.include('500');
       });
     });
   });
