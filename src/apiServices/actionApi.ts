@@ -5,6 +5,7 @@ import log from '../lib/log';
 import socket from '../lib/socket';
 import blockchains from '../services/blockchains';
 import { stripAuthFields } from '../middleware/authMiddleware';
+import { validateWkSigningRequestPayload } from '../lib/wkSignValidation';
 
 interface utxo {
   txid: string;
@@ -195,6 +196,26 @@ async function postAction(req, res) {
           }
         }
       });
+    }
+
+    // Validate wksigningrequest payload format
+    if (processedBody.action === 'wksigningrequest') {
+      try {
+        const parsedPayload = JSON.parse(processedBody.payload);
+        const validation = validateWkSigningRequestPayload(parsedPayload);
+        if (!validation.valid) {
+          throw new Error(
+            `Invalid wksigningrequest payload: ${validation.error}`,
+          );
+        }
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          throw new Error(
+            'Invalid wksigningrequest payload: must be valid JSON',
+          );
+        }
+        throw error;
+      }
     }
 
     const data: actionData = {

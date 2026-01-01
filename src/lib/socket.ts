@@ -144,7 +144,9 @@ function initIOKey(httpServer?, path = '/v1/socket/key') {
         }
         if (
           actionToSend.action === 'tx' ||
-          actionToSend.action === 'publicnoncesrequest'
+          actionToSend.action === 'publicnoncesrequest' ||
+          actionToSend.action === 'evmsigningrequest' ||
+          actionToSend.action === 'wksigningrequest'
         ) {
           ioKey.to(wkIdentity).emit(actionToSend.action, actionToSend);
         }

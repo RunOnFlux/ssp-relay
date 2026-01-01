@@ -29,6 +29,9 @@ async function sendNotificationKey(wkIdentity, data) {
     } else if (data.action === 'evmsigningrequest') {
       title = 'EVM Signing Request';
       body = 'An EVM signing request has been initiated on your wallet.';
+    } else if (data.action === 'wksigningrequest') {
+      title = 'SSP Authentication';
+      body = 'A website is requesting your approval to authenticate.';
     }
     try {
       if (data.payload && data.action === 'tx') {
