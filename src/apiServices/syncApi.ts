@@ -1,5 +1,6 @@
 import syncService from '../services/syncService';
 import serviceHelper from '../services/serviceHelper';
+import enterpriseHooks from '../services/enterpriseHooks';
 import log from '../lib/log';
 import { stripAuthFields } from '../middleware/authMiddleware';
 
@@ -26,6 +27,9 @@ async function getSync(req, res) {
       res.status(400).send('Invalid ID');
       return;
     }
+
+    enterpriseHooks.onGetSync(req, id).catch((e) => log.error(e));
+
     const syncExist = await syncService.getSync(id);
     if (!syncExist) {
       throw new Error(`Sync of ${id} does not exist`);
@@ -144,6 +148,8 @@ async function postSync(req, res) {
       keyToken: processedBody.keyToken,
     };
 
+    enterpriseHooks.onSync(req, data).catch((e) => log.error(e));
+
     const syncOK = await syncService.postSync(data);
     await syncService.postToken(tokenData).catch((error) => log.error(error)); // we do not need to fail if this fails
     if (!syncOK) {
@@ -187,6 +193,8 @@ async function postToken(req, res) {
       wkIdentity: processedBody.wkIdentity,
       keyToken: processedBody.keyToken,
     };
+
+    enterpriseHooks.onToken(req, tokenData).catch((e) => log.error(e));
 
     const syncOK = await syncService.postToken(tokenData);
     if (!syncOK) {

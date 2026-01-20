@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
 import log from './log';
 import socketService from '../services/socketService';
+import enterpriseHooks from '../services/enterpriseHooks';
 import {
   verifyMultisigAuth,
   detectNetworkFromAddress,
@@ -133,6 +134,9 @@ function initIOKey(httpServer?, path = '/v1/socket/key') {
 
         socket.join(wkIdentity);
         log.info(`[SOCKET KEY] ${socket.id} joined room: ${wkIdentity}`);
+
+        enterpriseHooks.onSocketJoin(wkIdentity, 'key', socket.id).catch((e) => log.error(e));
+
         const actionToSend = await socketService
           .getAction(wkIdentity)
           .catch((error) => {
@@ -158,6 +162,7 @@ function initIOKey(httpServer?, path = '/v1/socket/key') {
         return;
       }
       socket.leave(wkIdentity);
+      enterpriseHooks.onSocketLeave(wkIdentity, 'key', socket.id).catch((e) => log.error(e));
     });
   });
   return ioKey;
@@ -224,6 +229,7 @@ function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
 
         socket.join(wkIdentity);
         log.info(`[SOCKET WALLET] ${socket.id} joined room: ${wkIdentity}`);
+        enterpriseHooks.onSocketJoin(wkIdentity, 'wallet', socket.id).catch((e) => log.error(e));
       },
     );
     socket.on('leave', ({ wkIdentity }) => {
@@ -231,6 +237,7 @@ function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
         return;
       }
       socket.leave(wkIdentity);
+      enterpriseHooks.onSocketLeave(wkIdentity, 'wallet', socket.id).catch((e) => log.error(e));
     });
   });
   return ioWallet;

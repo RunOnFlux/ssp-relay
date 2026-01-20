@@ -74,10 +74,18 @@ yarn dev
 ```
 
 ### Testing
-SSP Relay includes a suite of tests to ensure reliability. Run the tests using:  
+SSP Relay includes a suite of tests to ensure reliability. Run the tests using:
 ```bash
 yarn test
 ```
+
+---
+
+## Enterprise Module
+
+SSP Relay includes an optional private enterprise module (`ssp-relay-enterprise`) available as a git submodule for **SSP Enterprise** - a Multi-Party Self-Custody Solution built on the proven SSP Wallet foundation, extending 2-of-2 multisig security to multi-party business coordination.
+
+The main relay functions fully without it.
 
 ---
 

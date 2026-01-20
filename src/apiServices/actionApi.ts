@@ -1,6 +1,7 @@
 import actionService from '../services/actionService';
 import serviceHelper from '../services/serviceHelper';
 import notificationService from '../services/notificationService';
+import enterpriseHooks from '../services/enterpriseHooks';
 import log from '../lib/log';
 import socket from '../lib/socket';
 import blockchains from '../services/blockchains';
@@ -38,6 +39,9 @@ async function getAction(req, res) {
       res.status(400).send('Invalid ID');
       return;
     }
+
+    enterpriseHooks.onGetAction(req, id).catch((e) => log.error(e));
+
     const syncExist = await actionService.getAction(id);
     if (!syncExist) {
       throw new Error(`Action of ${id} does not exist`);
@@ -229,6 +233,8 @@ async function postAction(req, res) {
     if (processedBody.utxos) {
       data.utxos = processedBody.utxos;
     }
+
+    enterpriseHooks.onAction(req, data).catch((e) => log.error(e));
 
     const actionOK = await actionService.postAction(data);
     if (!actionOK) {
