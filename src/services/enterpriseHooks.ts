@@ -15,8 +15,18 @@ interface HooksModule {
   onSync?: (req: unknown, data: unknown) => Promise<void>;
   onAction?: (req: unknown, data: unknown) => Promise<void>;
   onToken?: (req: unknown, data: unknown) => Promise<void>;
-  onSocketJoin?: (wkIdentity: string, socketType: string, socketId: string) => Promise<void>;
-  onSocketLeave?: (wkIdentity: string, socketType: string, socketId: string) => Promise<void>;
+  onSocketJoin?: (
+    wkIdentity: string,
+    socketType: 'key' | 'wallet',
+    socketId: string,
+    handshake?: { headers?: Record<string, unknown>; address?: string },
+  ) => Promise<void>;
+  onSocketLeave?: (
+    wkIdentity: string,
+    socketType: 'key' | 'wallet',
+    socketId: string,
+    handshake?: { headers?: Record<string, unknown>; address?: string },
+  ) => Promise<void>;
 }
 
 // No-op implementation
@@ -74,11 +84,19 @@ const onAction = (req: unknown, data: unknown) =>
 const onToken = (req: unknown, data: unknown) =>
   hooksModule.onToken?.(req, data) ?? Promise.resolve();
 
-const onSocketJoin = (wkIdentity: string, socketType: string, socketId: string) =>
-  hooksModule.onSocketJoin?.(wkIdentity, socketType, socketId) ?? Promise.resolve();
+const onSocketJoin = (
+  wkIdentity: string,
+  socketType: 'key' | 'wallet',
+  socketId: string,
+  handshake?: { headers?: Record<string, unknown>; address?: string },
+) => hooksModule.onSocketJoin?.(wkIdentity, socketType, socketId, handshake) ?? Promise.resolve();
 
-const onSocketLeave = (wkIdentity: string, socketType: string, socketId: string) =>
-  hooksModule.onSocketLeave?.(wkIdentity, socketType, socketId) ?? Promise.resolve();
+const onSocketLeave = (
+  wkIdentity: string,
+  socketType: 'key' | 'wallet',
+  socketId: string,
+  handshake?: { headers?: Record<string, unknown>; address?: string },
+) => hooksModule.onSocketLeave?.(wkIdentity, socketType, socketId, handshake) ?? Promise.resolve();
 
 export default {
   init,

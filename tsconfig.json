@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
     "esModuleInterop": true,
     "allowJs": true,
     "skipLibCheck": true,
@@ -20,7 +24,8 @@
   ],
   "exclude": [
     "node_modules",
+    "ssp-relay-enterprise",
     "package.json",
-    "logs",
+    "logs"
   ]
 }

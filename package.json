@@ -1,6 +1,6 @@
 {
   "name": "ssp-relay",
-  "version": "1.11.1",
+  "version": "1.12.0",
   "description": "SSP Relay",
   "main": "index.ts",
   "type": "module",
@@ -15,14 +15,15 @@
   "author": "Tadeas Kmenta",
   "license": "MIT",
   "resolutions": {
-    "viem": "2.38.5"
+    "viem": "2.44.4"
   },
   "overrides": {
-    "viem": "2.38.5"
+    "viem": "2.44.4"
   },
   "dependencies": {
     "@runonflux/aa-schnorr-multisig-sdk": "1.2.1",
     "@runonflux/utxo-lib": "1.0.2",
+    "@scure/bip32": "2.0.1",
     "alchemy-sdk": "3.6.5",
     "apicache": "1.6.3",
     "axios": "1.13.2",
@@ -30,47 +31,47 @@
     "bignumber.js": "9.3.1",
     "bitcoinjs-message": "2.2.0",
     "compression": "1.8.1",
-    "config": "4.1.1",
+    "config": "4.2.0",
     "cors": "2.8.5",
-    "express": "5.1.0",
+    "express": "5.2.1",
     "express-rate-limit": "8.2.1",
     "firebase-admin": "13.6.0",
     "freshdesk-client": "1.9.1",
-    "lru-cache": "11.2.2",
+    "lru-cache": "11.2.4",
     "mongodb": "7.0.0",
     "morgan": "1.10.1",
     "node-cmd": "5.0.0",
-    "nodemailer": "7.0.10",
-    "qs": "6.14.0",
-    "socket.io": "4.8.1",
-    "viem": "2.38.5"
+    "nodemailer": "7.0.12",
+    "qs": "6.14.1",
+    "socket.io": "4.8.3",
+    "viem": "2.44.4"
   },
   "devDependencies": {
-    "@eslint/js": "9.39.1",
+    "@eslint/js": "9.39.2",
     "@types/chai": "5.2.3",
     "@types/compression": "1.8.1",
     "@types/cors": "2.8.19",
-    "@types/express": "5.0.5",
+    "@types/express": "5.0.6",
     "@types/mocha": "10.0.10",
     "@types/morgan": "1.9.10",
-    "@types/nodemailer": "7.0.4",
-    "chai": "6.2.1",
-    "eslint": "9.39.1",
+    "@types/nodemailer": "7.0.5",
+    "chai": "6.2.2",
+    "eslint": "9.39.2",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-mocha": "11.2.0",
-    "eslint-plugin-prettier": "5.5.4",
-    "globals": "16.5.0",
+    "eslint-plugin-prettier": "5.5.5",
+    "globals": "17.0.0",
     "mocha": "11.7.5",
     "node-mocks-http": "1.17.2",
     "nyc": "17.1.0",
-    "prettier": "3.6.2",
-    "sinon": "21.0.0",
-    "tsx": "4.20.6",
+    "prettier": "3.8.1",
+    "sinon": "21.0.1",
+    "tsx": "4.21.0",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.47.0"
+    "typescript-eslint": "8.53.1"
   },
   "engines": {
     "node": ">=24"
   },
-  "packageManager": "yarn@4.11.0"
+  "packageManager": "yarn@4.12.0"
 }
