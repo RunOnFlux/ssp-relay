@@ -11,6 +11,10 @@ interface syncData {
   wkIdentity: string;
   generatedAddress?: string;
   publicNonces?: string[];
+  // Additional fields for verification
+  walletXpub?: string;
+  keyIdentity?: string;
+  witnessScript?: string;
 }
 
 async function getSync(req, res) {
@@ -130,6 +134,36 @@ async function postSync(req, res) {
       throw new Error('Too many public nonces submitted');
     }
 
+    // validate walletXpub (optional)
+    if (
+      processedBody.walletXpub &&
+      (typeof processedBody.walletXpub !== 'string' ||
+        processedBody.walletXpub.length > 200 ||
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.walletXpub))
+    ) {
+      throw new Error('Invalid Wallet XPUB specified');
+    }
+
+    // validate keyIdentity (optional)
+    if (
+      processedBody.keyIdentity &&
+      (typeof processedBody.keyIdentity !== 'string' ||
+        processedBody.keyIdentity.length > 200 ||
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.keyIdentity))
+    ) {
+      throw new Error('Invalid Key Identity specified');
+    }
+
+    // validate witnessScript (optional) - hex string
+    if (
+      processedBody.witnessScript &&
+      (typeof processedBody.witnessScript !== 'string' ||
+        processedBody.witnessScript.length > 1000 ||
+        !/^[a-fA-F0-9]+$/.test(processedBody.witnessScript))
+    ) {
+      throw new Error('Invalid Witness Script specified');
+    }
+
     const data: syncData = {
       chain: processedBody.chain,
       walletIdentity: processedBody.walletIdentity,
@@ -141,6 +175,17 @@ async function postSync(req, res) {
     // EVM sync
     if (processedBody.publicNonces && processedBody.publicNonces.length > 0) {
       data.publicNonces = processedBody.publicNonces;
+    }
+
+    // Additional fields for verification
+    if (processedBody.walletXpub) {
+      data.walletXpub = processedBody.walletXpub;
+    }
+    if (processedBody.keyIdentity) {
+      data.keyIdentity = processedBody.keyIdentity;
+    }
+    if (processedBody.witnessScript) {
+      data.witnessScript = processedBody.witnessScript;
     }
 
     const tokenData = {
