@@ -1,3 +1,6 @@
 [submodule "ssp-relay-enterprise"]
 	path = ssp-relay-enterprise
 	url = git@github.com:RunOnFlux/ssp-relay-enterprise.git
+[submodule "ssp-relay-dashboard"]
+	path = ssp-relay-dashboard
+	url = git@github.com:RunOnFlux/ssp-relay-dashboard.git
