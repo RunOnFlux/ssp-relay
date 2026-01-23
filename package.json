@@ -10,7 +10,12 @@
     "lint": "eslint ./",
     "lint:fix": "eslint ./ --fix",
     "type-check": "tsc",
-    "backup": "tsx backup.js"
+    "backup": "tsx backup.js",
+    "setup": "yarn install && yarn setup:enterprise && yarn setup:dashboard",
+    "setup:enterprise": "cd ssp-relay-enterprise && yarn install",
+    "setup:dashboard": "cd ssp-relay-dashboard && npm install --legacy-peer-deps",
+    "build:dashboard": "cd ssp-relay-dashboard && npm run build",
+    "start:dashboard": "cd ssp-relay-dashboard && npm run start"
   },
   "author": "Tadeas Kmenta",
   "license": "MIT",
