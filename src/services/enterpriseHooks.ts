@@ -7,9 +7,14 @@
 
 import log from '../lib/log';
 
+// Rates service interface (from ssp-relay)
+interface RatesService {
+  getRates: () => { fiat: Record<string, number>; crypto: Record<string, number> };
+}
+
 // Generic hook interface
 interface HooksModule {
-  init: (deps: { db: unknown; config: unknown; logger: unknown }) => void;
+  init: (deps: { db: unknown; config: unknown; logger: unknown; ratesService: RatesService }) => void;
   onGetSync?: (req: unknown, id: string) => Promise<void>;
   onGetAction?: (req: unknown, id: string) => Promise<void>;
   onSync?: (req: unknown, data: unknown) => Promise<void>;
@@ -47,7 +52,7 @@ let loaded = false;
 /**
  * Initialize hooks system. Called during startup.
  */
-async function init(deps: { db: unknown; config: unknown }): Promise<void> {
+async function init(deps: { db: unknown; config: unknown; ratesService: RatesService }): Promise<void> {
   if (loaded) return;
   loaded = true;
 

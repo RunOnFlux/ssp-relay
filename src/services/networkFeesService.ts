@@ -8,35 +8,53 @@ let currentFees = [];
 async function obtainBitcoinFees() {
   const url = 'https://bitcoinfees.net/api.json';
   const url2 = 'https://api.blockcypher.com/v1/btc/main';
+
+  let eco1: number | null = null;
+  let normal1: number | null = null;
+  let fast1: number | null = null;
+  let eco2: number | null = null;
+  let normal2: number | null = null;
+  let fast2: number | null = null;
+
+  // Try first source
   try {
     const res = await axios.get(url);
-    const eco1 = Math.ceil(res.data.fee_by_block_target[30] / 1000);
-    const normal1 = Math.ceil(res.data.fee_by_block_target[5] / 1000);
-    const fast1 = Math.ceil(res.data.fee_by_block_target[1] / 1000);
-
-    const res2 = await axios.get(url2);
-    const eco2 = Math.ceil(res2.data.low_fee_per_kb / 1000);
-    const normal2 = Math.ceil(res2.data.medium_fee_per_kb / 1000);
-    const fast2 = Math.ceil(res2.data.high_fee_per_kb / 1000);
-
-    // logic
-    // prefer faster options
-    const economy = eco1 > eco2 ? eco1 : eco2;
-    const normal = normal1 > normal2 ? normal1 : normal2;
-    const fast = fast1 > fast2 ? fast1 : fast2;
-
-    const feesObject = {
-      coin: 'btc',
-      economy,
-      normal,
-      fast,
-      recommended: fast,
-    };
-    return feesObject;
+    eco1 = Math.ceil(res.data.fee_by_block_target[30] / 1000);
+    normal1 = Math.ceil(res.data.fee_by_block_target[5] / 1000);
+    fast1 = Math.ceil(res.data.fee_by_block_target[1] / 1000);
   } catch (error) {
-    log.error(error);
+    log.warn(`[FEES] bitcoinfees.net failed: ${error.message}`);
+  }
+
+  // Try second source
+  try {
+    const res2 = await axios.get(url2);
+    eco2 = Math.ceil(res2.data.low_fee_per_kb / 1000);
+    normal2 = Math.ceil(res2.data.medium_fee_per_kb / 1000);
+    fast2 = Math.ceil(res2.data.high_fee_per_kb / 1000);
+  } catch (error) {
+    log.warn(`[FEES] blockcypher.com failed: ${error.message}`);
+  }
+
+  // If both sources failed, return false
+  if (eco1 === null && eco2 === null) {
+    log.error('[FEES] All BTC fee sources failed');
     return false;
   }
+
+  // Use available values, prefer faster (higher) options when both available
+  const economy = eco1 !== null && eco2 !== null ? Math.max(eco1, eco2) : (eco1 ?? eco2);
+  const normal = normal1 !== null && normal2 !== null ? Math.max(normal1, normal2) : (normal1 ?? normal2);
+  const fast = fast1 !== null && fast2 !== null ? Math.max(fast1, fast2) : (fast1 ?? fast2);
+
+  const feesObject = {
+    coin: 'btc',
+    economy,
+    normal,
+    fast,
+    recommended: fast,
+  };
+  return feesObject;
 }
 
 async function obtainLitecoinFees() {

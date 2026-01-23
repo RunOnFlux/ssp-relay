@@ -2,6 +2,7 @@ import config from 'config';
 
 import serviceHelper from './serviceHelper';
 import enterpriseHooks from './enterpriseHooks';
+import ratesService from './ratesService';
 import log from '../lib/log';
 
 async function doIndexes() {
@@ -30,7 +31,7 @@ async function doIndexes() {
       .createIndex({ keyToken: 1 }); // for querying paritcular token
 
     // Initialize enterprise hooks (loads enterprise module if installed)
-    await enterpriseHooks.init({ db: database, config });
+    await enterpriseHooks.init({ db: database, config, ratesService });
 
     log.info('Collection indexes created.');
   } catch (error) {
