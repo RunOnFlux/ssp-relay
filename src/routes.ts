@@ -7,6 +7,7 @@ import contactApi from './apiServices/contactApi';
 import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
 import onramperApi from './apiServices/onramperApi';
+import noncesApi from './apiServices/noncesApi';
 import {
   requireAuth,
   optionalWkIdentityAuth,
@@ -47,6 +48,13 @@ export default (app) => {
   app.post('/v1/action', optionalWkIdentityAuth, (req, res) => {
     actionApi.postAction(req, res);
   });
+
+  // post nonces - periodic sync of public nonces from wallet/key
+  // Note: Using optional auth during transition period
+  app.post('/v1/nonces', optionalWkIdentityAuth, (req, res) => {
+    noncesApi.postNonces(req, res);
+  });
+
   // rates endpoint
   app.get('/v1/rates', (req, res) => {
     ratesApi.getRates(req, res);

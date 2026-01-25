@@ -16,10 +16,9 @@ let isShuttingDown = false;
 /**
  * Register dependencies for graceful shutdown
  */
-export function registerShutdownDependency(
-  name: keyof ShutdownDependencies,
-  dependency: any,
-) {
+export function registerShutdownDependency<
+  K extends keyof ShutdownDependencies,
+>(name: K, dependency: NonNullable<ShutdownDependencies[K]>) {
   dependencies[name] = dependency;
   log.debug(`Registered shutdown dependency: ${name}`);
 }

@@ -14,6 +14,7 @@ interface syncData {
   // Additional fields for verification
   walletXpub?: string;
   keyIdentity?: string;
+  redeemScript?: string;
   witnessScript?: string;
 }
 
@@ -154,6 +155,16 @@ async function postSync(req, res) {
       throw new Error('Invalid Key Identity specified');
     }
 
+    // validate redeemScript (optional) - hex string
+    if (
+      processedBody.redeemScript &&
+      (typeof processedBody.redeemScript !== 'string' ||
+        processedBody.redeemScript.length > 1000 ||
+        !/^[a-fA-F0-9]+$/.test(processedBody.redeemScript))
+    ) {
+      throw new Error('Invalid Redeem Script specified');
+    }
+
     // validate witnessScript (optional) - hex string
     if (
       processedBody.witnessScript &&
@@ -183,6 +194,9 @@ async function postSync(req, res) {
     }
     if (processedBody.keyIdentity) {
       data.keyIdentity = processedBody.keyIdentity;
+    }
+    if (processedBody.redeemScript) {
+      data.redeemScript = processedBody.redeemScript;
     }
     if (processedBody.witnessScript) {
       data.witnessScript = processedBody.witnessScript;

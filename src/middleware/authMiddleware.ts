@@ -199,9 +199,7 @@ export function requireAuth(
       }
 
       if (!result.valid) {
-        log.warn(
-          `[AUTH] FAILED - ${identity} on ${req.path}: ${result.error}`,
-        );
+        log.warn(`[AUTH] FAILED - ${identity} on ${req.path}: ${result.error}`);
         return res
           .status(401)
           .json(

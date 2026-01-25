@@ -105,7 +105,7 @@ async function postAction(req, res) {
           if (!parsedPayload || typeof parsedPayload !== 'object') {
             throw new Error('Payload must be valid JSON object for EVM chains');
           }
-        } catch (error) {
+        } catch {
           throw new Error('Invalid EVM payload format: must be valid JSON');
         }
       }
@@ -235,6 +235,10 @@ async function postAction(req, res) {
     }
 
     enterpriseHooks.onAction(req, data).catch((e) => log.error(e));
+
+    // Note: Regular publicnonces/publicnoncesrequest actions are for standard SSP Key<->Wallet
+    // communication. Enterprise nonces are handled separately via POST /v1/nonces endpoint.
+    // Future: SSP Enterprise multi-party will generate dedicated enterprise nonces.
 
     const actionOK = await actionService.postAction(data);
     if (!actionOK) {

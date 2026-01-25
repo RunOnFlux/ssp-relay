@@ -9,17 +9,34 @@ import log from '../lib/log';
 
 // Rates service interface (from ssp-relay)
 interface RatesService {
-  getRates: () => { fiat: Record<string, number>; crypto: Record<string, number> };
+  getRates: () => {
+    fiat: Record<string, number>;
+    crypto: Record<string, number>;
+  };
+}
+
+// Nonce submission data
+interface NonceSubmission {
+  wkIdentity: string;
+  source: 'wallet' | 'key';
+  chain?: string;
+  nonces: Array<{ kPublic: string; kTwoPublic: string }>;
 }
 
 // Generic hook interface
 interface HooksModule {
-  init: (deps: { db: unknown; config: unknown; logger: unknown; ratesService: RatesService }) => void;
+  init: (deps: {
+    db: unknown;
+    config: unknown;
+    logger: unknown;
+    ratesService: RatesService;
+  }) => void;
   onGetSync?: (req: unknown, id: string) => Promise<void>;
   onGetAction?: (req: unknown, id: string) => Promise<void>;
   onSync?: (req: unknown, data: unknown) => Promise<void>;
   onAction?: (req: unknown, data: unknown) => Promise<void>;
   onToken?: (req: unknown, data: unknown) => Promise<void>;
+  onNonces?: (req: unknown, data: NonceSubmission) => Promise<void>;
   onSocketJoin?: (
     wkIdentity: string,
     socketType: 'key' | 'wallet',
@@ -42,6 +59,7 @@ const noopHooks: HooksModule = {
   onSync: async () => {},
   onAction: async () => {},
   onToken: async () => {},
+  onNonces: async () => {},
   onSocketJoin: async () => {},
   onSocketLeave: async () => {},
 };
@@ -52,13 +70,16 @@ let loaded = false;
 /**
  * Initialize hooks system. Called during startup.
  */
-async function init(deps: { db: unknown; config: unknown; ratesService: RatesService }): Promise<void> {
+async function init(deps: {
+  db: unknown;
+  config: unknown;
+  ratesService: RatesService;
+}): Promise<void> {
   if (loaded) return;
   loaded = true;
 
   try {
     // Try to load optional extension module
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const ext = require('ssp-relay-enterprise').default;
     if (ext && typeof ext.init === 'function') {
       hooksModule = ext;
@@ -89,27 +110,38 @@ const onAction = (req: unknown, data: unknown) =>
 const onToken = (req: unknown, data: unknown) =>
   hooksModule.onToken?.(req, data) ?? Promise.resolve();
 
+const onNonces = (req: unknown, data: NonceSubmission) =>
+  hooksModule.onNonces?.(req, data) ?? Promise.resolve();
+
+const isLoaded = () => hooksModule !== noopHooks;
+
 const onSocketJoin = (
   wkIdentity: string,
   socketType: 'key' | 'wallet',
   socketId: string,
   handshake?: { headers?: Record<string, unknown>; address?: string },
-) => hooksModule.onSocketJoin?.(wkIdentity, socketType, socketId, handshake) ?? Promise.resolve();
+) =>
+  hooksModule.onSocketJoin?.(wkIdentity, socketType, socketId, handshake) ??
+  Promise.resolve();
 
 const onSocketLeave = (
   wkIdentity: string,
   socketType: 'key' | 'wallet',
   socketId: string,
   handshake?: { headers?: Record<string, unknown>; address?: string },
-) => hooksModule.onSocketLeave?.(wkIdentity, socketType, socketId, handshake) ?? Promise.resolve();
+) =>
+  hooksModule.onSocketLeave?.(wkIdentity, socketType, socketId, handshake) ??
+  Promise.resolve();
 
 export default {
   init,
+  isLoaded,
   onGetSync,
   onGetAction,
   onSync,
   onAction,
   onToken,
+  onNonces,
   onSocketJoin,
   onSocketLeave,
 };

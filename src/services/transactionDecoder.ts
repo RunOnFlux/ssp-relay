@@ -26,7 +26,7 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
     let multisigUserOpJSON;
     try {
       multisigUserOpJSON = JSON.parse(rawTx);
-    } catch (error) {
+    } catch {
       throw new Error('Invalid transaction format: invalid JSON');
     }
 

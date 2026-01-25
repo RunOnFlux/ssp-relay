@@ -43,9 +43,16 @@ async function obtainBitcoinFees() {
   }
 
   // Use available values, prefer faster (higher) options when both available
-  const economy = eco1 !== null && eco2 !== null ? Math.max(eco1, eco2) : (eco1 ?? eco2);
-  const normal = normal1 !== null && normal2 !== null ? Math.max(normal1, normal2) : (normal1 ?? normal2);
-  const fast = fast1 !== null && fast2 !== null ? Math.max(fast1, fast2) : (fast1 ?? fast2);
+  const economy =
+    eco1 !== null && eco2 !== null ? Math.max(eco1, eco2) : (eco1 ?? eco2);
+  const normal =
+    normal1 !== null && normal2 !== null
+      ? Math.max(normal1, normal2)
+      : (normal1 ?? normal2);
+  const fast =
+    fast1 !== null && fast2 !== null
+      ? Math.max(fast1, fast2)
+      : (fast1 ?? fast2);
 
   const feesObject = {
     coin: 'btc',

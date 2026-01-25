@@ -34,7 +34,9 @@ export interface WkSignMessageValidation {
  * @param message - The plain text message to validate
  * @returns Validation result with timestamp info if valid
  */
-export function validateWkSignMessage(message: string): WkSignMessageValidation {
+export function validateWkSignMessage(
+  message: string,
+): WkSignMessageValidation {
   // Check if message exists and is a string
   if (!message || typeof message !== 'string') {
     return {

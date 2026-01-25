@@ -10,7 +10,7 @@ function getFilesizeInBytes(filename) {
     const stats = fs.statSync(filename);
     const fileSizeInBytes = stats.size;
     return fileSizeInBytes;
-  } catch (e) {
+  } catch {
     // Failed to get file size, return 0 to trigger file creation
     return 0;
   }
