@@ -79,16 +79,20 @@ async function init(deps: {
   loaded = true;
 
   try {
-    // Try to load optional extension module
-    const ext = require('ssp-relay-enterprise').default;
-    if (ext && typeof ext.init === 'function') {
-      hooksModule = ext;
+    // Try to load optional extension module (dynamic import for ESM compatibility)
+    // @ts-expect-error - module is optional and may not be installed
+    const ext = await import('ssp-relay-enterprise');
+    const module = ext.default;
+    if (module && typeof module.init === 'function') {
+      hooksModule = module;
       hooksModule.init({ ...deps, logger: log });
       log.info('[HOOKS] Extension module loaded');
     }
   } catch (e) {
     // No extension module - this is normal for community edition
-    if ((e as NodeJS.ErrnoException).code !== 'MODULE_NOT_FOUND') {
+    const errCode = (e as NodeJS.ErrnoException).code;
+    const errMsg = String(e);
+    if (errCode !== 'MODULE_NOT_FOUND' && !errMsg.includes('Cannot find package')) {
       log.warn(`[HOOKS] Failed to load extension: ${e}`);
     }
   }
