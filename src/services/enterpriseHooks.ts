@@ -49,6 +49,11 @@ interface HooksModule {
     socketId: string,
     handshake?: { headers?: Record<string, unknown>; address?: string },
   ) => Promise<void>;
+  // Public endpoint hooks (wkIdentity extracted from sspwkid header in enterprise module)
+  onRates?: (req: unknown) => Promise<void>;
+  onNetworkFees?: (req: unknown) => Promise<void>;
+  onTokenInfo?: (req: unknown) => Promise<void>;
+  onServices?: (req: unknown) => Promise<void>;
 }
 
 // No-op implementation
@@ -62,6 +67,10 @@ const noopHooks: HooksModule = {
   onNonces: async () => {},
   onSocketJoin: async () => {},
   onSocketLeave: async () => {},
+  onRates: async () => {},
+  onNetworkFees: async () => {},
+  onTokenInfo: async () => {},
+  onServices: async () => {},
 };
 
 let hooksModule: HooksModule = noopHooks;
@@ -137,6 +146,19 @@ const onSocketLeave = (
   hooksModule.onSocketLeave?.(wkIdentity, socketType, socketId, handshake) ??
   Promise.resolve();
 
+// Public endpoint hooks (wkIdentity extracted from sspwkid header in enterprise module)
+const onRates = (req: unknown) =>
+  hooksModule.onRates?.(req) ?? Promise.resolve();
+
+const onNetworkFees = (req: unknown) =>
+  hooksModule.onNetworkFees?.(req) ?? Promise.resolve();
+
+const onTokenInfo = (req: unknown) =>
+  hooksModule.onTokenInfo?.(req) ?? Promise.resolve();
+
+const onServices = (req: unknown) =>
+  hooksModule.onServices?.(req) ?? Promise.resolve();
+
 export default {
   init,
   isLoaded,
@@ -148,4 +170,8 @@ export default {
   onNonces,
   onSocketJoin,
   onSocketLeave,
+  onRates,
+  onNetworkFees,
+  onTokenInfo,
+  onServices,
 };

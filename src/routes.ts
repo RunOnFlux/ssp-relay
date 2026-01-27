@@ -8,6 +8,8 @@ import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
 import onramperApi from './apiServices/onramperApi';
 import noncesApi from './apiServices/noncesApi';
+import enterpriseHooks from './services/enterpriseHooks';
+import log from './lib/log';
 import {
   requireAuth,
   optionalWkIdentityAuth,
@@ -57,10 +59,12 @@ export default (app) => {
 
   // rates endpoint
   app.get('/v1/rates', (req, res) => {
+    enterpriseHooks.onRates(req).catch((e) => log.error(e));
     ratesApi.getRates(req, res);
   });
   // fees endpoint
   app.get('/v1/networkfees', (req, res) => {
+    enterpriseHooks.onNetworkFees(req).catch((e) => log.error(e));
     feeService.networkFees(res);
   });
   // freshdesk ticket
@@ -73,10 +77,12 @@ export default (app) => {
   });
   // get token information endpoint
   app.get('/v1/tokeninfo{/:network}{/:address}', (req, res) => {
+    enterpriseHooks.onTokenInfo(req).catch((e) => log.error(e));
     tokenApi.getTokenInfo(req, res);
   });
   // get enabled services, used to toggle off on third party features in the app
   app.get('/v1/services', (req, res) => {
+    enterpriseHooks.onServices(req).catch((e) => log.error(e));
     res.json(config.services);
   });
   // onramper signing endpoint
