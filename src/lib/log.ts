@@ -48,6 +48,7 @@ function debug(args) {
 }
 
 function error(args) {
+  console.error(`[ERROR] ${ensureString(args.message || args)}`);
   try {
     const filepath = `${logsDirPath}error.log`;
     writeToFile(filepath, args);
@@ -58,6 +59,7 @@ function error(args) {
 }
 
 function warn(args) {
+  console.warn(`[WARN] ${ensureString(args.message || args)}`);
   try {
     const filepath = `${logsDirPath}warn.log`;
     writeToFile(filepath, args);
@@ -68,6 +70,7 @@ function warn(args) {
 }
 
 function info(args) {
+  console.log(`[INFO] ${ensureString(args.message || args)}`);
   try {
     const filepath = `${logsDirPath}info.log`;
     writeToFile(filepath, args);
