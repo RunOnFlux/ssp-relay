@@ -8,6 +8,7 @@ import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
 import onramperApi from './apiServices/onramperApi';
 import noncesApi from './apiServices/noncesApi';
+import pulseApi from './apiServices/pulseApi';
 import enterpriseHooks from './services/enterpriseHooks';
 import log from './lib/log';
 import {
@@ -88,5 +89,16 @@ export default (app) => {
   // onramper signing endpoint
   app.post('/v1/sign/onramper', (req, res) => {
     onramperApi.postDataToSign(req, res);
+  });
+
+  // SSP Pulse - notification service subscription (requires wkIdentity auth)
+  app.post('/v1/pulse/subscribe', requireAuth('wkIdentity'), (req, res) => {
+    pulseApi.postSubscribe(req, res);
+  });
+  app.post('/v1/pulse/unsubscribe', requireAuth('wkIdentity'), (req, res) => {
+    pulseApi.postUnsubscribe(req, res);
+  });
+  app.post('/v1/pulse/status', requireAuth('wkIdentity'), (req, res) => {
+    pulseApi.getStatus(req, res);
   });
 };

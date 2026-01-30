@@ -54,6 +54,10 @@ interface HooksModule {
   onNetworkFees?: (req: unknown) => Promise<void>;
   onTokenInfo?: (req: unknown) => Promise<void>;
   onServices?: (req: unknown) => Promise<void>;
+  // SSP Pulse functions (all processing handled in enterprise module)
+  pulseSubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
+  pulseUnsubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
+  pulseGetStatus?: (req: unknown, wkIdentity: string) => Promise<unknown>;
 }
 
 // No-op implementation
@@ -71,6 +75,9 @@ const noopHooks: HooksModule = {
   onNetworkFees: async () => {},
   onTokenInfo: async () => {},
   onServices: async () => {},
+  pulseSubscribe: async () => null,
+  pulseUnsubscribe: async () => null,
+  pulseGetStatus: async () => null,
 };
 
 let hooksModule: HooksModule = noopHooks;
@@ -89,7 +96,7 @@ async function init(deps: {
 
   try {
     // Try to load optional extension module directly from submodule path
-    // @ts-ignore - module is optional and may not exist
+    // @ts-expect-error - module is optional and may not exist
     const ext = await import('../../ssp-relay-enterprise/src/index.ts');
     const module = ext.default;
     if (module && typeof module.init === 'function') {
@@ -101,7 +108,10 @@ async function init(deps: {
     // No extension module - this is normal for community edition
     const errCode = (e as NodeJS.ErrnoException).code;
     const errMsg = String(e);
-    if (errCode !== 'ERR_MODULE_NOT_FOUND' && !errMsg.includes('Cannot find module')) {
+    if (
+      errCode !== 'ERR_MODULE_NOT_FOUND' &&
+      !errMsg.includes('Cannot find module')
+    ) {
       log.warn(`[HOOKS] Failed to load extension: ${e}`);
     }
   }
@@ -159,6 +169,16 @@ const onTokenInfo = (req: unknown) =>
 const onServices = (req: unknown) =>
   hooksModule.onServices?.(req) ?? Promise.resolve();
 
+// SSP Pulse functions (all processing handled in enterprise module)
+const pulseSubscribe = (req: unknown, data: unknown) =>
+  hooksModule.pulseSubscribe?.(req, data) ?? Promise.resolve(null);
+
+const pulseUnsubscribe = (req: unknown, data: unknown) =>
+  hooksModule.pulseUnsubscribe?.(req, data) ?? Promise.resolve(null);
+
+const pulseGetStatus = (req: unknown, wkIdentity: string) =>
+  hooksModule.pulseGetStatus?.(req, wkIdentity) ?? Promise.resolve(null);
+
 export default {
   init,
   isLoaded,
@@ -174,4 +194,7 @@ export default {
   onNetworkFees,
   onTokenInfo,
   onServices,
+  pulseSubscribe,
+  pulseUnsubscribe,
+  pulseGetStatus,
 };
