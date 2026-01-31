@@ -9,6 +9,7 @@ import tokenApi from './apiServices/tokenApi';
 import onramperApi from './apiServices/onramperApi';
 import noncesApi from './apiServices/noncesApi';
 import pulseApi from './apiServices/pulseApi';
+import enterpriseApi from './apiServices/enterpriseApi';
 import enterpriseHooks from './services/enterpriseHooks';
 import log from './lib/log';
 import {
@@ -101,4 +102,19 @@ export default (app) => {
   app.post('/v1/pulse/status', requireAuth('wkIdentity'), (req, res) => {
     pulseApi.getStatus(req, res);
   });
+
+  // SSP Enterprise - Authentication endpoints
+  app.get('/v1/enterprise/auth/challenge', (req, res) => {
+    enterpriseApi.getChallenge(req, res);
+  });
+  app.post('/v1/enterprise/auth/wk', (req, res) => {
+    enterpriseApi.postLoginWK(req, res);
+  });
+  app.get('/v1/enterprise/auth/session', (req, res) => {
+    enterpriseApi.getSession(req, res);
+  });
+  app.post('/v1/enterprise/auth/logout', (req, res) => {
+    enterpriseApi.postLogout(req, res);
+  });
+
 };

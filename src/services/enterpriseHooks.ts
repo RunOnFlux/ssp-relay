@@ -6,6 +6,12 @@
  */
 
 import log from '../lib/log';
+import {
+  verifyBitcoinSignature,
+  deriveP2PKHAddress,
+  deriveP2WSHAddress,
+  parseWitnessScript,
+} from '../lib/identityAuth';
 
 // Rates service interface (from ssp-relay)
 interface RatesService {
@@ -23,6 +29,35 @@ interface NonceSubmission {
   nonces: Array<{ kPublic: string; kTwoPublic: string }>;
 }
 
+// Auth functions interface
+interface AuthFunctions {
+  verifyBitcoinSignature: (message: string, signature: string, address: string) => boolean;
+  deriveP2PKHAddress: (publicKeyHex: string, network: 'mainnet' | 'testnet') => string;
+  deriveP2WSHAddress: (witnessScriptHex: string, network: 'mainnet' | 'testnet') => string;
+  parseWitnessScript: (witnessScriptHex: string) => { m: number; n: number; publicKeys: string[] };
+}
+
+// Enterprise auth response types
+interface LoginResponse {
+  success: boolean;
+  sessionToken?: string;
+  expiresAt?: string;
+  user?: { wkIdentity: string; pulseEmail?: string };
+  error?: string;
+  errorCode?: string;
+}
+
+interface SessionResponse {
+  valid: boolean;
+  user?: { wkIdentity: string; pulseEmail?: string };
+  expiresAt?: string;
+}
+
+interface ChallengeResponse {
+  message: string;
+  expiresAt: string;
+}
+
 // Generic hook interface
 interface HooksModule {
   init: (deps: {
@@ -30,6 +65,7 @@ interface HooksModule {
     config: unknown;
     logger: unknown;
     ratesService: RatesService;
+    authFunctions?: AuthFunctions;
   }) => void;
   onGetSync?: (req: unknown, id: string) => Promise<void>;
   onGetAction?: (req: unknown, id: string) => Promise<void>;
@@ -58,6 +94,12 @@ interface HooksModule {
   pulseSubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
   pulseUnsubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
   pulseGetStatus?: (req: unknown, wkIdentity: string) => Promise<unknown>;
+  // Enterprise auth functions (all processing handled in enterprise module)
+  enterpriseGetChallenge?: (req: unknown) => Promise<ChallengeResponse>;
+  enterpriseLogin?: (req: unknown) => Promise<LoginResponse>;
+  enterpriseValidateSession?: (req: unknown) => Promise<SessionResponse>;
+  enterpriseLogout?: (req: unknown) => Promise<{ success: boolean }>;
+  enterpriseGetUser?: (wkIdentity: string) => Promise<unknown>;
 }
 
 // No-op implementation
@@ -78,6 +120,11 @@ const noopHooks: HooksModule = {
   pulseSubscribe: async () => null,
   pulseUnsubscribe: async () => null,
   pulseGetStatus: async () => null,
+  enterpriseGetChallenge: async () => { throw new Error('Enterprise not available'); },
+  enterpriseLogin: async () => ({ success: false, error: 'Enterprise not available', errorCode: 'ENTERPRISE_NOT_LOADED' }),
+  enterpriseValidateSession: async () => ({ valid: false }),
+  enterpriseLogout: async () => ({ success: false }),
+  enterpriseGetUser: async () => null,
 };
 
 let hooksModule: HooksModule = noopHooks;
@@ -101,7 +148,16 @@ async function init(deps: {
     const module = ext.default;
     if (module && typeof module.init === 'function') {
       hooksModule = module;
-      hooksModule.init({ ...deps, logger: log });
+      hooksModule.init({
+        ...deps,
+        logger: log,
+        authFunctions: {
+          verifyBitcoinSignature,
+          deriveP2PKHAddress,
+          deriveP2WSHAddress,
+          parseWitnessScript,
+        },
+      });
       log.info('[HOOKS] Extension module loaded');
     }
   } catch (e) {
@@ -179,6 +235,26 @@ const pulseUnsubscribe = (req: unknown, data: unknown) =>
 const pulseGetStatus = (req: unknown, wkIdentity: string) =>
   hooksModule.pulseGetStatus?.(req, wkIdentity) ?? Promise.resolve(null);
 
+// Enterprise auth functions (all processing handled in enterprise module)
+const enterpriseGetChallenge = (req: unknown) =>
+  hooksModule.enterpriseGetChallenge?.(req) ??
+  Promise.reject(new Error('Enterprise not available'));
+
+const enterpriseLogin = (req: unknown) =>
+  hooksModule.enterpriseLogin?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available', errorCode: 'ENTERPRISE_NOT_LOADED' });
+
+const enterpriseValidateSession = (req: unknown) =>
+  hooksModule.enterpriseValidateSession?.(req) ??
+  Promise.resolve({ valid: false });
+
+const enterpriseLogout = (req: unknown) =>
+  hooksModule.enterpriseLogout?.(req) ??
+  Promise.resolve({ success: false });
+
+const enterpriseGetUser = (wkIdentity: string) =>
+  hooksModule.enterpriseGetUser?.(wkIdentity) ?? Promise.resolve(null);
+
 export default {
   init,
   isLoaded,
@@ -197,4 +273,10 @@ export default {
   pulseSubscribe,
   pulseUnsubscribe,
   pulseGetStatus,
+  // Enterprise auth
+  enterpriseGetChallenge,
+  enterpriseLogin,
+  enterpriseValidateSession,
+  enterpriseLogout,
+  enterpriseGetUser,
 };
