@@ -11,8 +11,16 @@ const cmdAsync: (arg0: string) => Promise<unknown> = promisify(cmd.run);
 async function makeBackup() {
   try {
     const date = new Date().getTime();
+    const { database, username, password, url, port } = config.database;
+
+    // Build mongodump command with authentication
+    const authArgs = username && password
+      ? `--username ${username} --password ${password} --authenticationDatabase ${database}`
+      : '';
+    const hostArgs = `--host ${url} --port ${port}`;
+
     await cmdAsync('rm -rf dumpOld.tar.gz');
-    await cmdAsync(`mongodump --db ${config.database.database}`);
+    await cmdAsync(`mongodump ${hostArgs} --db ${database} ${authArgs}`);
     await cmdAsync(`tar -czvf sspMongoDump${date}.tar.gz dump`);
     await cmdAsync('rm -rf dump');
     await cmdAsync(
