@@ -15,7 +15,7 @@ async function makeBackup() {
 
     // Build mongodump command with authentication
     const authArgs = username && password
-      ? `--username ${username} --password ${password} --authenticationDatabase ${database}`
+      ? `--username ${username} --password ${password} --authenticationDatabase admin`
       : '';
     const hostArgs = `--host ${url} --port ${port}`;
 
