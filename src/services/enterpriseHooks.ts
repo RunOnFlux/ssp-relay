@@ -31,10 +31,24 @@ interface NonceSubmission {
 
 // Auth functions interface
 interface AuthFunctions {
-  verifyBitcoinSignature: (message: string, signature: string, address: string) => boolean;
-  deriveP2PKHAddress: (publicKeyHex: string, network: 'mainnet' | 'testnet') => string;
-  deriveP2WSHAddress: (witnessScriptHex: string, network: 'mainnet' | 'testnet') => string;
-  parseWitnessScript: (witnessScriptHex: string) => { m: number; n: number; publicKeys: string[] };
+  verifyBitcoinSignature: (
+    message: string,
+    signature: string,
+    address: string,
+  ) => boolean;
+  deriveP2PKHAddress: (
+    publicKeyHex: string,
+    network: 'mainnet' | 'testnet',
+  ) => string;
+  deriveP2WSHAddress: (
+    witnessScriptHex: string,
+    network: 'mainnet' | 'testnet',
+  ) => string;
+  parseWitnessScript: (witnessScriptHex: string) => {
+    m: number;
+    n: number;
+    publicKeys: string[];
+  };
 }
 
 // Enterprise auth response types
@@ -42,20 +56,76 @@ interface LoginResponse {
   success: boolean;
   sessionToken?: string;
   expiresAt?: string;
-  user?: { wkIdentity: string; pulseEmail?: string };
+  user?: { wkIdentity: string; enterpriseEmail?: string };
   error?: string;
   errorCode?: string;
 }
 
 interface SessionResponse {
   valid: boolean;
-  user?: { wkIdentity: string; pulseEmail?: string };
+  user?: { wkIdentity: string; enterpriseEmail?: string };
   expiresAt?: string;
 }
 
 interface ChallengeResponse {
   message: string;
   expiresAt: string;
+}
+
+interface CriticalActionChallengeResponse {
+  success: boolean;
+  message?: string;
+  expiresAt?: string;
+  error?: string;
+  errorCode?: string;
+}
+
+// Organization response types
+interface OrganizationResponse {
+  success: boolean;
+  organization?: unknown;
+  error?: string;
+  errorCode?: string;
+}
+
+interface OrganizationsListResponse {
+  success: boolean;
+  organizations?: unknown[];
+  error?: string;
+}
+
+interface MembersListResponse {
+  success: boolean;
+  members?: unknown[];
+  error?: string;
+}
+
+interface InvitationsListResponse {
+  success: boolean;
+  invitations?: unknown[];
+  error?: string;
+}
+
+interface MembershipResponse {
+  success: boolean;
+  membership?: unknown;
+  error?: string;
+  errorCode?: string;
+}
+
+interface SimpleResponse {
+  success: boolean;
+  error?: string;
+  errorCode?: string;
+}
+
+interface EmailVerificationResponse {
+  success: boolean;
+  message?: string;
+  expiresInMinutes?: number;
+  remainingCodes?: number;
+  remainingAttempts?: number;
+  error?: string;
 }
 
 // Generic hook interface
@@ -90,16 +160,52 @@ interface HooksModule {
   onNetworkFees?: (req: unknown) => Promise<void>;
   onTokenInfo?: (req: unknown) => Promise<void>;
   onServices?: (req: unknown) => Promise<void>;
-  // SSP Pulse functions (all processing handled in enterprise module)
-  pulseSubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
-  pulseUnsubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
-  pulseGetStatus?: (req: unknown, wkIdentity: string) => Promise<unknown>;
+  // SSP Enterprise notification functions (all processing handled in enterprise module)
+  enterpriseSubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
+  enterpriseUnsubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
+  enterpriseGetStatus?: (req: unknown, wkIdentity: string) => Promise<unknown>;
   // Enterprise auth functions (all processing handled in enterprise module)
   enterpriseGetChallenge?: (req: unknown) => Promise<ChallengeResponse>;
   enterpriseLogin?: (req: unknown) => Promise<LoginResponse>;
   enterpriseValidateSession?: (req: unknown) => Promise<SessionResponse>;
   enterpriseLogout?: (req: unknown) => Promise<{ success: boolean }>;
   enterpriseGetUser?: (wkIdentity: string) => Promise<unknown>;
+  enterpriseGetCriticalActionChallenge?: (
+    req: unknown,
+  ) => Promise<CriticalActionChallengeResponse>;
+  enterpriseUpdateEmail?: (
+    req: unknown,
+  ) => Promise<{
+    success: boolean;
+    email?: string;
+    error?: string;
+    errorCode?: string;
+  }>;
+  // Organization functions - all processing in enterprise module
+  organizationCreate?: (req: unknown) => Promise<OrganizationResponse>;
+  organizationList?: (req: unknown) => Promise<OrganizationsListResponse>;
+  organizationGet?: (req: unknown) => Promise<OrganizationResponse>;
+  organizationUpdate?: (req: unknown) => Promise<OrganizationResponse>;
+  organizationDelete?: (req: unknown) => Promise<SimpleResponse>;
+  organizationMembers?: (req: unknown) => Promise<MembersListResponse>;
+  organizationMemberUpdate?: (req: unknown) => Promise<MembershipResponse>;
+  organizationMemberRemove?: (req: unknown) => Promise<SimpleResponse>;
+  organizationLeave?: (req: unknown) => Promise<SimpleResponse>;
+  organizationInvitationCreate?: (req: unknown) => Promise<unknown>;
+  organizationInvitationList?: (
+    req: unknown,
+  ) => Promise<InvitationsListResponse>;
+  organizationInvitationRevoke?: (req: unknown) => Promise<SimpleResponse>;
+  invitationList?: (req: unknown) => Promise<InvitationsListResponse>;
+  invitationAccept?: (req: unknown) => Promise<MembershipResponse>;
+  invitationReject?: (req: unknown) => Promise<SimpleResponse>;
+  // Email verification functions
+  emailVerificationRequest?: (
+    req: unknown,
+  ) => Promise<EmailVerificationResponse>;
+  emailVerificationConfirm?: (
+    req: unknown,
+  ) => Promise<EmailVerificationResponse>;
 }
 
 // No-op implementation
@@ -117,14 +223,100 @@ const noopHooks: HooksModule = {
   onNetworkFees: async () => {},
   onTokenInfo: async () => {},
   onServices: async () => {},
-  pulseSubscribe: async () => null,
-  pulseUnsubscribe: async () => null,
-  pulseGetStatus: async () => null,
-  enterpriseGetChallenge: async () => { throw new Error('Enterprise not available'); },
-  enterpriseLogin: async () => ({ success: false, error: 'Enterprise not available', errorCode: 'ENTERPRISE_NOT_LOADED' }),
+  enterpriseSubscribe: async () => null,
+  enterpriseUnsubscribe: async () => null,
+  enterpriseGetStatus: async () => null,
+  enterpriseGetChallenge: async () => {
+    throw new Error('Enterprise not available');
+  },
+  enterpriseLogin: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
   enterpriseValidateSession: async () => ({ valid: false }),
   enterpriseLogout: async () => ({ success: false }),
   enterpriseGetUser: async () => null,
+  enterpriseGetCriticalActionChallenge: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  enterpriseUpdateEmail: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  // Organization no-ops
+  organizationCreate: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationList: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationGet: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationUpdate: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationDelete: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationMembers: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationMemberUpdate: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationMemberRemove: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationLeave: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationInvitationCreate: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationInvitationList: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  organizationInvitationRevoke: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  invitationList: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  invitationAccept: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  invitationReject: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  // Email verification no-ops
+  emailVerificationRequest: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  emailVerificationConfirm: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
 };
 
 let hooksModule: HooksModule = noopHooks;
@@ -225,15 +417,15 @@ const onTokenInfo = (req: unknown) =>
 const onServices = (req: unknown) =>
   hooksModule.onServices?.(req) ?? Promise.resolve();
 
-// SSP Pulse functions (all processing handled in enterprise module)
-const pulseSubscribe = (req: unknown, data: unknown) =>
-  hooksModule.pulseSubscribe?.(req, data) ?? Promise.resolve(null);
+// SSP Enterprise notification functions (all processing handled in enterprise module)
+const enterpriseSubscribe = (req: unknown, data: unknown) =>
+  hooksModule.enterpriseSubscribe?.(req, data) ?? Promise.resolve(null);
 
-const pulseUnsubscribe = (req: unknown, data: unknown) =>
-  hooksModule.pulseUnsubscribe?.(req, data) ?? Promise.resolve(null);
+const enterpriseUnsubscribe = (req: unknown, data: unknown) =>
+  hooksModule.enterpriseUnsubscribe?.(req, data) ?? Promise.resolve(null);
 
-const pulseGetStatus = (req: unknown, wkIdentity: string) =>
-  hooksModule.pulseGetStatus?.(req, wkIdentity) ?? Promise.resolve(null);
+const enterpriseGetStatus = (req: unknown, wkIdentity: string) =>
+  hooksModule.enterpriseGetStatus?.(req, wkIdentity) ?? Promise.resolve(null);
 
 // Enterprise auth functions (all processing handled in enterprise module)
 const enterpriseGetChallenge = (req: unknown) =>
@@ -242,18 +434,107 @@ const enterpriseGetChallenge = (req: unknown) =>
 
 const enterpriseLogin = (req: unknown) =>
   hooksModule.enterpriseLogin?.(req) ??
-  Promise.resolve({ success: false, error: 'Enterprise not available', errorCode: 'ENTERPRISE_NOT_LOADED' });
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
 
 const enterpriseValidateSession = (req: unknown) =>
   hooksModule.enterpriseValidateSession?.(req) ??
   Promise.resolve({ valid: false });
 
 const enterpriseLogout = (req: unknown) =>
-  hooksModule.enterpriseLogout?.(req) ??
-  Promise.resolve({ success: false });
+  hooksModule.enterpriseLogout?.(req) ?? Promise.resolve({ success: false });
 
 const enterpriseGetUser = (wkIdentity: string) =>
   hooksModule.enterpriseGetUser?.(wkIdentity) ?? Promise.resolve(null);
+
+const enterpriseGetCriticalActionChallenge = (req: unknown) =>
+  hooksModule.enterpriseGetCriticalActionChallenge?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
+const enterpriseUpdateEmail = (req: unknown) =>
+  hooksModule.enterpriseUpdateEmail?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
+// Organization functions - just pass req, all processing in enterprise module
+const organizationCreate = (req: unknown) =>
+  hooksModule.organizationCreate?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationList = (req: unknown) =>
+  hooksModule.organizationList?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationGet = (req: unknown) =>
+  hooksModule.organizationGet?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationUpdate = (req: unknown) =>
+  hooksModule.organizationUpdate?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationDelete = (req: unknown) =>
+  hooksModule.organizationDelete?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationMembers = (req: unknown) =>
+  hooksModule.organizationMembers?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationMemberUpdate = (req: unknown) =>
+  hooksModule.organizationMemberUpdate?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationMemberRemove = (req: unknown) =>
+  hooksModule.organizationMemberRemove?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationLeave = (req: unknown) =>
+  hooksModule.organizationLeave?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationInvitationCreate = (req: unknown) =>
+  hooksModule.organizationInvitationCreate?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationInvitationList = (req: unknown) =>
+  hooksModule.organizationInvitationList?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationInvitationRevoke = (req: unknown) =>
+  hooksModule.organizationInvitationRevoke?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const invitationList = (req: unknown) =>
+  hooksModule.invitationList?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const invitationAccept = (req: unknown) =>
+  hooksModule.invitationAccept?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const invitationReject = (req: unknown) =>
+  hooksModule.invitationReject?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+// Email verification functions
+const emailVerificationRequest = (req: unknown) =>
+  hooksModule.emailVerificationRequest?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const emailVerificationConfirm = (req: unknown) =>
+  hooksModule.emailVerificationConfirm?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
 
 export default {
   init,
@@ -270,13 +551,35 @@ export default {
   onNetworkFees,
   onTokenInfo,
   onServices,
-  pulseSubscribe,
-  pulseUnsubscribe,
-  pulseGetStatus,
+  // Enterprise notification
+  enterpriseSubscribe,
+  enterpriseUnsubscribe,
+  enterpriseGetStatus,
   // Enterprise auth
   enterpriseGetChallenge,
   enterpriseLogin,
   enterpriseValidateSession,
   enterpriseLogout,
   enterpriseGetUser,
+  enterpriseGetCriticalActionChallenge,
+  enterpriseUpdateEmail,
+  // Organization API
+  organizationCreate,
+  organizationList,
+  organizationGet,
+  organizationUpdate,
+  organizationDelete,
+  organizationMembers,
+  organizationMemberUpdate,
+  organizationMemberRemove,
+  organizationLeave,
+  organizationInvitationCreate,
+  organizationInvitationList,
+  organizationInvitationRevoke,
+  invitationList,
+  invitationAccept,
+  invitationReject,
+  // Email verification
+  emailVerificationRequest,
+  emailVerificationConfirm,
 };

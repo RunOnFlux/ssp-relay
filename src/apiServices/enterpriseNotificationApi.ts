@@ -7,16 +7,16 @@ import {
 } from '../middleware/authMiddleware';
 
 /**
- * POST /v1/pulse/subscribe
- * Subscribe user to SSP Pulse notification service
+ * POST /v1/enterprise/subscribe
+ * Subscribe user to SSP Enterprise notification service
  * All validation and processing is handled by the enterprise module
  */
 async function postSubscribe(req: AuthenticatedRequest, res) {
   try {
-    // Enterprise module required for pulse subscription
+    // Enterprise module required for notification subscription
     if (!enterpriseHooks.isLoaded()) {
       throw new Error(
-        'Enterprise module not available. Pulse subscription not possible.',
+        'Enterprise module not available. Notification subscription not possible.',
       );
     }
 
@@ -24,7 +24,7 @@ async function postSubscribe(req: AuthenticatedRequest, res) {
     const data = stripAuthFields(req.body);
 
     // Subscribe via enterprise hook (validation and tracking handled in enterprise module)
-    const result = await enterpriseHooks.pulseSubscribe(req, data);
+    const result = await enterpriseHooks.enterpriseSubscribe(req, data);
     const response = serviceHelper.createDataMessage(result);
     res.json(response);
   } catch (error) {
@@ -39,8 +39,8 @@ async function postSubscribe(req: AuthenticatedRequest, res) {
 }
 
 /**
- * POST /v1/pulse/unsubscribe
- * Unsubscribe user from SSP Pulse notification service
+ * POST /v1/enterprise/unsubscribe
+ * Unsubscribe user from SSP Enterprise notification service
  * All validation and processing is handled by the enterprise module
  */
 async function postUnsubscribe(req: AuthenticatedRequest, res) {
@@ -48,7 +48,7 @@ async function postUnsubscribe(req: AuthenticatedRequest, res) {
     // Enterprise module required
     if (!enterpriseHooks.isLoaded()) {
       throw new Error(
-        'Enterprise module not available. Pulse unsubscription not possible.',
+        'Enterprise module not available. Notification unsubscription not possible.',
       );
     }
 
@@ -56,7 +56,7 @@ async function postUnsubscribe(req: AuthenticatedRequest, res) {
     const data = stripAuthFields(req.body);
 
     // Unsubscribe via enterprise hook (validation and tracking handled in enterprise module)
-    const result = await enterpriseHooks.pulseUnsubscribe(req, data);
+    const result = await enterpriseHooks.enterpriseUnsubscribe(req, data);
     const response = serviceHelper.createDataMessage(result);
     res.json(response);
   } catch (error) {
@@ -71,8 +71,8 @@ async function postUnsubscribe(req: AuthenticatedRequest, res) {
 }
 
 /**
- * POST /v1/pulse/status
- * Get pulse subscription status for authenticated user
+ * POST /v1/enterprise/subscription
+ * Get enterprise notification subscription status for authenticated user
  */
 async function getStatus(req: AuthenticatedRequest, res) {
   try {
@@ -88,7 +88,7 @@ async function getStatus(req: AuthenticatedRequest, res) {
     }
 
     // Get status via enterprise hook (tracking handled in enterprise module)
-    const result = await enterpriseHooks.pulseGetStatus(req, wkIdentity);
+    const result = await enterpriseHooks.enterpriseGetStatus(req, wkIdentity);
 
     const response = serviceHelper.createDataMessage(result);
     res.json(response);

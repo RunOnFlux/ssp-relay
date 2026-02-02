@@ -8,7 +8,7 @@ import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
 import onramperApi from './apiServices/onramperApi';
 import noncesApi from './apiServices/noncesApi';
-import pulseApi from './apiServices/pulseApi';
+import enterpriseNotificationApi from './apiServices/enterpriseNotificationApi';
 import enterpriseApi from './apiServices/enterpriseApi';
 import enterpriseHooks from './services/enterpriseHooks';
 import log from './lib/log';
@@ -92,16 +92,28 @@ export default (app) => {
     onramperApi.postDataToSign(req, res);
   });
 
-  // SSP Pulse - notification service subscription (requires wkIdentity auth)
-  app.post('/v1/pulse/subscribe', requireAuth('wkIdentity'), (req, res) => {
-    pulseApi.postSubscribe(req, res);
-  });
-  app.post('/v1/pulse/unsubscribe', requireAuth('wkIdentity'), (req, res) => {
-    pulseApi.postUnsubscribe(req, res);
-  });
-  app.post('/v1/pulse/status', requireAuth('wkIdentity'), (req, res) => {
-    pulseApi.getStatus(req, res);
-  });
+  // SSP Enterprise - notification subscription (requires wkIdentity auth)
+  app.post(
+    '/v1/enterprise/subscribe',
+    requireAuth('wkIdentity'),
+    (req, res) => {
+      enterpriseNotificationApi.postSubscribe(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/unsubscribe',
+    requireAuth('wkIdentity'),
+    (req, res) => {
+      enterpriseNotificationApi.postUnsubscribe(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/subscription',
+    requireAuth('wkIdentity'),
+    (req, res) => {
+      enterpriseNotificationApi.getStatus(req, res);
+    },
+  );
 
   // SSP Enterprise - Authentication endpoints
   app.get('/v1/enterprise/auth/challenge', (req, res) => {
@@ -116,5 +128,74 @@ export default (app) => {
   app.post('/v1/enterprise/auth/logout', (req, res) => {
     enterpriseApi.postLogout(req, res);
   });
+  app.post('/v1/enterprise/critical-action/challenge', (req, res) => {
+    enterpriseApi.postCriticalActionChallenge(req, res);
+  });
+  app.post('/v1/enterprise/email', (req, res) => {
+    enterpriseApi.postEnterpriseEmail(req, res);
+  });
 
+  // SSP Enterprise - Email verification endpoints
+  app.post('/v1/enterprise/email/verify/request', (req, res) => {
+    enterpriseApi.postEmailVerifyRequest(req, res);
+  });
+  app.post('/v1/enterprise/email/verify/confirm', (req, res) => {
+    enterpriseApi.postEmailVerifyConfirm(req, res);
+  });
+
+  // SSP Enterprise - Organization endpoints
+  app.post('/v1/enterprise/organizations', (req, res) => {
+    enterpriseApi.postOrganization(req, res);
+  });
+  app.get('/v1/enterprise/organizations', (req, res) => {
+    enterpriseApi.getOrganizations(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id', (req, res) => {
+    enterpriseApi.getOrganization(req, res);
+  });
+  app.patch('/v1/enterprise/organizations/:id', (req, res) => {
+    enterpriseApi.patchOrganization(req, res);
+  });
+  app.delete('/v1/enterprise/organizations/:id', (req, res) => {
+    enterpriseApi.deleteOrganization(req, res);
+  });
+
+  // SSP Enterprise - Member endpoints
+  app.get('/v1/enterprise/organizations/:id/members', (req, res) => {
+    enterpriseApi.getMembers(req, res);
+  });
+  app.patch('/v1/enterprise/organizations/:id/members/:wkId', (req, res) => {
+    enterpriseApi.patchMember(req, res);
+  });
+  app.delete('/v1/enterprise/organizations/:id/members/:wkId', (req, res) => {
+    enterpriseApi.deleteMember(req, res);
+  });
+  app.post('/v1/enterprise/organizations/:id/leave', (req, res) => {
+    enterpriseApi.postLeave(req, res);
+  });
+
+  // SSP Enterprise - Organization Invitation endpoints
+  app.post('/v1/enterprise/organizations/:id/invitations', (req, res) => {
+    enterpriseApi.postOrgInvitation(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/invitations', (req, res) => {
+    enterpriseApi.getOrgInvitations(req, res);
+  });
+  app.delete(
+    '/v1/enterprise/organizations/:id/invitations/:invId',
+    (req, res) => {
+      enterpriseApi.deleteOrgInvitation(req, res);
+    },
+  );
+
+  // SSP Enterprise - User Invitation endpoints
+  app.get('/v1/enterprise/invitations', (req, res) => {
+    enterpriseApi.getMyInvitations(req, res);
+  });
+  app.post('/v1/enterprise/invitations/:invId/accept', (req, res) => {
+    enterpriseApi.postAcceptInvitation(req, res);
+  });
+  app.post('/v1/enterprise/invitations/:invId/reject', (req, res) => {
+    enterpriseApi.postRejectInvitation(req, res);
+  });
 };
