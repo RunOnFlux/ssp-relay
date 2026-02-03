@@ -128,6 +128,17 @@ export default (app) => {
   app.post('/v1/enterprise/auth/logout', (req, res) => {
     enterpriseApi.postLogout(req, res);
   });
+  // Email login endpoints
+  app.post('/v1/enterprise/auth/email/request', (req, res) => {
+    enterpriseApi.postEmailLoginRequest(req, res);
+  });
+  app.post('/v1/enterprise/auth/email/verify', (req, res) => {
+    enterpriseApi.postEmailLoginVerify(req, res);
+  });
+  // Google login endpoint
+  app.post('/v1/enterprise/auth/google', (req, res) => {
+    enterpriseApi.postGoogleLogin(req, res);
+  });
   app.post('/v1/enterprise/critical-action/challenge', (req, res) => {
     enterpriseApi.postCriticalActionChallenge(req, res);
   });
@@ -141,6 +152,11 @@ export default (app) => {
   });
   app.post('/v1/enterprise/email/verify/confirm', (req, res) => {
     enterpriseApi.postEmailVerifyConfirm(req, res);
+  });
+
+  // SSP Enterprise - Profile endpoints
+  app.patch('/v1/enterprise/profile', (req, res) => {
+    enterpriseApi.patchProfile(req, res);
   });
 
   // SSP Enterprise - Organization endpoints

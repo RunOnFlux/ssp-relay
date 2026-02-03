@@ -82,6 +82,69 @@ async function postLogout(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * POST /v1/enterprise/auth/email/request
+ * Request email login code
+ */
+async function postEmailLoginRequest(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.emailLoginRequest(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
+/**
+ * POST /v1/enterprise/auth/email/verify
+ * Verify email login code and get session
+ */
+async function postEmailLoginVerify(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.emailLoginVerify(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
+/**
+ * POST /v1/enterprise/auth/google
+ * Login with Google OAuth
+ */
+async function postGoogleLogin(req: Request, res: Response): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.googleLogin(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
+/**
  * POST /v1/enterprise/critical-action/challenge
  * Generate a challenge for critical actions (delete org, transfer ownership, remove member, change email)
  */
@@ -162,6 +225,29 @@ async function postEmailVerifyConfirm(
       throw new Error('Enterprise features not available');
     }
     const result = await enterpriseHooks.emailVerificationConfirm(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
+// ============================================================
+// Profile Endpoints
+// ============================================================
+
+/**
+ * PATCH /v1/enterprise/profile
+ * Update user profile (displayName)
+ */
+async function patchProfile(req: Request, res: Response): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.profileUpdate(req);
     res.json(serviceHelper.createDataMessage(result));
   } catch (error) {
     log.error(error);
@@ -459,9 +545,16 @@ export default {
   postLogout,
   postCriticalActionChallenge,
   postEnterpriseEmail,
+  // Email Login
+  postEmailLoginRequest,
+  postEmailLoginVerify,
+  // Google Login
+  postGoogleLogin,
   // Email Verification
   postEmailVerifyRequest,
   postEmailVerifyConfirm,
+  // Profile
+  patchProfile,
   // Organizations
   postOrganization,
   getOrganizations,

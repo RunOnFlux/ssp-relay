@@ -51,19 +51,35 @@ interface AuthFunctions {
   };
 }
 
+// Account status
+// pending_wk = invited via email, needs to set up WK identity (limited access)
+// pending_email = has WK identity, no email linked yet (full access)
+// complete = has both WK identity and email linked
+type AccountStatus = 'pending_wk' | 'pending_email' | 'complete';
+
 // Enterprise auth response types
 interface LoginResponse {
   success: boolean;
   sessionToken?: string;
   expiresAt?: string;
-  user?: { wkIdentity: string; enterpriseEmail?: string };
+  user?: {
+    wkIdentity?: string;        // Source of truth - required for complete users
+    enterpriseEmail?: string;   // Optional - convenience for login
+    displayName?: string;
+    accountStatus: AccountStatus;
+  };
   error?: string;
   errorCode?: string;
 }
 
 interface SessionResponse {
   valid: boolean;
-  user?: { wkIdentity: string; enterpriseEmail?: string };
+  user?: {
+    wkIdentity?: string;
+    enterpriseEmail?: string;
+    displayName?: string;
+    accountStatus: AccountStatus;
+  };
   expiresAt?: string;
 }
 
@@ -126,6 +142,16 @@ interface EmailVerificationResponse {
   remainingCodes?: number;
   remainingAttempts?: number;
   error?: string;
+}
+
+interface EmailLoginCodeResponse {
+  success: boolean;
+  message?: string;
+  expiresInMinutes?: number;
+  remainingCodes?: number;
+  retryAfterSeconds?: number;
+  error?: string;
+  errorCode?: string;
 }
 
 // Generic hook interface
@@ -206,6 +232,15 @@ interface HooksModule {
   emailVerificationConfirm?: (
     req: unknown,
   ) => Promise<EmailVerificationResponse>;
+  // Profile functions
+  profileUpdate?: (
+    req: unknown,
+  ) => Promise<{ success: boolean; displayName?: string; error?: string; errorCode?: string }>;
+  // Email login functions
+  emailLoginRequest?: (req: unknown) => Promise<EmailLoginCodeResponse>;
+  emailLoginVerify?: (req: unknown) => Promise<LoginResponse>;
+  // Google login functions
+  googleLogin?: (req: unknown) => Promise<LoginResponse>;
 }
 
 // No-op implementation
@@ -316,6 +351,29 @@ const noopHooks: HooksModule = {
   emailVerificationConfirm: async () => ({
     success: false,
     error: 'Enterprise not available',
+  }),
+  // Profile no-ops
+  profileUpdate: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  // Email login no-ops
+  emailLoginRequest: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  emailLoginVerify: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  // Google login no-ops
+  googleLogin: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
   }),
 };
 
@@ -536,6 +594,40 @@ const emailVerificationConfirm = (req: unknown) =>
   hooksModule.emailVerificationConfirm?.(req) ??
   Promise.resolve({ success: false, error: 'Enterprise not available' });
 
+// Profile functions
+const profileUpdate = (req: unknown) =>
+  hooksModule.profileUpdate?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
+// Email login functions
+const emailLoginRequest = (req: unknown) =>
+  hooksModule.emailLoginRequest?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
+const emailLoginVerify = (req: unknown) =>
+  hooksModule.emailLoginVerify?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
+const googleLogin = (req: unknown) =>
+  hooksModule.googleLogin?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
 export default {
   init,
   isLoaded,
@@ -582,4 +674,11 @@ export default {
   // Email verification
   emailVerificationRequest,
   emailVerificationConfirm,
+  // Profile
+  profileUpdate,
+  // Email login
+  emailLoginRequest,
+  emailLoginVerify,
+  // Google login
+  googleLogin,
 };
