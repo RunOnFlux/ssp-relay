@@ -21,6 +21,14 @@ interface decodedTx {
 async function sendNotificationKey(wkIdentity, data) {
   try {
     const syncs = await syncService.getTokens(wkIdentity);
+    log.info({
+      message: 'Looking up push tokens for notification',
+      wkIdentity,
+      action: data.action,
+      syncCount: syncs.length,
+      hasKeyTokens: syncs.filter((s) => s.keyToken).length,
+    });
+
     let title = 'Transaction Request';
     let body = 'A transaction has been initiated on your wallet.';
     if (data.action === 'publicnoncesrequest') {
@@ -52,6 +60,11 @@ async function sendNotificationKey(wkIdentity, data) {
       .map((sync) => sync.keyToken);
 
     if (validTokens.length === 0) {
+      log.warn({
+        message: 'No push tokens found for wkIdentity - notification not sent',
+        wkIdentity,
+        action: data.action,
+      });
       return;
     }
 
