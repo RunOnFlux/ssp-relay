@@ -154,6 +154,28 @@ interface EmailLoginCodeResponse {
   errorCode?: string;
 }
 
+// Enterprise notification response types
+interface EnterpriseSubscribeResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  errorCode?: string;
+}
+
+interface EnterpriseUnsubscribeResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  errorCode?: string;
+}
+
+interface EnterpriseUpdateEmailResponse {
+  success: boolean;
+  email?: string;
+  error?: string;
+  errorCode?: string;
+}
+
 // Generic hook interface
 interface HooksModule {
   init: (deps: {
@@ -187,8 +209,6 @@ interface HooksModule {
   onTokenInfo?: (req: unknown) => Promise<void>;
   onServices?: (req: unknown) => Promise<void>;
   // SSP Enterprise notification functions (all processing handled in enterprise module)
-  enterpriseSubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
-  enterpriseUnsubscribe?: (req: unknown, data: unknown) => Promise<unknown>;
   enterpriseGetStatus?: (req: unknown, wkIdentity: string) => Promise<unknown>;
   // Enterprise auth functions (all processing handled in enterprise module)
   enterpriseGetChallenge?: (req: unknown) => Promise<ChallengeResponse>;
@@ -199,14 +219,6 @@ interface HooksModule {
   enterpriseGetCriticalActionChallenge?: (
     req: unknown,
   ) => Promise<CriticalActionChallengeResponse>;
-  enterpriseUpdateEmail?: (
-    req: unknown,
-  ) => Promise<{
-    success: boolean;
-    email?: string;
-    error?: string;
-    errorCode?: string;
-  }>;
   // Organization functions - all processing in enterprise module
   organizationCreate?: (req: unknown) => Promise<OrganizationResponse>;
   organizationList?: (req: unknown) => Promise<OrganizationsListResponse>;
@@ -241,6 +253,10 @@ interface HooksModule {
   emailLoginVerify?: (req: unknown) => Promise<LoginResponse>;
   // Google login functions
   googleLogin?: (req: unknown) => Promise<LoginResponse>;
+  // Enterprise notification functions (subscribe/unsubscribe/email with WK signatures)
+  enterpriseSubscribe?: (req: unknown, data: unknown) => Promise<EnterpriseSubscribeResponse>;
+  enterpriseUnsubscribe?: (req: unknown, data: unknown) => Promise<EnterpriseUnsubscribeResponse>;
+  enterpriseUpdateEmail?: (req: unknown) => Promise<EnterpriseUpdateEmailResponse>;
 }
 
 // No-op implementation
@@ -258,8 +274,6 @@ const noopHooks: HooksModule = {
   onNetworkFees: async () => {},
   onTokenInfo: async () => {},
   onServices: async () => {},
-  enterpriseSubscribe: async () => null,
-  enterpriseUnsubscribe: async () => null,
   enterpriseGetStatus: async () => null,
   enterpriseGetChallenge: async () => {
     throw new Error('Enterprise not available');
@@ -273,11 +287,6 @@ const noopHooks: HooksModule = {
   enterpriseLogout: async () => ({ success: false }),
   enterpriseGetUser: async () => null,
   enterpriseGetCriticalActionChallenge: async () => ({
-    success: false,
-    error: 'Enterprise not available',
-    errorCode: 'ENTERPRISE_NOT_LOADED',
-  }),
-  enterpriseUpdateEmail: async () => ({
     success: false,
     error: 'Enterprise not available',
     errorCode: 'ENTERPRISE_NOT_LOADED',
@@ -371,6 +380,22 @@ const noopHooks: HooksModule = {
   }),
   // Google login no-ops
   googleLogin: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  // Enterprise notification no-ops
+  enterpriseSubscribe: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  enterpriseUnsubscribe: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  enterpriseUpdateEmail: async () => ({
     success: false,
     error: 'Enterprise not available',
     errorCode: 'ENTERPRISE_NOT_LOADED',
@@ -476,12 +501,6 @@ const onServices = (req: unknown) =>
   hooksModule.onServices?.(req) ?? Promise.resolve();
 
 // SSP Enterprise notification functions (all processing handled in enterprise module)
-const enterpriseSubscribe = (req: unknown, data: unknown) =>
-  hooksModule.enterpriseSubscribe?.(req, data) ?? Promise.resolve(null);
-
-const enterpriseUnsubscribe = (req: unknown, data: unknown) =>
-  hooksModule.enterpriseUnsubscribe?.(req, data) ?? Promise.resolve(null);
-
 const enterpriseGetStatus = (req: unknown, wkIdentity: string) =>
   hooksModule.enterpriseGetStatus?.(req, wkIdentity) ?? Promise.resolve(null);
 
@@ -510,14 +529,6 @@ const enterpriseGetUser = (wkIdentity: string) =>
 
 const enterpriseGetCriticalActionChallenge = (req: unknown) =>
   hooksModule.enterpriseGetCriticalActionChallenge?.(req) ??
-  Promise.resolve({
-    success: false,
-    error: 'Enterprise not available',
-    errorCode: 'ENTERPRISE_NOT_LOADED',
-  });
-
-const enterpriseUpdateEmail = (req: unknown) =>
-  hooksModule.enterpriseUpdateEmail?.(req) ??
   Promise.resolve({
     success: false,
     error: 'Enterprise not available',
@@ -628,6 +639,31 @@ const googleLogin = (req: unknown) =>
     errorCode: 'ENTERPRISE_NOT_LOADED',
   });
 
+// Enterprise notification functions (subscribe/unsubscribe/email with WK signatures)
+const enterpriseSubscribe = (req: unknown, data: unknown) =>
+  hooksModule.enterpriseSubscribe?.(req, data) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
+const enterpriseUnsubscribe = (req: unknown, data: unknown) =>
+  hooksModule.enterpriseUnsubscribe?.(req, data) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
+const enterpriseUpdateEmail = (req: unknown) =>
+  hooksModule.enterpriseUpdateEmail?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
 export default {
   init,
   isLoaded,
@@ -644,8 +680,6 @@ export default {
   onTokenInfo,
   onServices,
   // Enterprise notification
-  enterpriseSubscribe,
-  enterpriseUnsubscribe,
   enterpriseGetStatus,
   // Enterprise auth
   enterpriseGetChallenge,
@@ -654,7 +688,6 @@ export default {
   enterpriseLogout,
   enterpriseGetUser,
   enterpriseGetCriticalActionChallenge,
-  enterpriseUpdateEmail,
   // Organization API
   organizationCreate,
   organizationList,
@@ -681,4 +714,8 @@ export default {
   emailLoginVerify,
   // Google login
   googleLogin,
+  // Enterprise notification (subscribe/unsubscribe/email)
+  enterpriseSubscribe,
+  enterpriseUnsubscribe,
+  enterpriseUpdateEmail,
 };
