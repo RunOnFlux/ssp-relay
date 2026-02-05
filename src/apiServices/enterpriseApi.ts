@@ -186,6 +186,25 @@ async function postEnterpriseEmail(req: Request, res: Response): Promise<void> {
   }
 }
 
+/**
+ * DELETE /v1/enterprise/email
+ * Remove enterprise email - REQUIRES WK SIGNATURE
+ */
+async function deleteEnterpriseEmail(req: Request, res: Response): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.enterpriseRemoveEmail(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
 // ============================================================
 // Email Verification Endpoints
 // ============================================================
@@ -545,6 +564,7 @@ export default {
   postLogout,
   postCriticalActionChallenge,
   postEnterpriseEmail,
+  deleteEnterpriseEmail,
   // Email Login
   postEmailLoginRequest,
   postEmailLoginVerify,

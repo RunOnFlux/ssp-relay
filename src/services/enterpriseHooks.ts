@@ -176,6 +176,12 @@ interface EnterpriseUpdateEmailResponse {
   errorCode?: string;
 }
 
+interface EnterpriseRemoveEmailResponse {
+  success: boolean;
+  error?: string;
+  errorCode?: string;
+}
+
 // Generic hook interface
 interface HooksModule {
   init: (deps: {
@@ -257,6 +263,7 @@ interface HooksModule {
   enterpriseSubscribe?: (req: unknown, data: unknown) => Promise<EnterpriseSubscribeResponse>;
   enterpriseUnsubscribe?: (req: unknown, data: unknown) => Promise<EnterpriseUnsubscribeResponse>;
   enterpriseUpdateEmail?: (req: unknown) => Promise<EnterpriseUpdateEmailResponse>;
+  enterpriseRemoveEmail?: (req: unknown) => Promise<EnterpriseRemoveEmailResponse>;
 }
 
 // No-op implementation
@@ -396,6 +403,11 @@ const noopHooks: HooksModule = {
     errorCode: 'ENTERPRISE_NOT_LOADED',
   }),
   enterpriseUpdateEmail: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  enterpriseRemoveEmail: async () => ({
     success: false,
     error: 'Enterprise not available',
     errorCode: 'ENTERPRISE_NOT_LOADED',
@@ -664,6 +676,14 @@ const enterpriseUpdateEmail = (req: unknown) =>
     errorCode: 'ENTERPRISE_NOT_LOADED',
   });
 
+const enterpriseRemoveEmail = (req: unknown) =>
+  hooksModule.enterpriseRemoveEmail?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
 export default {
   init,
   isLoaded,
@@ -718,4 +738,5 @@ export default {
   enterpriseSubscribe,
   enterpriseUnsubscribe,
   enterpriseUpdateEmail,
+  enterpriseRemoveEmail,
 };

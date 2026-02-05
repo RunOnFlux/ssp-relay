@@ -145,6 +145,9 @@ export default (app) => {
   app.post('/v1/enterprise/email', (req, res) => {
     enterpriseApi.postEnterpriseEmail(req, res);
   });
+  app.delete('/v1/enterprise/email', (req, res) => {
+    enterpriseApi.deleteEnterpriseEmail(req, res);
+  });
 
   // SSP Enterprise - Email verification endpoints
   app.post('/v1/enterprise/email/verify/request', (req, res) => {
