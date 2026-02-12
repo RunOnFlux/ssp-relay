@@ -122,6 +122,9 @@ export default (app) => {
   app.post('/v1/enterprise/auth/wk', (req, res) => {
     enterpriseApi.postLoginWK(req, res);
   });
+  app.post('/v1/enterprise/auth/link-wk', (req, res) => {
+    enterpriseApi.postLinkWk(req, res);
+  });
   app.get('/v1/enterprise/auth/session', (req, res) => {
     enterpriseApi.getSession(req, res);
   });
@@ -206,6 +209,20 @@ export default (app) => {
       enterpriseApi.deleteOrgInvitation(req, res);
     },
   );
+
+  // SSP Enterprise - Organization Activity endpoints
+  app.get('/v1/enterprise/organizations/:id/audit-logs', (req, res) => {
+    enterpriseApi.getOrgAuditLogs(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/audit-logs/stats', (req, res) => {
+    enterpriseApi.getOrgAuditStats(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/critical-actions', (req, res) => {
+    enterpriseApi.getOrgCriticalActions(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/login-activity', (req, res) => {
+    enterpriseApi.getOrgLoginActivity(req, res);
+  });
 
   // SSP Enterprise - User Invitation endpoints
   app.get('/v1/enterprise/invitations', (req, res) => {

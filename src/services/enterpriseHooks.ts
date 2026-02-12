@@ -63,8 +63,8 @@ interface LoginResponse {
   sessionToken?: string;
   expiresAt?: string;
   user?: {
-    wkIdentity?: string;        // Source of truth - required for complete users
-    enterpriseEmail?: string;   // Optional - convenience for login
+    wkIdentity?: string; // Source of truth - required for complete users
+    enterpriseEmail?: string; // Optional - convenience for login
     displayName?: string;
     accountStatus: AccountStatus;
   };
@@ -219,6 +219,7 @@ interface HooksModule {
   // Enterprise auth functions (all processing handled in enterprise module)
   enterpriseGetChallenge?: (req: unknown) => Promise<ChallengeResponse>;
   enterpriseLogin?: (req: unknown) => Promise<LoginResponse>;
+  enterpriseLinkWk?: (req: unknown) => Promise<SimpleResponse>;
   enterpriseValidateSession?: (req: unknown) => Promise<SessionResponse>;
   enterpriseLogout?: (req: unknown) => Promise<{ success: boolean }>;
   enterpriseGetUser?: (wkIdentity: string) => Promise<unknown>;
@@ -240,6 +241,10 @@ interface HooksModule {
     req: unknown,
   ) => Promise<InvitationsListResponse>;
   organizationInvitationRevoke?: (req: unknown) => Promise<SimpleResponse>;
+  organizationAuditLogs?: (req: unknown) => Promise<SimpleResponse>;
+  organizationAuditStats?: (req: unknown) => Promise<SimpleResponse>;
+  organizationCriticalActions?: (req: unknown) => Promise<SimpleResponse>;
+  organizationLoginActivity?: (req: unknown) => Promise<SimpleResponse>;
   invitationList?: (req: unknown) => Promise<InvitationsListResponse>;
   invitationAccept?: (req: unknown) => Promise<MembershipResponse>;
   invitationReject?: (req: unknown) => Promise<SimpleResponse>;
@@ -251,19 +256,32 @@ interface HooksModule {
     req: unknown,
   ) => Promise<EmailVerificationResponse>;
   // Profile functions
-  profileUpdate?: (
-    req: unknown,
-  ) => Promise<{ success: boolean; displayName?: string; error?: string; errorCode?: string }>;
+  profileUpdate?: (req: unknown) => Promise<{
+    success: boolean;
+    displayName?: string;
+    error?: string;
+    errorCode?: string;
+  }>;
   // Email login functions
   emailLoginRequest?: (req: unknown) => Promise<EmailLoginCodeResponse>;
   emailLoginVerify?: (req: unknown) => Promise<LoginResponse>;
   // Google login functions
   googleLogin?: (req: unknown) => Promise<LoginResponse>;
   // Enterprise notification functions (subscribe/unsubscribe/email with WK signatures)
-  enterpriseSubscribe?: (req: unknown, data: unknown) => Promise<EnterpriseSubscribeResponse>;
-  enterpriseUnsubscribe?: (req: unknown, data: unknown) => Promise<EnterpriseUnsubscribeResponse>;
-  enterpriseUpdateEmail?: (req: unknown) => Promise<EnterpriseUpdateEmailResponse>;
-  enterpriseRemoveEmail?: (req: unknown) => Promise<EnterpriseRemoveEmailResponse>;
+  enterpriseSubscribe?: (
+    req: unknown,
+    data: unknown,
+  ) => Promise<EnterpriseSubscribeResponse>;
+  enterpriseUnsubscribe?: (
+    req: unknown,
+    data: unknown,
+  ) => Promise<EnterpriseUnsubscribeResponse>;
+  enterpriseUpdateEmail?: (
+    req: unknown,
+  ) => Promise<EnterpriseUpdateEmailResponse>;
+  enterpriseRemoveEmail?: (
+    req: unknown,
+  ) => Promise<EnterpriseRemoveEmailResponse>;
 }
 
 // No-op implementation
@@ -286,6 +304,11 @@ const noopHooks: HooksModule = {
     throw new Error('Enterprise not available');
   },
   enterpriseLogin: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  enterpriseLinkWk: async () => ({
     success: false,
     error: 'Enterprise not available',
     errorCode: 'ENTERPRISE_NOT_LOADED',
@@ -529,6 +552,14 @@ const enterpriseLogin = (req: unknown) =>
     errorCode: 'ENTERPRISE_NOT_LOADED',
   });
 
+const enterpriseLinkWk = (req: unknown) =>
+  hooksModule.enterpriseLinkWk?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
 const enterpriseValidateSession = (req: unknown) =>
   hooksModule.enterpriseValidateSession?.(req) ??
   Promise.resolve({ valid: false });
@@ -594,6 +625,22 @@ const organizationInvitationList = (req: unknown) =>
 
 const organizationInvitationRevoke = (req: unknown) =>
   hooksModule.organizationInvitationRevoke?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationAuditLogs = (req: unknown) =>
+  hooksModule.organizationAuditLogs?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationAuditStats = (req: unknown) =>
+  hooksModule.organizationAuditStats?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationCriticalActions = (req: unknown) =>
+  hooksModule.organizationCriticalActions?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
+const organizationLoginActivity = (req: unknown) =>
+  hooksModule.organizationLoginActivity?.(req) ??
   Promise.resolve({ success: false, error: 'Enterprise not available' });
 
 const invitationList = (req: unknown) =>
@@ -704,6 +751,7 @@ export default {
   // Enterprise auth
   enterpriseGetChallenge,
   enterpriseLogin,
+  enterpriseLinkWk,
   enterpriseValidateSession,
   enterpriseLogout,
   enterpriseGetUser,
@@ -721,6 +769,10 @@ export default {
   organizationInvitationCreate,
   organizationInvitationList,
   organizationInvitationRevoke,
+  organizationAuditLogs,
+  organizationAuditStats,
+  organizationCriticalActions,
+  organizationLoginActivity,
   invitationList,
   invitationAccept,
   invitationReject,

@@ -46,6 +46,24 @@ async function postLoginWK(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * POST /v1/enterprise/auth/link-wk
+ */
+async function postLinkWk(req: Request, res: Response): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.enterpriseLinkWk(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
+/**
  * GET /v1/enterprise/auth/session
  */
 async function getSession(req: Request, res: Response): Promise<void> {
@@ -190,7 +208,10 @@ async function postEnterpriseEmail(req: Request, res: Response): Promise<void> {
  * DELETE /v1/enterprise/email
  * Remove enterprise email - REQUIRES WK SIGNATURE
  */
-async function deleteEnterpriseEmail(req: Request, res: Response): Promise<void> {
+async function deleteEnterpriseEmail(
+  req: Request,
+  res: Response,
+): Promise<void> {
   try {
     if (!enterpriseHooks.isLoaded()) {
       throw new Error('Enterprise features not available');
@@ -556,10 +577,86 @@ async function postRejectInvitation(
   }
 }
 
+/**
+ * GET /v1/enterprise/organizations/:id/audit-logs
+ */
+async function getOrgAuditLogs(req: Request, res: Response): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.organizationAuditLogs(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
+/**
+ * GET /v1/enterprise/organizations/:id/audit-logs/stats
+ */
+async function getOrgAuditStats(req: Request, res: Response): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.organizationAuditStats(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
+/**
+ * GET /v1/enterprise/organizations/:id/critical-actions
+ */
+async function getOrgCriticalActions(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.organizationCriticalActions(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
+/**
+ * GET /v1/enterprise/organizations/:id/login-activity
+ */
+async function getOrgLoginActivity(req: Request, res: Response): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.organizationLoginActivity(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
 export default {
   // Auth
   getChallenge,
   postLoginWK,
+  postLinkWk,
   getSession,
   postLogout,
   postCriticalActionChallenge,
@@ -594,4 +691,9 @@ export default {
   getMyInvitations,
   postAcceptInvitation,
   postRejectInvitation,
+  // Organization Activity
+  getOrgAuditLogs,
+  getOrgAuditStats,
+  getOrgCriticalActions,
+  getOrgLoginActivity,
 };
