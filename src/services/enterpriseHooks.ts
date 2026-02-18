@@ -282,6 +282,25 @@ interface HooksModule {
   enterpriseRemoveEmail?: (
     req: unknown,
   ) => Promise<EnterpriseRemoveEmailResponse>;
+  // Nonce pool status for sync enrichment
+  getNoncePoolStatus?: (
+    wkIdentity: string,
+    source?: 'wallet' | 'key',
+  ) => Promise<
+    Array<{ source: string; available: number; used: number; total: number }>
+  >;
+  // Nonce lookup for validation
+  getNonces?: (
+    wkIdentity: string,
+    options?: { source?: string; includeUsed?: boolean; limit?: number },
+  ) => Promise<
+    Array<{
+      kPublic: string;
+      kTwoPublic: string;
+      status?: string;
+      usedAt: unknown;
+    }>
+  >;
 }
 
 // No-op implementation
@@ -435,6 +454,8 @@ const noopHooks: HooksModule = {
     error: 'Enterprise not available',
     errorCode: 'ENTERPRISE_NOT_LOADED',
   }),
+  getNoncePoolStatus: async () => [],
+  getNonces: async () => [],
 };
 
 let hooksModule: HooksModule = noopHooks;
@@ -731,6 +752,16 @@ const enterpriseRemoveEmail = (req: unknown) =>
     errorCode: 'ENTERPRISE_NOT_LOADED',
   });
 
+// Nonce pool status
+const getNoncePoolStatus = (wkIdentity: string, source?: 'wallet' | 'key') =>
+  hooksModule.getNoncePoolStatus?.(wkIdentity, source) ?? Promise.resolve([]);
+
+// Nonce lookup
+const getNonces = (
+  wkIdentity: string,
+  options?: { source?: string; includeUsed?: boolean; limit?: number },
+) => hooksModule.getNonces?.(wkIdentity, options) ?? Promise.resolve([]);
+
 export default {
   init,
   isLoaded,
@@ -791,4 +822,7 @@ export default {
   enterpriseUnsubscribe,
   enterpriseUpdateEmail,
   enterpriseRemoveEmail,
+  // Nonce pool status
+  getNoncePoolStatus,
+  getNonces,
 };

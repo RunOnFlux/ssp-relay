@@ -40,6 +40,12 @@ async function sendNotificationKey(wkIdentity, data) {
     } else if (data.action === 'wksigningrequest') {
       title = 'SSP Authentication';
       body = 'A website is requesting your approval to authenticate.';
+    } else if (data.action === 'enterprisevaultxpub') {
+      title = 'Vault Key Request';
+      body = 'A vault is requesting your public key.';
+    } else if (data.action === 'enterprisevaultsign') {
+      title = 'Vault Signing Request';
+      body = 'A vault transaction requires your signature.';
     }
     try {
       if (data.payload && data.action === 'tx') {

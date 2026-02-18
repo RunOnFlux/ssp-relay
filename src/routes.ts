@@ -59,6 +59,16 @@ export default (app) => {
     noncesApi.postNonces(req, res);
   });
 
+  // get nonce pool status
+  app.get('/v1/nonces/status/:wkIdentity', optionalWkIdentityAuth, (req, res) => {
+    noncesApi.getNonceStatus(req, res);
+  });
+
+  // validate nonces - check if submitted nonces are stored correctly
+  app.post('/v1/nonces/validate', optionalWkIdentityAuth, (req, res) => {
+    noncesApi.validateNonces(req, res);
+  });
+
   // rates endpoint
   app.get('/v1/rates', (req, res) => {
     enterpriseHooks.onRates(req).catch((e) => log.error(e));
@@ -234,4 +244,138 @@ export default (app) => {
   app.post('/v1/enterprise/invitations/:invId/reject', (req, res) => {
     enterpriseApi.postRejectInvitation(req, res);
   });
+
+  // SSP Enterprise - Vault endpoints
+  app.post('/v1/enterprise/organizations/:id/vaults', (req, res) => {
+    enterpriseApi.postVault(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/vaults', (req, res) => {
+    enterpriseApi.getVaults(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/vaults/:vaultId', (req, res) => {
+    enterpriseApi.getVault(req, res);
+  });
+  app.patch('/v1/enterprise/organizations/:id/vaults/:vaultId', (req, res) => {
+    enterpriseApi.patchVault(req, res);
+  });
+  app.delete('/v1/enterprise/organizations/:id/vaults/:vaultId', (req, res) => {
+    enterpriseApi.deleteVault(req, res);
+  });
+
+  // Vault members
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/members',
+    (req, res) => {
+      enterpriseApi.getVaultMembers(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/members',
+    (req, res) => {
+      enterpriseApi.postVaultMember(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/members/:memberId',
+    (req, res) => {
+      enterpriseApi.deleteVaultMember(req, res);
+    },
+  );
+
+  // Vault xpub provisioning
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/xpub',
+    (req, res) => {
+      enterpriseApi.postVaultXpub(req, res);
+    },
+  );
+  app.get('/v1/enterprise/vaults/pending-setup', (req, res) => {
+    enterpriseApi.getVaultPendingSetups(req, res);
+  });
+
+  // Vault addresses
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/addresses',
+    (req, res) => {
+      enterpriseApi.getVaultAddresses(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/addresses',
+    (req, res) => {
+      enterpriseApi.postVaultAddress(req, res);
+    },
+  );
+  app.patch(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/addresses/:idx',
+    (req, res) => {
+      enterpriseApi.patchVaultAddress(req, res);
+    },
+  );
+
+  // Vault balances & transactions
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/balances',
+    (req, res) => {
+      enterpriseApi.getVaultBalances(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/transactions',
+    (req, res) => {
+      enterpriseApi.getVaultTransactions(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/sync',
+    (req, res) => {
+      enterpriseApi.postVaultSync(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/balance-history',
+    (req, res) => {
+      enterpriseApi.getVaultBalanceHistory(req, res);
+    },
+  );
+
+  // Vault proposals
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals',
+    (req, res) => {
+      enterpriseApi.postVaultProposal(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals',
+    (req, res) => {
+      enterpriseApi.getVaultProposals(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId',
+    (req, res) => {
+      enterpriseApi.getVaultProposal(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/sign',
+    (req, res) => {
+      enterpriseApi.postVaultProposalSign(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/reject',
+    (req, res) => {
+      enterpriseApi.postVaultProposalReject(req, res);
+    },
+  );
+
+  // Vault audit
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/audit',
+    (req, res) => {
+      enterpriseApi.getVaultAuditLog(req, res);
+    },
+  );
 };

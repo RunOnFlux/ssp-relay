@@ -134,6 +134,177 @@ async function postNonces(req, res) {
   }
 }
 
+/**
+ * GET /v1/nonces/status/:wkIdentity
+ * Get nonce pool status for an enterprise identity.
+ */
+async function getNonceStatus(req, res) {
+  try {
+    const { wkIdentity } = req.params;
+
+    // Validate wkIdentity
+    if (
+      !wkIdentity ||
+      typeof wkIdentity !== 'string' ||
+      wkIdentity.length > 200 ||
+      !/^[a-zA-Z0-9_:-]+$/.test(wkIdentity)
+    ) {
+      throw new Error('Invalid SSP identity specified');
+    }
+
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error(
+        'Enterprise module not available. Nonce status unavailable.',
+      );
+    }
+
+    const hook = (enterpriseHooks as Record<string, unknown>)[
+      'getNoncePoolStatus'
+    ];
+    if (typeof hook !== 'function') {
+      throw new Error('Nonce pool status not available');
+    }
+
+    const poolStatus = await (
+      hook as (wkIdentity: string) => Promise<unknown>
+    )(wkIdentity);
+
+    const TARGET_COUNT = 50;
+    const MINIMUM_COUNT = 10;
+
+    // Build structured response
+    const statusArr = poolStatus as Array<{
+      source: string;
+      available: number;
+      used: number;
+      total: number;
+    }>;
+    const walletPool = statusArr.find((p) => p.source === 'wallet');
+    const keyPool = statusArr.find((p) => p.source === 'key');
+
+    const response = {
+      wallet: {
+        available: walletPool?.available ?? 0,
+        used: walletPool?.used ?? 0,
+        total: walletPool?.total ?? 0,
+      },
+      key: {
+        available: keyPool?.available ?? 0,
+        used: keyPool?.used ?? 0,
+        total: keyPool?.total ?? 0,
+      },
+      replenishNeeded: {
+        wallet: (walletPool?.available ?? 0) < MINIMUM_COUNT,
+        key: (keyPool?.available ?? 0) < MINIMUM_COUNT,
+      },
+      targetCount: TARGET_COUNT,
+      minimumCount: MINIMUM_COUNT,
+    };
+
+    res.json(serviceHelper.createDataMessage(response));
+  } catch (error) {
+    log.error(error);
+    const errMessage = serviceHelper.createErrorMessage(
+      error.message,
+      error.name,
+      error.code,
+    );
+    res.json(errMessage);
+  }
+}
+
+/**
+ * POST /v1/nonces/validate
+ * Validate that nonces exist and are in the expected state.
+ * Used by devices to confirm their submitted nonces were stored correctly.
+ *
+ * Body: { wkIdentity, source, nonces: [{ kPublic, kTwoPublic }] }
+ * Returns: { valid: number, missing: number, used: number }
+ */
+async function validateNonces(req, res) {
+  try {
+    const processedBody = stripAuthFields(req.body);
+
+    // Validate wkIdentity
+    if (
+      !processedBody.wkIdentity ||
+      typeof processedBody.wkIdentity !== 'string' ||
+      processedBody.wkIdentity.length > 200 ||
+      !/^[a-zA-Z0-9_:-]+$/.test(processedBody.wkIdentity)
+    ) {
+      throw new Error('Invalid SSP identity specified');
+    }
+
+    // Validate source
+    if (
+      !processedBody.source ||
+      (processedBody.source !== 'wallet' && processedBody.source !== 'key')
+    ) {
+      throw new Error('Invalid source specified. Must be "wallet" or "key"');
+    }
+
+    // Validate nonces array
+    if (!processedBody.nonces || !Array.isArray(processedBody.nonces)) {
+      throw new Error('Invalid nonces array');
+    }
+
+    if (processedBody.nonces.length === 0 || processedBody.nonces.length > 100) {
+      throw new Error('Nonces array must have 1-100 entries');
+    }
+
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise module not available.');
+    }
+
+    // Use getNonces to check stored nonces for this identity
+    const storedNonces = await enterpriseHooks.getNonces(
+      processedBody.wkIdentity,
+      {
+        source: processedBody.source,
+        includeUsed: true,
+        limit: 10000,
+      },
+    );
+
+    // Build lookup map
+    const nonceMap = new Map<string, { usedAt: unknown; status?: string }>();
+    for (const n of storedNonces) {
+      nonceMap.set(`${n.kPublic}:${n.kTwoPublic}`, { usedAt: n.usedAt, status: n.status });
+    }
+
+    let valid = 0;
+    let missing = 0;
+    let used = 0;
+
+    for (const nonce of processedBody.nonces) {
+      if (typeof nonce?.kPublic !== 'string' || typeof nonce?.kTwoPublic !== 'string') {
+        continue;
+      }
+      const key = `${nonce.kPublic}:${nonce.kTwoPublic}`;
+      const stored = nonceMap.get(key);
+      if (!stored) {
+        missing++;
+      } else if (stored.status === 'used' || stored.usedAt !== null) {
+        used++;
+      } else {
+        valid++;
+      }
+    }
+
+    res.json(serviceHelper.createDataMessage({ valid, missing, used }));
+  } catch (error) {
+    log.error(error);
+    const errMessage = serviceHelper.createErrorMessage(
+      error.message,
+      error.name,
+      error.code,
+    );
+    res.json(errMessage);
+  }
+}
+
 export default {
   postNonces,
+  getNonceStatus,
+  validateNonces,
 };

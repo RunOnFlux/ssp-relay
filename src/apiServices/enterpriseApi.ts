@@ -652,6 +652,55 @@ async function getOrgLoginActivity(req: Request, res: Response): Promise<void> {
   }
 }
 
+// ============================================================
+// Vaults
+// ============================================================
+
+function vaultHandler(hookName: string) {
+  return async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (!enterpriseHooks.isLoaded()) {
+        throw new Error('Enterprise features not available');
+      }
+      const hook = (enterpriseHooks as Record<string, unknown>)[hookName];
+      if (typeof hook !== 'function') {
+        throw new Error(`Enterprise hook ${hookName} not available`);
+      }
+      const result = await (hook as (req: Request) => Promise<unknown>)(req);
+      res.json(serviceHelper.createDataMessage(result));
+    } catch (error) {
+      log.error(error);
+      res.json(
+        serviceHelper.createErrorMessage(error.message, error.name, error.code),
+      );
+    }
+  };
+}
+
+const postVault = vaultHandler('vaultCreate');
+const getVaults = vaultHandler('vaultList');
+const getVault = vaultHandler('vaultGet');
+const patchVault = vaultHandler('vaultUpdate');
+const deleteVault = vaultHandler('vaultArchive');
+const getVaultMembers = vaultHandler('vaultMembersList');
+const postVaultMember = vaultHandler('vaultMemberAdd');
+const deleteVaultMember = vaultHandler('vaultMemberRemove');
+const postVaultXpub = vaultHandler('vaultXpubSubmit');
+const getVaultPendingSetups = vaultHandler('vaultPendingSetups');
+const getVaultAddresses = vaultHandler('vaultAddressList');
+const postVaultAddress = vaultHandler('vaultAddressGenerate');
+const patchVaultAddress = vaultHandler('vaultAddressUpdateLabel');
+const getVaultBalances = vaultHandler('vaultBalances');
+const getVaultTransactions = vaultHandler('vaultTransactions');
+const postVaultSync = vaultHandler('vaultSync');
+const getVaultBalanceHistory = vaultHandler('vaultBalanceHistory');
+const postVaultProposal = vaultHandler('vaultProposalCreate');
+const getVaultProposals = vaultHandler('vaultProposalList');
+const getVaultProposal = vaultHandler('vaultProposalGet');
+const postVaultProposalSign = vaultHandler('vaultProposalSign');
+const postVaultProposalReject = vaultHandler('vaultProposalReject');
+const getVaultAuditLog = vaultHandler('vaultAuditLog');
+
 export default {
   // Auth
   getChallenge,
@@ -696,4 +745,28 @@ export default {
   getOrgAuditStats,
   getOrgCriticalActions,
   getOrgLoginActivity,
+  // Vaults
+  postVault,
+  getVaults,
+  getVault,
+  patchVault,
+  deleteVault,
+  getVaultMembers,
+  postVaultMember,
+  deleteVaultMember,
+  postVaultXpub,
+  getVaultPendingSetups,
+  getVaultAddresses,
+  postVaultAddress,
+  patchVaultAddress,
+  getVaultBalances,
+  getVaultTransactions,
+  postVaultSync,
+  getVaultBalanceHistory,
+  postVaultProposal,
+  getVaultProposals,
+  getVaultProposal,
+  postVaultProposalSign,
+  postVaultProposalReject,
+  getVaultAuditLog,
 };

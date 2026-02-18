@@ -39,6 +39,26 @@ async function getSync(req, res) {
     if (!syncExist) {
       throw new Error(`Sync of ${id} does not exist`);
     }
+
+    // Enrich sync response with enterprise nonce pool status if available
+    if (enterpriseHooks.isLoaded() && syncExist.wkIdentity) {
+      try {
+        const MINIMUM_COUNT = 10;
+        const poolStatus = await enterpriseHooks.getNoncePoolStatus(
+          syncExist.wkIdentity,
+        );
+        const walletPool = poolStatus.find((p) => p.source === 'wallet');
+        const keyPool = poolStatus.find((p) => p.source === 'key');
+        syncExist.enterpriseNoncesNeeded = {
+          wallet: (walletPool?.available ?? 0) < MINIMUM_COUNT,
+          key: (keyPool?.available ?? 0) < MINIMUM_COUNT,
+        };
+      } catch (nonceErr) {
+        // Non-critical: don't fail sync if nonce check fails
+        log.error(`[SYNC] Nonce pool check failed for ${syncExist.wkIdentity}: ${nonceErr}`);
+      }
+    }
+
     res.json(syncExist);
   } catch (error) {
     if (!error.message.includes('testkappa')) {

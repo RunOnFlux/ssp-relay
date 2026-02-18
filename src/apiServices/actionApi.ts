@@ -46,6 +46,25 @@ async function getAction(req, res) {
     if (!syncExist) {
       throw new Error(`Action of ${id} does not exist`);
     }
+
+    // Enrich action response with enterprise nonce pool status if available
+    if (enterpriseHooks.isLoaded()) {
+      try {
+        const MINIMUM_COUNT = 10;
+        const poolStatus = await enterpriseHooks.getNoncePoolStatus(id);
+        const walletPool = poolStatus.find((p) => p.source === 'wallet');
+        const keyPool = poolStatus.find((p) => p.source === 'key');
+        syncExist.enterpriseNoncesNeeded = {
+          wallet: (walletPool?.available ?? 0) < MINIMUM_COUNT,
+          key: (keyPool?.available ?? 0) < MINIMUM_COUNT,
+        };
+      } catch (nonceErr) {
+        log.error(
+          `[ACTION] Nonce pool check failed for ${id}: ${nonceErr}`,
+        );
+      }
+    }
+
     res.json(syncExist);
   } catch (error) {
     if (!error.message.includes('testkappa')) {
@@ -251,7 +270,9 @@ async function postAction(req, res) {
       data.action === 'tx' ||
       data.action === 'publicnoncesrequest' ||
       data.action === 'evmsigningrequest' ||
-      data.action === 'wksigningrequest'
+      data.action === 'wksigningrequest' ||
+      data.action === 'enterprisevaultxpub' ||
+      data.action === 'enterprisevaultsign'
     ) {
       const ioKey = socket.getIOKey();
       ioKey.to(data.wkIdentity).emit(data.action, data);
@@ -269,7 +290,11 @@ async function postAction(req, res) {
       data.action === 'evmsigningrejected' ||
       data.action === 'evmsigned' ||
       data.action === 'wksigningrejected' ||
-      data.action === 'wksigned'
+      data.action === 'wksigned' ||
+      data.action === 'enterprisevaultxpubrejected' ||
+      data.action === 'enterprisevaultxpubsigned' ||
+      data.action === 'enterprisevaultsignrejected' ||
+      data.action === 'enterprisevaultsigned'
     ) {
       const ioWallet = socket.getIOWallet();
       ioWallet.to(data.wkIdentity).emit(data.action, data);
