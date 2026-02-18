@@ -662,7 +662,7 @@ function vaultHandler(hookName: string) {
       if (!enterpriseHooks.isLoaded()) {
         throw new Error('Enterprise features not available');
       }
-      const hook = (enterpriseHooks as Record<string, unknown>)[hookName];
+      const hook = enterpriseHooks.getHook(hookName);
       if (typeof hook !== 'function') {
         throw new Error(`Enterprise hook ${hookName} not available`);
       }

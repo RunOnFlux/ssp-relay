@@ -525,6 +525,10 @@ const onNonces = (req: unknown, data: NonceSubmission) =>
 
 const isLoaded = () => hooksModule !== noopHooks;
 
+// Dynamic hook lookup — used by vaultHandler for vault API hooks
+const getHook = (hookName: string): unknown =>
+  (hooksModule as unknown as Record<string, unknown>)[hookName];
+
 const onSocketJoin = (
   wkIdentity: string,
   socketType: 'key' | 'wallet',
@@ -825,4 +829,6 @@ export default {
   // Nonce pool status
   getNoncePoolStatus,
   getNonces,
+  // Dynamic hook lookup (used by vault API handlers)
+  getHook,
 };
