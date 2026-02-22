@@ -700,6 +700,9 @@ const getVaultProposal = vaultHandler('vaultProposalGet');
 const postVaultProposalSign = vaultHandler('vaultProposalSign');
 const postVaultProposalReject = vaultHandler('vaultProposalReject');
 const getVaultAuditLog = vaultHandler('vaultAuditLog');
+const getVaultWatchedTokens = vaultHandler('vaultWatchedTokensList');
+const postVaultWatchedToken = vaultHandler('vaultWatchedTokenAdd');
+const deleteVaultWatchedToken = vaultHandler('vaultWatchedTokenRemove');
 
 export default {
   // Auth
@@ -769,4 +772,7 @@ export default {
   postVaultProposalSign,
   postVaultProposalReject,
   getVaultAuditLog,
+  getVaultWatchedTokens,
+  postVaultWatchedToken,
+  deleteVaultWatchedToken,
 };

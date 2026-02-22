@@ -378,4 +378,24 @@ export default (app) => {
       enterpriseApi.getVaultAuditLog(req, res);
     },
   );
+
+  // Vault watched tokens
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/tokens',
+    (req, res) => {
+      enterpriseApi.getVaultWatchedTokens(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/tokens',
+    (req, res) => {
+      enterpriseApi.postVaultWatchedToken(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/tokens/:contract',
+    (req, res) => {
+      enterpriseApi.deleteVaultWatchedToken(req, res);
+    },
+  );
 };
