@@ -70,6 +70,10 @@ async function getSync(req, res) {
 
 async function postSync(req, res) {
   try {
+    // Preserve witnessScript before stripping auth fields — it serves dual
+    // purpose (auth verification AND sync data storage)
+    const rawWitnessScript = req.body?.witnessScript;
+
     // Strip auth fields before processing
     const processedBody = stripAuthFields(req.body);
     if (
@@ -185,12 +189,12 @@ async function postSync(req, res) {
       throw new Error('Invalid Redeem Script specified');
     }
 
-    // validate witnessScript (optional) - hex string
+    // validate witnessScript (optional, preserved from pre-strip) - hex string
     if (
-      processedBody.witnessScript &&
-      (typeof processedBody.witnessScript !== 'string' ||
-        processedBody.witnessScript.length > 1000 ||
-        !/^[a-fA-F0-9]+$/.test(processedBody.witnessScript))
+      rawWitnessScript &&
+      (typeof rawWitnessScript !== 'string' ||
+        rawWitnessScript.length > 1000 ||
+        !/^[a-fA-F0-9]+$/.test(rawWitnessScript))
     ) {
       throw new Error('Invalid Witness Script specified');
     }
@@ -218,8 +222,8 @@ async function postSync(req, res) {
     if (processedBody.redeemScript) {
       data.redeemScript = processedBody.redeemScript;
     }
-    if (processedBody.witnessScript) {
-      data.witnessScript = processedBody.witnessScript;
+    if (rawWitnessScript && typeof rawWitnessScript === 'string') {
+      data.witnessScript = rawWitnessScript;
     }
 
     const tokenData = {

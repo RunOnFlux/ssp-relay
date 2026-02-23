@@ -78,6 +78,7 @@ async function postAction(req, res) {
   try {
     // Strip auth fields before processing
     const processedBody = stripAuthFields(req.body);
+    log.info(`[ACTION] ${processedBody.action} ${processedBody.chain} ${processedBody.wkIdentity}`);
     log.info(processedBody);
     if (
       !processedBody.chain ||
