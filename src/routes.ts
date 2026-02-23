@@ -385,6 +385,14 @@ export default (app) => {
     },
   );
 
+  // Organization-wide vault audit
+  app.get(
+    '/v1/enterprise/organizations/:id/vault-audit',
+    (req, res) => {
+      enterpriseApi.getOrgVaultAuditLog(req, res);
+    },
+  );
+
   // Vault watched tokens
   app.get(
     '/v1/enterprise/organizations/:id/vaults/:vaultId/tokens',
