@@ -370,6 +370,12 @@ export default (app) => {
       enterpriseApi.postVaultProposalReject(req, res);
     },
   );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/cancel',
+    (req, res) => {
+      enterpriseApi.postVaultProposalCancel(req, res);
+    },
+  );
 
   // Vault audit
   app.get(

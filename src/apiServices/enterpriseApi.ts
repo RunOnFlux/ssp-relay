@@ -699,6 +699,7 @@ const getVaultProposals = vaultHandler('vaultProposalList');
 const getVaultProposal = vaultHandler('vaultProposalGet');
 const postVaultProposalSign = vaultHandler('vaultProposalSign');
 const postVaultProposalReject = vaultHandler('vaultProposalReject');
+const postVaultProposalCancel = vaultHandler('vaultProposalCancel');
 const getVaultAuditLog = vaultHandler('vaultAuditLog');
 const getVaultWatchedTokens = vaultHandler('vaultWatchedTokensList');
 const postVaultWatchedToken = vaultHandler('vaultWatchedTokenAdd');
@@ -771,6 +772,7 @@ export default {
   getVaultProposal,
   postVaultProposalSign,
   postVaultProposalReject,
+  postVaultProposalCancel,
   getVaultAuditLog,
   getVaultWatchedTokens,
   postVaultWatchedToken,

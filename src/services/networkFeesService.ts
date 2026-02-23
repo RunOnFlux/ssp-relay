@@ -427,6 +427,20 @@ async function fetchFees() {
     fast: 1050,
     recommended: 1050,
   });
+  fees.push({
+    coin: 'flux',
+    economy: 1,
+    normal: 1,
+    fast: 1,
+    recommended: 1,
+  });
+  fees.push({
+    coin: 'fluxTestnet',
+    economy: 1,
+    normal: 1,
+    fast: 1,
+    recommended: 1,
+  });
   currentFees = fees;
   await serviceHelper.delay(18000); // every 18 seconds
   fetchFees();
