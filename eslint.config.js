@@ -32,6 +32,12 @@ export default [
     },
   },
   {
+    files: ['**/*.spec.ts', '**/tests/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-expressions': 'off',
+    },
+  },
+  {
     files: ['**/*.js'],
     languageOptions: { sourceType: 'commonjs' },
   },

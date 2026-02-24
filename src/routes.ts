@@ -376,6 +376,12 @@ export default (app) => {
       enterpriseApi.postVaultProposalCancel(req, res);
     },
   );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/retry-broadcast',
+    (req, res) => {
+      enterpriseApi.postVaultProposalRetryBroadcast(req, res);
+    },
+  );
 
   // Vault audit
   app.get(
