@@ -695,6 +695,7 @@ const getVaultTransactions = vaultHandler('vaultTransactions');
 const postVaultSync = vaultHandler('vaultSync');
 const getVaultBalanceHistory = vaultHandler('vaultBalanceHistory');
 const postVaultProposal = vaultHandler('vaultProposalCreate');
+const postVaultProposalEstimateFee = vaultHandler('vaultProposalEstimateFee');
 const getVaultProposals = vaultHandler('vaultProposalList');
 const getVaultProposal = vaultHandler('vaultProposalGet');
 const postVaultProposalSign = vaultHandler('vaultProposalSign');
@@ -770,6 +771,7 @@ export default {
   postVaultSync,
   getVaultBalanceHistory,
   postVaultProposal,
+  postVaultProposalEstimateFee,
   getVaultProposals,
   getVaultProposal,
   postVaultProposalSign,

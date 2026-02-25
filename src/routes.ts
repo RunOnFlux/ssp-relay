@@ -341,6 +341,12 @@ export default (app) => {
 
   // Vault proposals
   app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/estimate-fee',
+    (req, res) => {
+      enterpriseApi.postVaultProposalEstimateFee(req, res);
+    },
+  );
+  app.post(
     '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals',
     (req, res) => {
       enterpriseApi.postVaultProposal(req, res);
