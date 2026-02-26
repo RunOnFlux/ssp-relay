@@ -708,6 +708,13 @@ const getVaultWatchedTokens = vaultHandler('vaultWatchedTokensList');
 const postVaultWatchedToken = vaultHandler('vaultWatchedTokenAdd');
 const deleteVaultWatchedToken = vaultHandler('vaultWatchedTokenRemove');
 
+// Contacts
+const getOrgContacts = vaultHandler('contactList');
+const postOrgContact = vaultHandler('contactCreate');
+const putOrgContact = vaultHandler('contactUpdate');
+const deleteOrgContact = vaultHandler('contactDelete');
+const postOrgContactRecordUsage = vaultHandler('contactRecordUsage');
+
 export default {
   // Auth
   getChallenge,
@@ -783,4 +790,10 @@ export default {
   getVaultWatchedTokens,
   postVaultWatchedToken,
   deleteVaultWatchedToken,
+  // Contacts
+  getOrgContacts,
+  postOrgContact,
+  putOrgContact,
+  deleteOrgContact,
+  postOrgContactRecordUsage,
 };

@@ -245,6 +245,32 @@ export default (app) => {
     enterpriseApi.postRejectInvitation(req, res);
   });
 
+  // SSP Enterprise - Contact endpoints
+  app.get('/v1/enterprise/organizations/:id/contacts', (req, res) => {
+    enterpriseApi.getOrgContacts(req, res);
+  });
+  app.post('/v1/enterprise/organizations/:id/contacts', (req, res) => {
+    enterpriseApi.postOrgContact(req, res);
+  });
+  app.put(
+    '/v1/enterprise/organizations/:id/contacts/:contactId',
+    (req, res) => {
+      enterpriseApi.putOrgContact(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/contacts/:contactId',
+    (req, res) => {
+      enterpriseApi.deleteOrgContact(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/contacts/record-usage',
+    (req, res) => {
+      enterpriseApi.postOrgContactRecordUsage(req, res);
+    },
+  );
+
   // SSP Enterprise - Vault endpoints
   app.post('/v1/enterprise/organizations/:id/vaults', (req, res) => {
     enterpriseApi.postVault(req, res);
