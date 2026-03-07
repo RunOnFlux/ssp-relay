@@ -59,14 +59,10 @@ export default (app) => {
     noncesApi.postNonces(req, res);
   });
 
-  // get nonce pool status
-  app.get(
-    '/v1/nonces/status/:wkIdentity',
-    optionalWkIdentityAuth,
-    (req, res) => {
-      noncesApi.getNonceStatus(req, res);
-    },
-  );
+  // get nonce pool status (no auth — identity is in URL, validation in enterprise module)
+  app.get('/v1/nonces/status/:wkIdentity', (req, res) => {
+    noncesApi.getNonceStatus(req, res);
+  });
 
   // validate nonces - check if submitted nonces are stored correctly
   app.post('/v1/nonces/validate', optionalWkIdentityAuth, (req, res) => {
