@@ -71,8 +71,9 @@ export function requireAuth(
     next: NextFunction,
   ) => {
     try {
-      const { signature, message, publicKey, witnessScript } = req.body;
-      const identity = req.body[identityField];
+      const body = req.body || {};
+      const { signature, message, publicKey, witnessScript } = body;
+      const identity = body[identityField];
 
       // Check if auth fields are present
       const hasAuthFields = signature && message && publicKey;
