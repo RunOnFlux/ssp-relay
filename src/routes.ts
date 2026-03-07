@@ -60,13 +60,22 @@ export default (app) => {
   });
 
   // get nonce pool status
-  app.get('/v1/nonces/status/:wkIdentity', optionalWkIdentityAuth, (req, res) => {
-    noncesApi.getNonceStatus(req, res);
-  });
+  app.get(
+    '/v1/nonces/status/:wkIdentity',
+    optionalWkIdentityAuth,
+    (req, res) => {
+      noncesApi.getNonceStatus(req, res);
+    },
+  );
 
   // validate nonces - check if submitted nonces are stored correctly
   app.post('/v1/nonces/validate', optionalWkIdentityAuth, (req, res) => {
     noncesApi.validateNonces(req, res);
+  });
+
+  // reconcile nonces - purge server-side orphans not present on device
+  app.post('/v1/nonces/reconcile', optionalWkIdentityAuth, (req, res) => {
+    noncesApi.reconcileNonces(req, res);
   });
 
   // rates endpoint
@@ -424,12 +433,9 @@ export default (app) => {
   );
 
   // Organization-wide vault audit
-  app.get(
-    '/v1/enterprise/organizations/:id/vault-audit',
-    (req, res) => {
-      enterpriseApi.getOrgVaultAuditLog(req, res);
-    },
-  );
+  app.get('/v1/enterprise/organizations/:id/vault-audit', (req, res) => {
+    enterpriseApi.getOrgVaultAuditLog(req, res);
+  });
 
   // Vault watched tokens
   app.get(

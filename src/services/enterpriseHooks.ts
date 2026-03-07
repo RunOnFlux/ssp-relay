@@ -196,6 +196,7 @@ interface HooksModule {
   onSync?: (req: unknown, data: unknown) => Promise<void>;
   onAction?: (req: unknown, data: unknown) => Promise<void>;
   onToken?: (req: unknown, data: unknown) => Promise<void>;
+  /** @deprecated Use handlePostNonces instead — kept for backwards compat */
   onNonces?: (req: unknown, data: NonceSubmission) => Promise<void>;
   onSocketJoin?: (
     wkIdentity: string,
@@ -282,25 +283,18 @@ interface HooksModule {
   enterpriseRemoveEmail?: (
     req: unknown,
   ) => Promise<EnterpriseRemoveEmailResponse>;
-  // Nonce pool status for sync enrichment
+  // Nonce pool status for sync enrichment (used by actionApi/syncApi)
   getNoncePoolStatus?: (
     wkIdentity: string,
     source?: 'wallet' | 'key',
   ) => Promise<
     Array<{ source: string; available: number; used: number; total: number }>
   >;
-  // Nonce lookup for validation
-  getNonces?: (
-    wkIdentity: string,
-    options?: { source?: string; includeUsed?: boolean; limit?: number },
-  ) => Promise<
-    Array<{
-      kPublic: string;
-      kTwoPublic: string;
-      status?: string;
-      usedAt: unknown;
-    }>
-  >;
+  // Nonce request-level handlers (all validation + logic in enterprise module)
+  handlePostNonces?: (req: unknown) => Promise<unknown>;
+  handleGetNonceStatus?: (req: unknown) => Promise<unknown>;
+  handleValidateNonces?: (req: unknown) => Promise<unknown>;
+  handleReconcileNonces?: (req: unknown) => Promise<unknown>;
 }
 
 // No-op implementation
@@ -455,7 +449,6 @@ const noopHooks: HooksModule = {
     errorCode: 'ENTERPRISE_NOT_LOADED',
   }),
   getNoncePoolStatus: async () => [],
-  getNonces: async () => [],
 };
 
 let hooksModule: HooksModule = noopHooks;
@@ -760,11 +753,16 @@ const enterpriseRemoveEmail = (req: unknown) =>
 const getNoncePoolStatus = (wkIdentity: string, source?: 'wallet' | 'key') =>
   hooksModule.getNoncePoolStatus?.(wkIdentity, source) ?? Promise.resolve([]);
 
-// Nonce lookup
-const getNonces = (
-  wkIdentity: string,
-  options?: { source?: string; includeUsed?: boolean; limit?: number },
-) => hooksModule.getNonces?.(wkIdentity, options) ?? Promise.resolve([]);
+// Nonce request-level handlers
+const handlePostNonces = (req: unknown) =>
+  hooksModule.handlePostNonces?.(req) ?? Promise.resolve({ stored: 0 });
+const handleGetNonceStatus = (req: unknown) =>
+  hooksModule.handleGetNonceStatus?.(req) ?? Promise.resolve({});
+const handleValidateNonces = (req: unknown) =>
+  hooksModule.handleValidateNonces?.(req) ??
+  Promise.resolve({ valid: 0, missing: 0, used: 0 });
+const handleReconcileNonces = (req: unknown) =>
+  hooksModule.handleReconcileNonces?.(req) ?? Promise.resolve({ purged: 0 });
 
 export default {
   init,
@@ -826,9 +824,13 @@ export default {
   enterpriseUnsubscribe,
   enterpriseUpdateEmail,
   enterpriseRemoveEmail,
-  // Nonce pool status
+  // Nonce pool status (used by actionApi/syncApi for enrichment)
   getNoncePoolStatus,
-  getNonces,
+  // Nonce request-level handlers
+  handlePostNonces,
+  handleGetNonceStatus,
+  handleValidateNonces,
+  handleReconcileNonces,
   // Dynamic hook lookup (used by vault API handlers)
   getHook,
 };

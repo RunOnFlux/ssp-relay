@@ -55,7 +55,9 @@ async function getSync(req, res) {
         };
       } catch (nonceErr) {
         // Non-critical: don't fail sync if nonce check fails
-        log.error(`[SYNC] Nonce pool check failed for ${syncExist.wkIdentity}: ${nonceErr}`);
+        log.error(
+          `[SYNC] Nonce pool check failed for ${syncExist.wkIdentity}: ${nonceErr}`,
+        );
       }
     }
 

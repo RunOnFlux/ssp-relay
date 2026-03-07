@@ -59,9 +59,7 @@ async function getAction(req, res) {
           key: (keyPool?.available ?? 0) < MINIMUM_COUNT,
         };
       } catch (nonceErr) {
-        log.error(
-          `[ACTION] Nonce pool check failed for ${id}: ${nonceErr}`,
-        );
+        log.error(`[ACTION] Nonce pool check failed for ${id}: ${nonceErr}`);
       }
     }
 
@@ -78,7 +76,9 @@ async function postAction(req, res) {
   try {
     // Strip auth fields before processing
     const processedBody = stripAuthFields(req.body);
-    log.info(`[ACTION] ${processedBody.action} ${processedBody.chain} ${processedBody.wkIdentity}`);
+    log.info(
+      `[ACTION] ${processedBody.action} ${processedBody.chain} ${processedBody.wkIdentity}`,
+    );
     log.info(processedBody);
     if (
       !processedBody.chain ||
