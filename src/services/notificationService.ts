@@ -46,6 +46,9 @@ async function sendNotificationKey(wkIdentity, data) {
     } else if (data.action === 'enterprisevaultsign') {
       title = 'Vault Signing Request';
       body = 'A vault transaction requires your signature.';
+    } else if (data.action === 'enterprisekeynoncesync') {
+      title = 'Nonce Sync Request';
+      body = 'Your enterprise nonces need to be synced.';
     }
     try {
       if (data.payload && data.action === 'tx') {
