@@ -378,6 +378,12 @@ export default (app) => {
     },
   );
   app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/preview-policy',
+    (req, res) => {
+      enterpriseApi.postVaultProposalPreviewPolicy(req, res);
+    },
+  );
+  app.post(
     '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals',
     (req, res) => {
       enterpriseApi.postVaultProposal(req, res);
@@ -452,4 +458,105 @@ export default (app) => {
       enterpriseApi.deleteVaultWatchedToken(req, res);
     },
   );
+
+  // Vault proposal admin approval
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/admin-approve',
+    (req, res) => {
+      enterpriseApi.postVaultProposalAdminApprove(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/admin-reject',
+    (req, res) => {
+      enterpriseApi.postVaultProposalAdminReject(req, res);
+    },
+  );
+
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/cancel-timelock',
+    (req, res) => {
+      enterpriseApi.postVaultProposalCancelTimeLock(req, res);
+    },
+  );
+
+  // Vault freeze/unfreeze (critical actions)
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/freeze',
+    (req, res) => {
+      enterpriseApi.postVaultFreeze(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/unfreeze',
+    (req, res) => {
+      enterpriseApi.postVaultUnfreeze(req, res);
+    },
+  );
+
+  // Vault member role management (critical actions)
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/members/:wkIdentity/promote',
+    (req, res) => {
+      enterpriseApi.postVaultMemberPromote(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/members/:wkIdentity/demote',
+    (req, res) => {
+      enterpriseApi.postVaultMemberDemote(req, res);
+    },
+  );
+
+  // Vault spending policies
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy',
+    (req, res) => {
+      enterpriseApi.getVaultPolicy(req, res);
+    },
+  );
+  app.put(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy',
+    (req, res) => {
+      enterpriseApi.putVaultPolicy(req, res);
+    },
+  );
+  app.put(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy/whitelist-mode',
+    (req, res) => {
+      enterpriseApi.putVaultPolicyWhitelistMode(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy/whitelist',
+    (req, res) => {
+      enterpriseApi.postVaultPolicyWhitelist(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy/whitelist/:address',
+    (req, res) => {
+      enterpriseApi.deleteVaultPolicyWhitelist(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy/velocity',
+    (req, res) => {
+      enterpriseApi.getVaultPolicyVelocity(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/effective-limits',
+    (req, res) => {
+      enterpriseApi.getVaultEffectiveLimits(req, res);
+    },
+  );
+
+  // Organization-level default policies
+  app.get('/v1/enterprise/organizations/:id/policy', (req, res) => {
+    enterpriseApi.getOrgPolicy(req, res);
+  });
+  app.put('/v1/enterprise/organizations/:id/policy', (req, res) => {
+    enterpriseApi.putOrgPolicy(req, res);
+  });
 };

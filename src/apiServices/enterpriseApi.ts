@@ -696,6 +696,7 @@ const postVaultSync = vaultHandler('vaultSync');
 const getVaultBalanceHistory = vaultHandler('vaultBalanceHistory');
 const postVaultProposal = vaultHandler('vaultProposalCreate');
 const postVaultProposalEstimateFee = vaultHandler('vaultProposalEstimateFee');
+const postVaultProposalPreviewPolicy = vaultHandler('vaultProposalPreviewPolicy');
 const getVaultProposals = vaultHandler('vaultProposalList');
 const getVaultProposal = vaultHandler('vaultProposalGet');
 const postVaultProposalSign = vaultHandler('vaultProposalSign');
@@ -709,6 +710,32 @@ const getOrgVaultAuditLog = vaultHandler('orgVaultAuditLog');
 const getVaultWatchedTokens = vaultHandler('vaultWatchedTokensList');
 const postVaultWatchedToken = vaultHandler('vaultWatchedTokenAdd');
 const deleteVaultWatchedToken = vaultHandler('vaultWatchedTokenRemove');
+
+// Vault Proposal Admin Approval
+const postVaultProposalAdminApprove = vaultHandler('vaultProposalAdminApprove');
+const postVaultProposalAdminReject = vaultHandler('vaultProposalAdminReject');
+const postVaultProposalCancelTimeLock = vaultHandler('vaultProposalCancelTimeLock');
+
+// Vault Freeze/Unfreeze
+const postVaultFreeze = vaultHandler('vaultFreeze');
+const postVaultUnfreeze = vaultHandler('vaultUnfreeze');
+
+// Vault Member Role (promote/demote)
+const postVaultMemberPromote = vaultHandler('vaultMemberPromote');
+const postVaultMemberDemote = vaultHandler('vaultMemberDemote');
+
+// Vault Policy
+const getVaultPolicy = vaultHandler('vaultPolicyGet');
+const putVaultPolicy = vaultHandler('vaultPolicyUpdate');
+const putVaultPolicyWhitelistMode = vaultHandler('vaultPolicyWhitelistModeUpdate');
+const postVaultPolicyWhitelist = vaultHandler('vaultPolicyWhitelistAdd');
+const deleteVaultPolicyWhitelist = vaultHandler('vaultPolicyWhitelistRemove');
+const getVaultPolicyVelocity = vaultHandler('vaultPolicyVelocityGet');
+const getVaultEffectiveLimits = vaultHandler('vaultGetEffectiveLimits');
+
+// Org Policy
+const getOrgPolicy = vaultHandler('orgPolicyGet');
+const putOrgPolicy = vaultHandler('orgPolicyUpdate');
 
 // Contacts
 const getOrgContacts = vaultHandler('contactList');
@@ -781,6 +808,7 @@ export default {
   getVaultBalanceHistory,
   postVaultProposal,
   postVaultProposalEstimateFee,
+  postVaultProposalPreviewPolicy,
   getVaultProposals,
   getVaultProposal,
   postVaultProposalSign,
@@ -792,6 +820,27 @@ export default {
   getVaultWatchedTokens,
   postVaultWatchedToken,
   deleteVaultWatchedToken,
+  // Vault Proposal Admin Approval
+  postVaultProposalAdminApprove,
+  postVaultProposalAdminReject,
+  postVaultProposalCancelTimeLock,
+  // Vault Freeze/Unfreeze
+  postVaultFreeze,
+  postVaultUnfreeze,
+  // Vault Member Role
+  postVaultMemberPromote,
+  postVaultMemberDemote,
+  // Vault Policy
+  getVaultPolicy,
+  putVaultPolicy,
+  putVaultPolicyWhitelistMode,
+  postVaultPolicyWhitelist,
+  deleteVaultPolicyWhitelist,
+  getVaultPolicyVelocity,
+  getVaultEffectiveLimits,
+  // Org Policy
+  getOrgPolicy,
+  putOrgPolicy,
   // Contacts
   getOrgContacts,
   postOrgContact,
