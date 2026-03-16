@@ -559,4 +559,21 @@ export default (app) => {
   app.put('/v1/enterprise/organizations/:id/policy', (req, res) => {
     enterpriseApi.putOrgPolicy(req, res);
   });
+
+  // Subscription & Entitlements
+  app.get('/v1/enterprise/organizations/:id/entitlements', (req, res) => {
+    enterpriseApi.getOrgEntitlements(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/subscription', (req, res) => {
+    enterpriseApi.getOrgSubscription(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/invoices', (req, res) => {
+    enterpriseApi.getOrgInvoices(req, res);
+  });
+  app.get(
+    '/v1/enterprise/organizations/:id/invoices/:invoiceId',
+    (req, res) => {
+      enterpriseApi.getOrgInvoice(req, res);
+    },
+  );
 };

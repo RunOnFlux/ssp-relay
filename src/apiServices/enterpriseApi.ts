@@ -744,6 +744,12 @@ const putOrgContact = vaultHandler('contactUpdate');
 const deleteOrgContact = vaultHandler('contactDelete');
 const postOrgContactRecordUsage = vaultHandler('contactRecordUsage');
 
+// Subscription & Entitlements
+const getOrgEntitlements = vaultHandler('subscriptionEntitlements');
+const getOrgSubscription = vaultHandler('subscriptionGet');
+const getOrgInvoices = vaultHandler('invoiceList');
+const getOrgInvoice = vaultHandler('invoiceGet');
+
 export default {
   // Auth
   getChallenge,
@@ -847,4 +853,9 @@ export default {
   putOrgContact,
   deleteOrgContact,
   postOrgContactRecordUsage,
+  // Subscription & Entitlements
+  getOrgEntitlements,
+  getOrgSubscription,
+  getOrgInvoices,
+  getOrgInvoice,
 };
