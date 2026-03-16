@@ -236,6 +236,7 @@ interface HooksModule {
   organizationMembers?: (req: unknown) => Promise<MembersListResponse>;
   organizationMemberUpdate?: (req: unknown) => Promise<MembershipResponse>;
   organizationMemberRemove?: (req: unknown) => Promise<SimpleResponse>;
+  memberVaultRoles?: (req: unknown) => Promise<unknown>;
   organizationLeave?: (req: unknown) => Promise<SimpleResponse>;
   organizationInvitationCreate?: (req: unknown) => Promise<unknown>;
   organizationInvitationList?: (
@@ -364,6 +365,10 @@ const noopHooks: HooksModule = {
     error: 'Enterprise not available',
   }),
   organizationMemberRemove: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+  }),
+  memberVaultRoles: async () => ({
     success: false,
     error: 'Enterprise not available',
   }),
@@ -629,6 +634,10 @@ const organizationMemberRemove = (req: unknown) =>
   hooksModule.organizationMemberRemove?.(req) ??
   Promise.resolve({ success: false, error: 'Enterprise not available' });
 
+const memberVaultRoles = (req: unknown) =>
+  hooksModule.memberVaultRoles?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
 const organizationLeave = (req: unknown) =>
   hooksModule.organizationLeave?.(req) ??
   Promise.resolve({ success: false, error: 'Enterprise not available' });
@@ -798,6 +807,7 @@ export default {
   organizationMembers,
   organizationMemberUpdate,
   organizationMemberRemove,
+  memberVaultRoles,
   organizationLeave,
   organizationInvitationCreate,
   organizationInvitationList,

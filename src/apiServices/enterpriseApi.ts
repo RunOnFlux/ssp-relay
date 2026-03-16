@@ -446,6 +446,27 @@ async function deleteMember(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * GET /v1/enterprise/organizations/:id/members/:memberId/vault-roles
+ */
+async function getMemberVaultRoles(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const result = await enterpriseHooks.memberVaultRoles(req);
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
+/**
  * POST /v1/enterprise/organizations/:id/leave
  */
 async function postLeave(req: Request, res: Response): Promise<void> {
@@ -786,6 +807,7 @@ export default {
   getMembers,
   patchMember,
   deleteMember,
+  getMemberVaultRoles,
   postLeave,
   // Organization Invitations
   postOrgInvitation,

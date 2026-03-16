@@ -207,6 +207,12 @@ export default (app) => {
   app.delete('/v1/enterprise/organizations/:id/members/:wkId', (req, res) => {
     enterpriseApi.deleteMember(req, res);
   });
+  app.get(
+    '/v1/enterprise/organizations/:id/members/:memberId/vault-roles',
+    (req, res) => {
+      enterpriseApi.getMemberVaultRoles(req, res);
+    },
+  );
   app.post('/v1/enterprise/organizations/:id/leave', (req, res) => {
     enterpriseApi.postLeave(req, res);
   });
