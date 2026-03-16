@@ -696,7 +696,9 @@ const postVaultSync = vaultHandler('vaultSync');
 const getVaultBalanceHistory = vaultHandler('vaultBalanceHistory');
 const postVaultProposal = vaultHandler('vaultProposalCreate');
 const postVaultProposalEstimateFee = vaultHandler('vaultProposalEstimateFee');
-const postVaultProposalPreviewPolicy = vaultHandler('vaultProposalPreviewPolicy');
+const postVaultProposalPreviewPolicy = vaultHandler(
+  'vaultProposalPreviewPolicy',
+);
 const getVaultProposals = vaultHandler('vaultProposalList');
 const getVaultProposal = vaultHandler('vaultProposalGet');
 const postVaultProposalSign = vaultHandler('vaultProposalSign');
@@ -714,7 +716,9 @@ const deleteVaultWatchedToken = vaultHandler('vaultWatchedTokenRemove');
 // Vault Proposal Admin Approval
 const postVaultProposalAdminApprove = vaultHandler('vaultProposalAdminApprove');
 const postVaultProposalAdminReject = vaultHandler('vaultProposalAdminReject');
-const postVaultProposalCancelTimeLock = vaultHandler('vaultProposalCancelTimeLock');
+const postVaultProposalCancelTimeLock = vaultHandler(
+  'vaultProposalCancelTimeLock',
+);
 
 // Vault Freeze/Unfreeze
 const postVaultFreeze = vaultHandler('vaultFreeze');
@@ -727,7 +731,9 @@ const postVaultMemberDemote = vaultHandler('vaultMemberDemote');
 // Vault Policy
 const getVaultPolicy = vaultHandler('vaultPolicyGet');
 const putVaultPolicy = vaultHandler('vaultPolicyUpdate');
-const putVaultPolicyWhitelistMode = vaultHandler('vaultPolicyWhitelistModeUpdate');
+const putVaultPolicyWhitelistMode = vaultHandler(
+  'vaultPolicyWhitelistModeUpdate',
+);
 const postVaultPolicyWhitelist = vaultHandler('vaultPolicyWhitelistAdd');
 const deleteVaultPolicyWhitelist = vaultHandler('vaultPolicyWhitelistRemove');
 const getVaultPolicyVelocity = vaultHandler('vaultPolicyVelocityGet');
