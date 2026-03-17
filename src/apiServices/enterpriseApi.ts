@@ -448,10 +448,7 @@ async function deleteMember(req: Request, res: Response): Promise<void> {
 /**
  * GET /v1/enterprise/organizations/:id/members/:memberId/vault-roles
  */
-async function getMemberVaultRoles(
-  req: Request,
-  res: Response,
-): Promise<void> {
+async function getMemberVaultRoles(req: Request, res: Response): Promise<void> {
   try {
     if (!enterpriseHooks.isLoaded()) {
       throw new Error('Enterprise features not available');
