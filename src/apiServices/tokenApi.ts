@@ -1,5 +1,34 @@
 import log from '../lib/log';
 import { getFromAlchemy } from '../services/tokenServices';
+import { getKnownTokensForNetwork } from '../services/knownTokens';
+
+function getKnownTokens(req, res) {
+  try {
+    let { network } = req.params;
+    network = network ?? req.query.network ?? 'eth';
+
+    if (
+      !network ||
+      typeof network !== 'string' ||
+      network.length > 20 ||
+      !/^[a-zA-Z0-9]+$/.test(network)
+    ) {
+      res.status(400).send('Invalid network');
+      return;
+    }
+
+    const tokens = getKnownTokensForNetwork(network);
+    if (tokens === null) {
+      res.status(400).send('Unsupported network');
+      return;
+    }
+
+    res.json(tokens);
+  } catch (error) {
+    log.error(error);
+    res.sendStatus(500);
+  }
+}
 
 async function getTokenInfo(req, res) {
   try {
@@ -42,4 +71,5 @@ async function getTokenInfo(req, res) {
 
 export default {
   getTokenInfo,
+  getKnownTokens,
 };
