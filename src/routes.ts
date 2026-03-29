@@ -584,6 +584,15 @@ export default (app) => {
   app.put('/v1/enterprise/organizations/:id/policy', (req, res) => {
     enterpriseApi.putOrgPolicy(req, res);
   });
+  app.get('/v1/enterprise/organizations/:id/policy/chain/:chain', (req, res) => {
+    enterpriseApi.getOrgChainPolicy(req, res);
+  });
+  app.put('/v1/enterprise/organizations/:id/policy/chain/:chain', (req, res) => {
+    enterpriseApi.putOrgChainPolicy(req, res);
+  });
+  app.delete('/v1/enterprise/organizations/:id/policy/chain/:chain', (req, res) => {
+    enterpriseApi.deleteOrgChainPolicy(req, res);
+  });
 
   // Subscription & Entitlements
   app.get('/v1/enterprise/organizations/:id/entitlements', (req, res) => {

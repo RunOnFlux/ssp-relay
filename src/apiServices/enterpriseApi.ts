@@ -765,6 +765,9 @@ const getVaultEffectiveLimits = vaultHandler('vaultGetEffectiveLimits');
 // Org Policy
 const getOrgPolicy = vaultHandler('orgPolicyGet');
 const putOrgPolicy = vaultHandler('orgPolicyUpdate');
+const getOrgChainPolicy = vaultHandler('orgChainPolicyGet');
+const putOrgChainPolicy = vaultHandler('orgChainPolicyUpdate');
+const deleteOrgChainPolicy = vaultHandler('orgChainPolicyDelete');
 
 // Contacts
 const getOrgContacts = vaultHandler('contactList');
@@ -882,6 +885,9 @@ export default {
   // Org Policy
   getOrgPolicy,
   putOrgPolicy,
+  getOrgChainPolicy,
+  putOrgChainPolicy,
+  deleteOrgChainPolicy,
   // Contacts
   getOrgContacts,
   postOrgContact,
