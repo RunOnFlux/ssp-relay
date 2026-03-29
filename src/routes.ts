@@ -293,6 +293,21 @@ export default (app) => {
   app.get('/v1/enterprise/organizations/:id/vaults', (req, res) => {
     enterpriseApi.getVaults(req, res);
   });
+  app.get('/v1/enterprise/organizations/:id/vault-tags', (req, res) => {
+    enterpriseApi.getVaultTags(req, res);
+  });
+  app.post('/v1/enterprise/organizations/:id/vault-tags', (req, res) => {
+    enterpriseApi.postVaultTag(req, res);
+  });
+  app.patch('/v1/enterprise/organizations/:id/vault-tags/:tagId', (req, res) => {
+    enterpriseApi.patchVaultTag(req, res);
+  });
+  app.delete('/v1/enterprise/organizations/:id/vault-tags/:tagId', (req, res) => {
+    enterpriseApi.deleteVaultTag(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/vaults/search', (req, res) => {
+    enterpriseApi.getVaultSearch(req, res);
+  });
   app.get('/v1/enterprise/organizations/:id/vaults/:vaultId', (req, res) => {
     enterpriseApi.getVault(req, res);
   });

@@ -697,6 +697,11 @@ function vaultHandler(hookName: string) {
 
 const postVault = vaultHandler('vaultCreate');
 const getVaults = vaultHandler('vaultList');
+const getVaultTags = vaultHandler('vaultTags');
+const postVaultTag = vaultHandler('vaultTagCreate');
+const patchVaultTag = vaultHandler('vaultTagUpdate');
+const deleteVaultTag = vaultHandler('vaultTagDelete');
+const getVaultSearch = vaultHandler('vaultSearch');
 const getVault = vaultHandler('vaultGet');
 const patchVault = vaultHandler('vaultUpdate');
 const deleteVault = vaultHandler('vaultArchive');
@@ -822,6 +827,11 @@ export default {
   // Vaults
   postVault,
   getVaults,
+  getVaultTags,
+  postVaultTag,
+  patchVaultTag,
+  deleteVaultTag,
+  getVaultSearch,
   getVault,
   patchVault,
   deleteVault,
