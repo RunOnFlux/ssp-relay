@@ -299,12 +299,18 @@ export default (app) => {
   app.post('/v1/enterprise/organizations/:id/vault-tags', (req, res) => {
     enterpriseApi.postVaultTag(req, res);
   });
-  app.patch('/v1/enterprise/organizations/:id/vault-tags/:tagId', (req, res) => {
-    enterpriseApi.patchVaultTag(req, res);
-  });
-  app.delete('/v1/enterprise/organizations/:id/vault-tags/:tagId', (req, res) => {
-    enterpriseApi.deleteVaultTag(req, res);
-  });
+  app.patch(
+    '/v1/enterprise/organizations/:id/vault-tags/:tagId',
+    (req, res) => {
+      enterpriseApi.patchVaultTag(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/vault-tags/:tagId',
+    (req, res) => {
+      enterpriseApi.deleteVaultTag(req, res);
+    },
+  );
   app.get('/v1/enterprise/organizations/:id/vaults/search', (req, res) => {
     enterpriseApi.getVaultSearch(req, res);
   });
@@ -584,15 +590,82 @@ export default (app) => {
   app.put('/v1/enterprise/organizations/:id/policy', (req, res) => {
     enterpriseApi.putOrgPolicy(req, res);
   });
-  app.get('/v1/enterprise/organizations/:id/policy/chain/:chain', (req, res) => {
-    enterpriseApi.getOrgChainPolicy(req, res);
+  app.get(
+    '/v1/enterprise/organizations/:id/policy/chain/:chain',
+    (req, res) => {
+      enterpriseApi.getOrgChainPolicy(req, res);
+    },
+  );
+  app.put(
+    '/v1/enterprise/organizations/:id/policy/chain/:chain',
+    (req, res) => {
+      enterpriseApi.putOrgChainPolicy(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/policy/chain/:chain',
+    (req, res) => {
+      enterpriseApi.deleteOrgChainPolicy(req, res);
+    },
+  );
+
+  // SSP Enterprise - Flux Nodes
+  app.get('/v1/enterprise/organizations/:id/flux-nodes', (req, res) => {
+    enterpriseApi.getFluxNodes(req, res);
   });
-  app.put('/v1/enterprise/organizations/:id/policy/chain/:chain', (req, res) => {
-    enterpriseApi.putOrgChainPolicy(req, res);
+  app.get('/v1/enterprise/organizations/:id/flux-nodes/summary', (req, res) => {
+    enterpriseApi.getFluxNodeSummary(req, res);
   });
-  app.delete('/v1/enterprise/organizations/:id/policy/chain/:chain', (req, res) => {
-    enterpriseApi.deleteOrgChainPolicy(req, res);
+  app.post('/v1/enterprise/organizations/:id/flux-nodes', (req, res) => {
+    enterpriseApi.postFluxNode(req, res);
   });
+  app.post(
+    '/v1/enterprise/organizations/:id/flux-nodes/refresh',
+    (req, res) => {
+      enterpriseApi.postFluxNodeRefresh(req, res);
+    },
+  );
+  app.get('/v1/enterprise/organizations/:id/flux-nodes/:nodeId', (req, res) => {
+    enterpriseApi.getFluxNode(req, res);
+  });
+  app.patch(
+    '/v1/enterprise/organizations/:id/flux-nodes/:nodeId',
+    (req, res) => {
+      enterpriseApi.patchFluxNode(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/flux-nodes/:nodeId',
+    (req, res) => {
+      enterpriseApi.deleteFluxNode(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/flux-nodes/:nodeId/start-params',
+    (req, res) => {
+      enterpriseApi.getFluxNodeStartParams(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/flux-nodes/:nodeId/started',
+    (req, res) => {
+      enterpriseApi.postFluxNodeStarted(req, res);
+    },
+  );
+
+  // Vault-level delegates
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/delegates',
+    (req, res) => {
+      enterpriseApi.getVaultDelegates(req, res);
+    },
+  );
+  app.put(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/delegates',
+    (req, res) => {
+      enterpriseApi.putVaultDelegates(req, res);
+    },
+  );
 
   // Subscription & Entitlements
   app.get('/v1/enterprise/organizations/:id/entitlements', (req, res) => {

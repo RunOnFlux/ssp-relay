@@ -769,6 +769,19 @@ const getOrgChainPolicy = vaultHandler('orgChainPolicyGet');
 const putOrgChainPolicy = vaultHandler('orgChainPolicyUpdate');
 const deleteOrgChainPolicy = vaultHandler('orgChainPolicyDelete');
 
+// Flux Nodes
+const getFluxNodes = vaultHandler('fluxNodeList');
+const getFluxNode = vaultHandler('fluxNodeGet');
+const postFluxNode = vaultHandler('fluxNodeRegister');
+const patchFluxNode = vaultHandler('fluxNodeUpdate');
+const deleteFluxNode = vaultHandler('fluxNodeUnregister');
+const postFluxNodeRefresh = vaultHandler('fluxNodeRefreshStatus');
+const getFluxNodeStartParams = vaultHandler('fluxNodeGetStartParams');
+const postFluxNodeStarted = vaultHandler('fluxNodeRecordStart');
+const getFluxNodeSummary = vaultHandler('fluxNodeSummary');
+const getVaultDelegates = vaultHandler('fluxNodeGetVaultDelegates');
+const putVaultDelegates = vaultHandler('fluxNodeUpdateVaultDelegates');
+
 // Contacts
 const getOrgContacts = vaultHandler('contactList');
 const postOrgContact = vaultHandler('contactCreate');
@@ -888,6 +901,18 @@ export default {
   getOrgChainPolicy,
   putOrgChainPolicy,
   deleteOrgChainPolicy,
+  // Flux Nodes
+  getFluxNodes,
+  getFluxNode,
+  postFluxNode,
+  patchFluxNode,
+  deleteFluxNode,
+  postFluxNodeRefresh,
+  getFluxNodeStartParams,
+  postFluxNodeStarted,
+  getFluxNodeSummary,
+  getVaultDelegates,
+  putVaultDelegates,
   // Contacts
   getOrgContacts,
   postOrgContact,
