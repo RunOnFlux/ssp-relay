@@ -781,6 +781,7 @@ const postFluxNodeStarted = vaultHandler('fluxNodeRecordStart');
 const getFluxNodeSummary = vaultHandler('fluxNodeSummary');
 const getVaultDelegates = vaultHandler('fluxNodeGetVaultDelegates');
 const putVaultDelegates = vaultHandler('fluxNodeUpdateVaultDelegates');
+const getFluxNodeVaultUtxos = vaultHandler('fluxNodeGetVaultUtxos');
 
 // Contacts
 const getOrgContacts = vaultHandler('contactList');
@@ -913,6 +914,7 @@ export default {
   getFluxNodeSummary,
   getVaultDelegates,
   putVaultDelegates,
+  getFluxNodeVaultUtxos,
   // Contacts
   getOrgContacts,
   postOrgContact,

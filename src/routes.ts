@@ -653,6 +653,14 @@ export default (app) => {
     },
   );
 
+  // Vault UTXOs for node registration
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/node-utxos',
+    (req, res) => {
+      enterpriseApi.getFluxNodeVaultUtxos(req, res);
+    },
+  );
+
   // Vault-level delegates
   app.get(
     '/v1/enterprise/organizations/:id/vaults/:vaultId/delegates',
