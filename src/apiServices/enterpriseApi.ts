@@ -769,6 +769,9 @@ const getOrgChainPolicy = vaultHandler('orgChainPolicyGet');
 const putOrgChainPolicy = vaultHandler('orgChainPolicyUpdate');
 const deleteOrgChainPolicy = vaultHandler('orgChainPolicyDelete');
 
+// Signing Requests
+const getSigningRequests = vaultHandler('signingRequestsList');
+
 // Analytics
 const getAnalyticsSummary = vaultHandler('analyticsSummary');
 const getAnalyticsPerformance = vaultHandler('analyticsPerformance');
@@ -930,6 +933,8 @@ export default {
   getAnalyticsRisk,
   getAnalyticsFlows,
   getAnalyticsCostBasis,
+  // Signing Requests
+  getSigningRequests,
   // Price History
   getPriceHistory,
   // Contacts

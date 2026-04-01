@@ -609,6 +609,11 @@ export default (app) => {
     },
   );
 
+  // SSP Enterprise - Signing Requests
+  app.get('/v1/enterprise/organizations/:id/signing-requests', (req, res) => {
+    enterpriseApi.getSigningRequests(req, res);
+  });
+
   // SSP Enterprise - Analytics
   app.get('/v1/enterprise/organizations/:id/analytics/summary', (req, res) => {
     enterpriseApi.getAnalyticsSummary(req, res);
