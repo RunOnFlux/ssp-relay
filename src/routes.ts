@@ -609,6 +609,27 @@ export default (app) => {
     },
   );
 
+  // SSP Enterprise - Analytics
+  app.get('/v1/enterprise/organizations/:id/analytics/summary', (req, res) => {
+    enterpriseApi.getAnalyticsSummary(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/analytics/performance', (req, res) => {
+    enterpriseApi.getAnalyticsPerformance(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/analytics/risk', (req, res) => {
+    enterpriseApi.getAnalyticsRisk(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/analytics/flows', (req, res) => {
+    enterpriseApi.getAnalyticsFlows(req, res);
+  });
+  app.get('/v1/enterprise/organizations/:id/analytics/cost-basis', (req, res) => {
+    enterpriseApi.getAnalyticsCostBasis(req, res);
+  });
+  // SSP Enterprise - Price History
+  app.get('/v1/enterprise/rates/history', (req, res) => {
+    enterpriseApi.getPriceHistory(req, res);
+  });
+
   // SSP Enterprise - Flux Nodes
   app.get('/v1/enterprise/organizations/:id/flux-nodes', (req, res) => {
     enterpriseApi.getFluxNodes(req, res);

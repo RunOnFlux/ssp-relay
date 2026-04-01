@@ -27,6 +27,7 @@ export default {
     freshdesk: freshdesksecrets.apikey,
     alchemy: alchemysecrets.alchemyApiKey,
     onramper: onrampersecrets.secretKey,
+    coingecko: apisecrets.coingeckoApiKey,
   },
   freshdesk: {
     namespace: freshdesksecrets.namespace,

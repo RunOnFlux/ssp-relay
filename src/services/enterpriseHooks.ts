@@ -466,6 +466,7 @@ async function init(deps: {
   db: unknown;
   config: unknown;
   ratesService: RatesService;
+  coingeckoApiKey?: string;
 }): Promise<void> {
   if (loaded) return;
   loaded = true;

@@ -31,7 +31,13 @@ async function doIndexes() {
       .createIndex({ keyToken: 1 }); // for querying paritcular token
 
     // Initialize enterprise hooks (loads enterprise module if installed)
-    await enterpriseHooks.init({ db: database, config, ratesService });
+    await enterpriseHooks.init({
+      db: database,
+      config,
+      ratesService,
+      coingeckoApiKey: (config as { keys?: { coingecko?: string } }).keys
+        ?.coingecko,
+    });
 
     log.info('Collection indexes created.');
   } catch (error) {

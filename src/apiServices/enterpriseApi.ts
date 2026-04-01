@@ -769,6 +769,15 @@ const getOrgChainPolicy = vaultHandler('orgChainPolicyGet');
 const putOrgChainPolicy = vaultHandler('orgChainPolicyUpdate');
 const deleteOrgChainPolicy = vaultHandler('orgChainPolicyDelete');
 
+// Analytics
+const getAnalyticsSummary = vaultHandler('analyticsSummary');
+const getAnalyticsPerformance = vaultHandler('analyticsPerformance');
+const getAnalyticsRisk = vaultHandler('analyticsRisk');
+const getAnalyticsFlows = vaultHandler('analyticsFlows');
+const getAnalyticsCostBasis = vaultHandler('analyticsCostBasis');
+// Price History
+const getPriceHistory = vaultHandler('priceHistory');
+
 // Flux Nodes
 const getFluxNodes = vaultHandler('fluxNodeList');
 const getFluxNode = vaultHandler('fluxNodeGet');
@@ -915,6 +924,14 @@ export default {
   getVaultDelegates,
   putVaultDelegates,
   getFluxNodeVaultUtxos,
+  // Analytics
+  getAnalyticsSummary,
+  getAnalyticsPerformance,
+  getAnalyticsRisk,
+  getAnalyticsFlows,
+  getAnalyticsCostBasis,
+  // Price History
+  getPriceHistory,
   // Contacts
   getOrgContacts,
   postOrgContact,
