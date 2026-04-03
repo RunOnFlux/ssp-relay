@@ -735,6 +735,18 @@ const getOrgVaultAuditLog = vaultHandler('orgVaultAuditLog');
 const getVaultWatchedTokens = vaultHandler('vaultWatchedTokensList');
 const postVaultWatchedToken = vaultHandler('vaultWatchedTokenAdd');
 const deleteVaultWatchedToken = vaultHandler('vaultWatchedTokenRemove');
+const getTokenThreats = vaultHandler('tokenThreatList');
+const postTokenThreatOverride = vaultHandler('tokenThreatOverrideSet');
+const deleteTokenThreatOverride = vaultHandler('tokenThreatOverrideRemove');
+const postTokenThreatBackfill = vaultHandler('tokenThreatBackfill');
+
+// Transaction & Address Flagging
+const postTxFlagSpam = vaultHandler('vaultTxFlagSpam');
+const deleteTxFlagSpam = vaultHandler('vaultTxUnflagSpam');
+const getFlaggedTransactions = vaultHandler('flaggedTransactionsList');
+const postAddressFlag = vaultHandler('addressFlagSet');
+const deleteAddressFlag = vaultHandler('addressFlagRemove');
+const getAddressFlags = vaultHandler('addressFlagList');
 
 // Vault Proposal Admin Approval
 const postVaultProposalAdminApprove = vaultHandler('vaultProposalAdminApprove');
@@ -890,6 +902,17 @@ export default {
   getVaultWatchedTokens,
   postVaultWatchedToken,
   deleteVaultWatchedToken,
+  getTokenThreats,
+  postTokenThreatOverride,
+  deleteTokenThreatOverride,
+  postTokenThreatBackfill,
+  // Transaction & Address Flagging
+  postTxFlagSpam,
+  deleteTxFlagSpam,
+  getFlaggedTransactions,
+  postAddressFlag,
+  deleteAddressFlag,
+  getAddressFlags,
   // Vault Proposal Admin Approval
   postVaultProposalAdminApprove,
   postVaultProposalAdminReject,

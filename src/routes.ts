@@ -490,6 +490,62 @@ export default (app) => {
     },
   );
 
+  // Token threat detection
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/token-threats',
+    (req, res) => {
+      enterpriseApi.getTokenThreats(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/token-threats/override',
+    (req, res) => {
+      enterpriseApi.postTokenThreatOverride(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/token-threats/override/:chain/:contract',
+    (req, res) => {
+      enterpriseApi.deleteTokenThreatOverride(req, res);
+    },
+  );
+  // Token threat backfill is triggered automatically on startup and by background job.
+  // Admin dashboard can call tokenThreatBackfill directly if manual trigger is needed.
+
+  // Transaction spam flagging
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/transactions/:txId/spam-flag',
+    (req, res) => {
+      enterpriseApi.postTxFlagSpam(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/transactions/:txId/spam-flag',
+    (req, res) => {
+      enterpriseApi.deleteTxFlagSpam(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/flagged-transactions',
+    (req, res) => {
+      enterpriseApi.getFlaggedTransactions(req, res);
+    },
+  );
+
+  // Address flagging
+  app.post('/v1/enterprise/organizations/:id/flagged-addresses', (req, res) => {
+    enterpriseApi.postAddressFlag(req, res);
+  });
+  app.delete(
+    '/v1/enterprise/organizations/:id/flagged-addresses/:address',
+    (req, res) => {
+      enterpriseApi.deleteAddressFlag(req, res);
+    },
+  );
+  app.get('/v1/enterprise/organizations/:id/flagged-addresses', (req, res) => {
+    enterpriseApi.getAddressFlags(req, res);
+  });
+
   // Vault proposal admin approval
   app.post(
     '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/admin-approve',
@@ -618,18 +674,24 @@ export default (app) => {
   app.get('/v1/enterprise/organizations/:id/analytics/summary', (req, res) => {
     enterpriseApi.getAnalyticsSummary(req, res);
   });
-  app.get('/v1/enterprise/organizations/:id/analytics/performance', (req, res) => {
-    enterpriseApi.getAnalyticsPerformance(req, res);
-  });
+  app.get(
+    '/v1/enterprise/organizations/:id/analytics/performance',
+    (req, res) => {
+      enterpriseApi.getAnalyticsPerformance(req, res);
+    },
+  );
   app.get('/v1/enterprise/organizations/:id/analytics/risk', (req, res) => {
     enterpriseApi.getAnalyticsRisk(req, res);
   });
   app.get('/v1/enterprise/organizations/:id/analytics/flows', (req, res) => {
     enterpriseApi.getAnalyticsFlows(req, res);
   });
-  app.get('/v1/enterprise/organizations/:id/analytics/cost-basis', (req, res) => {
-    enterpriseApi.getAnalyticsCostBasis(req, res);
-  });
+  app.get(
+    '/v1/enterprise/organizations/:id/analytics/cost-basis',
+    (req, res) => {
+      enterpriseApi.getAnalyticsCostBasis(req, res);
+    },
+  );
   // SSP Enterprise - Price History
   app.get('/v1/enterprise/rates/history', (req, res) => {
     enterpriseApi.getPriceHistory(req, res);
