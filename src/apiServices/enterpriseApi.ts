@@ -735,6 +735,7 @@ const getOrgVaultAuditLog = vaultHandler('orgVaultAuditLog');
 const getVaultWatchedTokens = vaultHandler('vaultWatchedTokensList');
 const postVaultWatchedToken = vaultHandler('vaultWatchedTokenAdd');
 const deleteVaultWatchedToken = vaultHandler('vaultWatchedTokenRemove');
+const getOrgTokenThreats = vaultHandler('tokenThreatOrgList');
 const getTokenThreats = vaultHandler('tokenThreatList');
 const postTokenThreatOverride = vaultHandler('tokenThreatOverrideSet');
 const deleteTokenThreatOverride = vaultHandler('tokenThreatOverrideRemove');
@@ -902,6 +903,7 @@ export default {
   getVaultWatchedTokens,
   postVaultWatchedToken,
   deleteVaultWatchedToken,
+  getOrgTokenThreats,
   getTokenThreats,
   postTokenThreatOverride,
   deleteTokenThreatOverride,
