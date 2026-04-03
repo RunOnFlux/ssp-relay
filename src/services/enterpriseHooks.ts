@@ -12,6 +12,7 @@ import {
   deriveP2WSHAddress,
   parseWitnessScript,
 } from '../lib/identityAuth';
+import { getKnownTokensForNetwork } from './knownTokens';
 
 // Rates service interface (from ssp-relay)
 interface RatesService {
@@ -190,6 +191,7 @@ interface HooksModule {
     logger: unknown;
     ratesService: RatesService;
     authFunctions?: AuthFunctions;
+    getKnownTokens?: (network: string) => Array<{ contract: string }> | null;
   }) => void;
   onGetSync?: (req: unknown, id: string) => Promise<void>;
   onGetAction?: (req: unknown, id: string) => Promise<void>;
@@ -487,6 +489,7 @@ async function init(deps: {
           deriveP2WSHAddress,
           parseWitnessScript,
         },
+        getKnownTokens: getKnownTokensForNetwork,
       });
       log.info('[HOOKS] Extension module loaded');
     }
