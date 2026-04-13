@@ -705,6 +705,7 @@ const getVaultSearch = vaultHandler('vaultSearch');
 const getVault = vaultHandler('vaultGet');
 const patchVault = vaultHandler('vaultUpdate');
 const deleteVault = vaultHandler('vaultArchive');
+const unarchiveVault = vaultHandler('vaultUnarchive');
 const getVaultMembers = vaultHandler('vaultMembersList');
 const postVaultMember = vaultHandler('vaultMemberAdd');
 const deleteVaultMember = vaultHandler('vaultMemberRemove');
@@ -877,6 +878,7 @@ export default {
   getVault,
   patchVault,
   deleteVault,
+  unarchiveVault,
   getVaultMembers,
   postVaultMember,
   deleteVaultMember,

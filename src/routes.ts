@@ -323,6 +323,9 @@ export default (app) => {
   app.delete('/v1/enterprise/organizations/:id/vaults/:vaultId', (req, res) => {
     enterpriseApi.deleteVault(req, res);
   });
+  app.post('/v1/enterprise/organizations/:id/vaults/:vaultId/unarchive', (req, res) => {
+    enterpriseApi.unarchiveVault(req, res);
+  });
 
   // Vault members
   app.get(
