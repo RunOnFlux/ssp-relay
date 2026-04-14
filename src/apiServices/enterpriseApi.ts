@@ -822,6 +822,12 @@ const getOrgSubscription = vaultHandler('subscriptionGet');
 const getOrgInvoices = vaultHandler('invoiceList');
 const getOrgInvoice = vaultHandler('invoiceGet');
 
+// Stripe
+const getStripePrices = vaultHandler('stripePrices');
+const postStripeCheckout = vaultHandler('stripeCheckout');
+const postStripePortal = vaultHandler('stripePortal');
+const postStripeChangePlan = vaultHandler('stripeChangePlan');
+
 export default {
   // Auth
   getChallenge,
@@ -975,4 +981,9 @@ export default {
   getOrgSubscription,
   getOrgInvoices,
   getOrgInvoice,
+  // Stripe
+  getStripePrices,
+  postStripeCheckout,
+  postStripePortal,
+  postStripeChangePlan,
 };

@@ -271,6 +271,8 @@ interface HooksModule {
   emailLoginVerify?: (req: unknown) => Promise<LoginResponse>;
   // Google login functions
   googleLogin?: (req: unknown) => Promise<LoginResponse>;
+  // Stripe webhook
+  stripeWebhook?: (req: unknown) => Promise<{ success: boolean; error?: string }>;
   // Enterprise notification functions (subscribe/unsubscribe/email with WK signatures)
   enterpriseSubscribe?: (
     req: unknown,
@@ -729,6 +731,14 @@ const googleLogin = (req: unknown) =>
     errorCode: 'ENTERPRISE_NOT_LOADED',
   });
 
+const stripeWebhook = (req: unknown) =>
+  hooksModule.stripeWebhook?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
 // Enterprise notification functions (subscribe/unsubscribe/email with WK signatures)
 const enterpriseSubscribe = (req: unknown, data: unknown) =>
   hooksModule.enterpriseSubscribe?.(req, data) ??
@@ -833,6 +843,8 @@ export default {
   emailLoginVerify,
   // Google login
   googleLogin,
+  // Stripe
+  stripeWebhook,
   // Enterprise notification (subscribe/unsubscribe/email)
   enterpriseSubscribe,
   enterpriseUnsubscribe,

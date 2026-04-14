@@ -20,6 +20,31 @@ app.use(
 // Request timeout middleware
 app.use(timeoutHandler(30000)); // 30 second timeout
 
+// Stripe webhook route — MUST be before JSON body parser so raw body is preserved
+// for signature verification. Registered here, not in routes.ts.
+app.post(
+  '/v1/enterprise/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    try {
+      const enterpriseHooks = (await import('../services/enterpriseHooks')).default;
+      if (!enterpriseHooks.isLoaded()) {
+        res.status(503).json({ error: 'Enterprise module not loaded' });
+        return;
+      }
+      const result = await enterpriseHooks.stripeWebhook(req);
+      if (result.success) {
+        res.json({ received: true });
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (err) {
+      console.error('Stripe webhook error:', err);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  },
+);
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));

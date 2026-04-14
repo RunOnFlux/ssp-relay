@@ -8197,6 +8197,7 @@ __metadata:
     qs: "npm:6.14.1"
     sinon: "npm:21.0.1"
     socket.io: "npm:4.8.3"
+    stripe: "npm:^22.0.1"
     tsx: "npm:4.21.0"
     typescript: "npm:5.9.3"
     typescript-eslint: "npm:8.53.1"
@@ -8331,6 +8332,18 @@ __metadata:
   version: 3.1.1
   resolution: "strip-json-comments@npm:3.1.1"
   checksum: 10c0/9681a6257b925a7fa0f285851c0e613cc934a50661fa7bb41ca9cbbff89686bb4a0ee366e6ecedc4daafd01e83eee0720111ab294366fe7c185e935475ebcecd
+  languageName: node
+  linkType: hard
+
+"stripe@npm:^22.0.1":
+  version: 22.0.1
+  resolution: "stripe@npm:22.0.1"
+  peerDependencies:
+    "@types/node": ">=18"
+  peerDependenciesMeta:
+    "@types/node":
+      optional: true
+  checksum: 10c0/2add1b7108fb92369401bd0df8d05a93ea9c7db64e4280f9fba67f303e4adcb44072f5d25018de28e45c4bd82eb5a1b967a47e3448136a48019021d0a15a7bb9
   languageName: node
   linkType: hard
 

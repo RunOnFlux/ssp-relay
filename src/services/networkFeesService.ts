@@ -420,6 +420,28 @@ async function fetchFees() {
   if (avaxFee) {
     fees.push(avaxFee);
   }
+  // Static UTXO fees (from ssp-wallet blockchains.ts)
+  fees.push({
+    coin: 'doge',
+    economy: 1000,
+    normal: 1100,
+    fast: 1100,
+    recommended: 1100,
+  });
+  fees.push({
+    coin: 'zec',
+    economy: 1,
+    normal: 30,
+    fast: 30,
+    recommended: 30,
+  });
+  fees.push({
+    coin: 'bch',
+    economy: 1,
+    normal: 4,
+    fast: 4,
+    recommended: 4,
+  });
   fees.push({
     coin: 'rvn',
     economy: 1000,
@@ -440,6 +462,21 @@ async function fetchFees() {
     normal: 1,
     fast: 1,
     recommended: 1,
+  });
+  // BTC testnets — from ssp-wallet blockchains
+  fees.push({
+    coin: 'btcTestnet',
+    economy: 1, // minFeePerByte=1
+    normal: 5, // feePerByte=5
+    fast: 5,
+    recommended: 5,
+  });
+  fees.push({
+    coin: 'btcSignet',
+    economy: 1, // minFeePerByte=1
+    normal: 4, // feePerByte=4
+    fast: 4,
+    recommended: 4,
   });
   currentFees = fees;
   await serviceHelper.delay(18000); // every 18 seconds

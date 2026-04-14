@@ -788,4 +788,23 @@ export default (app) => {
       enterpriseApi.getOrgInvoice(req, res);
     },
   );
+
+  // Stripe — pricing (public, no auth)
+  app.get('/v1/enterprise/stripe/prices', (req, res) => {
+    enterpriseApi.getStripePrices(req, res);
+  });
+
+  // Stripe — checkout & portal (authenticated, owner only)
+  app.post('/v1/enterprise/organizations/:id/checkout', (req, res) => {
+    enterpriseApi.postStripeCheckout(req, res);
+  });
+  app.post('/v1/enterprise/organizations/:id/portal', (req, res) => {
+    enterpriseApi.postStripePortal(req, res);
+  });
+  app.post('/v1/enterprise/organizations/:id/change-plan', (req, res) => {
+    enterpriseApi.postStripeChangePlan(req, res);
+  });
+
+  // Stripe webhook is registered in server.ts BEFORE JSON body parser
+  // (Stripe needs raw body for signature verification)
 };
