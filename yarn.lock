@@ -8197,7 +8197,7 @@ __metadata:
     qs: "npm:6.14.1"
     sinon: "npm:21.0.1"
     socket.io: "npm:4.8.3"
-    stripe: "npm:^22.0.1"
+    stripe: "npm:22.0.1"
     tsx: "npm:4.21.0"
     typescript: "npm:5.9.3"
     typescript-eslint: "npm:8.53.1"
@@ -8335,7 +8335,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"stripe@npm:^22.0.1":
+"stripe@npm:22.0.1":
   version: 22.0.1
   resolution: "stripe@npm:22.0.1"
   peerDependencies:
