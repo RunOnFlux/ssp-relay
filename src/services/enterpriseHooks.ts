@@ -272,7 +272,9 @@ interface HooksModule {
   // Google login functions
   googleLogin?: (req: unknown) => Promise<LoginResponse>;
   // Stripe webhook
-  stripeWebhook?: (req: unknown) => Promise<{ success: boolean; error?: string }>;
+  stripeWebhook?: (
+    req: unknown,
+  ) => Promise<{ success: boolean; error?: string }>;
   // Enterprise notification functions (subscribe/unsubscribe/email with WK signatures)
   enterpriseSubscribe?: (
     req: unknown,

@@ -16,17 +16,21 @@ async function migrate() {
   const db = client.db(config.database.database);
 
   console.log('Renaming publicNoncesWallet -> publicNoncesEnterpriseWallet...');
-  const walletResult = await db.collection('v1users').updateMany(
-    { publicNoncesWallet: { $exists: true } },
-    { $rename: { publicNoncesWallet: 'publicNoncesEnterpriseWallet' } },
-  );
+  const walletResult = await db
+    .collection('v1users')
+    .updateMany(
+      { publicNoncesWallet: { $exists: true } },
+      { $rename: { publicNoncesWallet: 'publicNoncesEnterpriseWallet' } },
+    );
   console.log(`  Updated ${walletResult.modifiedCount} documents`);
 
   console.log('Renaming publicNoncesKey -> publicNoncesEnterpriseKey...');
-  const keyResult = await db.collection('v1users').updateMany(
-    { publicNoncesKey: { $exists: true } },
-    { $rename: { publicNoncesKey: 'publicNoncesEnterpriseKey' } },
-  );
+  const keyResult = await db
+    .collection('v1users')
+    .updateMany(
+      { publicNoncesKey: { $exists: true } },
+      { $rename: { publicNoncesKey: 'publicNoncesEnterpriseKey' } },
+    );
   console.log(`  Updated ${keyResult.modifiedCount} documents`);
 
   console.log('Migration complete!');

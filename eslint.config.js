@@ -4,6 +4,19 @@ import tseslint from 'typescript-eslint';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 
 export default [
+  {
+    // Submodules (ssp-relay-dashboard, ssp-relay-enterprise) have their own
+    // lint/format tooling and separate node_modules with plugins the parent
+    // doesn't install (e.g. prettier-plugin-tailwindcss in the dashboard).
+    ignores: [
+      'ssp-relay-dashboard/**',
+      'ssp-relay-enterprise/**',
+      'node_modules/**',
+      'dist/**',
+      'build/**',
+      'coverage/**',
+    ],
+  },
   eslint.configs.recommended,
   ...tseslint.configs.recommended, // TBD recommendedTypeChecked
   eslintPluginPrettierRecommended,

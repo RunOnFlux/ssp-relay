@@ -103,8 +103,8 @@ describe('Identity Authentication Library', function () {
 
   describe('isMultisigIdentity', function () {
     it('should identify bc1q addresses as multisig', function () {
-      expect(isMultisigIdentity('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq')).to
-        .be.true;
+      expect(isMultisigIdentity('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq'))
+        .to.be.true;
     });
 
     it('should identify tb1q addresses as multisig (testnet)', function () {
@@ -130,13 +130,15 @@ describe('Identity Authentication Library', function () {
 
   describe('detectNetworkFromAddress', function () {
     it('should detect mainnet from P2PKH address starting with 1', function () {
-      expect(detectNetworkFromAddress('1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')).to
-        .equal('mainnet');
+      expect(
+        detectNetworkFromAddress('1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'),
+      ).to.equal('mainnet');
     });
 
     it('should detect mainnet from P2SH address starting with 3', function () {
-      expect(detectNetworkFromAddress('3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')).to
-        .equal('mainnet');
+      expect(
+        detectNetworkFromAddress('3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy'),
+      ).to.equal('mainnet');
     });
 
     it('should detect mainnet from bc1 address', function () {
@@ -146,13 +148,15 @@ describe('Identity Authentication Library', function () {
     });
 
     it('should detect testnet from m address', function () {
-      expect(detectNetworkFromAddress('mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn')).to
-        .equal('testnet');
+      expect(
+        detectNetworkFromAddress('mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn'),
+      ).to.equal('testnet');
     });
 
     it('should detect testnet from n address', function () {
-      expect(detectNetworkFromAddress('n4VQ5YdHf7hLQ2gWQYYrcxoE5B7nWuDFNF')).to
-        .equal('testnet');
+      expect(
+        detectNetworkFromAddress('n4VQ5YdHf7hLQ2gWQYYrcxoE5B7nWuDFNF'),
+      ).to.equal('testnet');
     });
 
     it('should detect testnet from tb1 address', function () {
@@ -186,7 +190,11 @@ describe('Identity Authentication Library', function () {
     });
 
     it('should include data hash if provided', function () {
-      const payload = createSignaturePayload('action', 'test-identity', 'abc123');
+      const payload = createSignaturePayload(
+        'action',
+        'test-identity',
+        'abc123',
+      );
       expect(payload.data).to.equal('abc123');
     });
 
@@ -247,7 +255,8 @@ describe('Identity Authentication Library', function () {
     it('should reject payload with invalid action', function () {
       const payload = {
         timestamp: Date.now(),
-        action: 'invalid' as any,
+        // Intentionally invalid to test rejection; cast via unknown to bypass type check
+        action: 'invalid' as unknown as 'sync' | 'action' | 'token' | 'join',
         identity: 'test-identity',
         nonce: crypto.randomBytes(32).toString('hex'),
       };
@@ -311,13 +320,14 @@ describe('Identity Authentication Library', function () {
     });
 
     it('should throw for invalid witness script', function () {
-      expect(() => parseWitnessScript('0000')).to.throw('Invalid witness script');
+      expect(() => parseWitnessScript('0000')).to.throw(
+        'Invalid witness script',
+      );
     });
 
     it('should throw for script missing OP_CHECKMULTISIG', function () {
       // Just OP_2 and two pubkeys, no OP_CHECKMULTISIG
-      const badScript =
-        '5221' + TEST_PUBKEY_1 + '21' + TEST_PUBKEY_2 + '52'; // Missing ae
+      const badScript = '5221' + TEST_PUBKEY_1 + '21' + TEST_PUBKEY_2 + '52'; // Missing ae
       expect(() => parseWitnessScript(badScript)).to.throw('OP_CHECKMULTISIG');
     });
   });

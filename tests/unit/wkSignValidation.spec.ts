@@ -81,7 +81,9 @@ describe('WK Sign Validation', function () {
 
       it('should reject message with invalid timestamp', function () {
         // Message with 45+ chars but doesn't start with valid timestamp
-        const result = validateWkSignMessage('abcdefghijklmnopqrstuvwxyz01234567890123456789');
+        const result = validateWkSignMessage(
+          'abcdefghijklmnopqrstuvwxyz01234567890123456789',
+        );
         expect(result.valid).to.be.false;
         expect(result.error).to.include('timestamp');
       });

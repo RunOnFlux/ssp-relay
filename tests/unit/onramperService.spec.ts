@@ -1,6 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
-import { expect, assert } from 'chai';
+import { expect } from 'chai';
 import crypto from 'crypto';
 import { generateSignature } from '../../src/services/onramperService';
 

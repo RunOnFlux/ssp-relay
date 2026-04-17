@@ -14,9 +14,10 @@ async function makeBackup() {
     const { database, username, password, url, port } = config.database;
 
     // Build mongodump command with authentication
-    const authArgs = username && password
-      ? `--username ${username} --password ${password} --authenticationDatabase admin`
-      : '';
+    const authArgs =
+      username && password
+        ? `--username ${username} --password ${password} --authenticationDatabase admin`
+        : '';
     const hostArgs = `--host ${url} --port ${port}`;
 
     await cmdAsync('rm -rf dumpOld.tar.gz');

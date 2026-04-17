@@ -27,7 +27,8 @@ app.post(
   express.raw({ type: 'application/json' }),
   async (req, res) => {
     try {
-      const enterpriseHooks = (await import('../services/enterpriseHooks')).default;
+      const enterpriseHooks = (await import('../services/enterpriseHooks'))
+        .default;
       if (!enterpriseHooks.isLoaded()) {
         res.status(503).json({ error: 'Enterprise module not loaded' });
         return;
