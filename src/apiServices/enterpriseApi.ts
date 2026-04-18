@@ -827,6 +827,10 @@ const getStripePrices = vaultHandler('stripePrices');
 const postStripeCheckout = vaultHandler('stripeCheckout');
 const postStripePortal = vaultHandler('stripePortal');
 const postStripeChangePlan = vaultHandler('stripeChangePlan');
+const postStripePreviewPlanChange = vaultHandler('stripePreviewPlanChange');
+const postStripeCancelSubscription = vaultHandler('stripeCancelSubscription');
+const postStripeResumeSubscription = vaultHandler('stripeResumeSubscription');
+const postDowngradeImpact = vaultHandler('downgradeImpact');
 
 export default {
   // Auth
@@ -986,4 +990,8 @@ export default {
   postStripeCheckout,
   postStripePortal,
   postStripeChangePlan,
+  postStripePreviewPlanChange,
+  postStripeCancelSubscription,
+  postStripeResumeSubscription,
+  postDowngradeImpact,
 };

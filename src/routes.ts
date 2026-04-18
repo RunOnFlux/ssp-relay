@@ -1,4 +1,5 @@
 import config from 'config';
+import { rateLimit } from 'express-rate-limit';
 import syncApi from './apiServices/syncApi';
 import actionApi from './apiServices/actionApi';
 import ratesApi from './apiServices/ratesApi';
@@ -17,6 +18,52 @@ import {
   optionalWkIdentityAuth,
 } from './middleware/authMiddleware';
 import { startNonceCacheCleanup } from './lib/identityAuth';
+
+// Tight rate limit for Stripe-calling billing MUTATION endpoints (checkout,
+// portal, change-plan, cancel, resume). Each hit triggers a live Stripe API
+// call (costs $, counts against Stripe rate limit, fills logs); the global
+// 120/30s allows orders of magnitude more than any human UX needs. 10
+// req/min per IP is ample for real use (user clicks through a confirmation
+// flow) and cheap protection against hijacked sessions or automation abuse.
+const billingMutationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    data: {
+      message: 'Too many billing requests. Please wait a minute and try again.',
+    },
+  },
+});
+
+// Read-side limit for preview-plan-change + downgrade-impact. PlanChangeModal
+// fetches a fresh preview every time the user picks a different plan in the
+// modal, so 10/min would hit the cap during plan exploration and lock the
+// user out of their actual change. 30/min is enough for any reasonable UI
+// flow while still protecting Stripe's createPreview from abuse.
+const billingReadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    data: { message: 'Too many preview requests. Please wait a moment.' },
+  },
+});
+
+// Unauthenticated /stripe/prices — purely static data (env vars + tier
+// presets, no Stripe API call). Cached aggressively at the HTTP layer so
+// in-memory rate limiting is mostly belt-and-suspenders. Higher cap so a
+// single proxy IP behind nginx/ALB doesn't saturate the global pool.
+const pricingLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+});
 
 // Start nonce cache cleanup on module load
 startNonceCacheCleanup();
@@ -789,21 +836,64 @@ export default (app) => {
     },
   );
 
-  // Stripe — pricing (public, no auth)
-  app.get('/v1/enterprise/stripe/prices', (req, res) => {
+  // Stripe — pricing (public, no auth). Static data (env vars + tier
+  // presets); set HTTP cache so CDN / browser absorbs most reads and the
+  // origin only sees fresh fetches every 5 min.
+  app.get('/v1/enterprise/stripe/prices', pricingLimiter, (req, res) => {
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
     enterpriseApi.getStripePrices(req, res);
   });
 
   // Stripe — checkout & portal (authenticated, owner only)
-  app.post('/v1/enterprise/organizations/:id/checkout', (req, res) => {
-    enterpriseApi.postStripeCheckout(req, res);
-  });
-  app.post('/v1/enterprise/organizations/:id/portal', (req, res) => {
-    enterpriseApi.postStripePortal(req, res);
-  });
-  app.post('/v1/enterprise/organizations/:id/change-plan', (req, res) => {
-    enterpriseApi.postStripeChangePlan(req, res);
-  });
+  app.post(
+    '/v1/enterprise/organizations/:id/checkout',
+    billingMutationLimiter,
+    (req, res) => {
+      enterpriseApi.postStripeCheckout(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/portal',
+    billingMutationLimiter,
+    (req, res) => {
+      enterpriseApi.postStripePortal(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/change-plan',
+    billingMutationLimiter,
+    (req, res) => {
+      enterpriseApi.postStripeChangePlan(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/preview-plan-change',
+    billingReadLimiter,
+    (req, res) => {
+      enterpriseApi.postStripePreviewPlanChange(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/cancel-subscription',
+    billingMutationLimiter,
+    (req, res) => {
+      enterpriseApi.postStripeCancelSubscription(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/resume-subscription',
+    billingMutationLimiter,
+    (req, res) => {
+      enterpriseApi.postStripeResumeSubscription(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/downgrade-impact',
+    billingReadLimiter,
+    (req, res) => {
+      enterpriseApi.postDowngradeImpact(req, res);
+    },
+  );
 
   // Stripe webhook is registered in server.ts BEFORE JSON body parser
   // (Stripe needs raw body for signature verification)
