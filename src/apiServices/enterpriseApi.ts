@@ -830,6 +830,9 @@ const postStripeChangePlan = vaultHandler('stripeChangePlan');
 const postStripePreviewPlanChange = vaultHandler('stripePreviewPlanChange');
 const postStripeCancelSubscription = vaultHandler('stripeCancelSubscription');
 const postStripeResumeSubscription = vaultHandler('stripeResumeSubscription');
+const postStripeCancelPendingDowngrade = vaultHandler(
+  'stripeCancelPendingDowngrade',
+);
 const postDowngradeImpact = vaultHandler('downgradeImpact');
 
 export default {
@@ -993,5 +996,6 @@ export default {
   postStripePreviewPlanChange,
   postStripeCancelSubscription,
   postStripeResumeSubscription,
+  postStripeCancelPendingDowngrade,
   postDowngradeImpact,
 };

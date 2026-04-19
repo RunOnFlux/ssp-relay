@@ -107,9 +107,9 @@ async function postAction(req, res) {
     if (
       !processedBody.payload ||
       typeof processedBody.payload !== 'string' ||
-      processedBody.payload.length > 1000000
+      processedBody.payload.length > 10000000
     ) {
-      throw new Error('Invalid Payload specified'); // max 1MB
+      throw new Error('Invalid Payload specified'); // max 10MB
     }
 
     // Validate payload format based on chain type

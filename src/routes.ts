@@ -888,6 +888,13 @@ export default (app) => {
     },
   );
   app.post(
+    '/v1/enterprise/organizations/:id/cancel-pending-downgrade',
+    billingMutationLimiter,
+    (req, res) => {
+      enterpriseApi.postStripeCancelPendingDowngrade(req, res);
+    },
+  );
+  app.post(
     '/v1/enterprise/organizations/:id/downgrade-impact',
     billingReadLimiter,
     (req, res) => {

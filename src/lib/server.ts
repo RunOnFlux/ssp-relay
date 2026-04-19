@@ -47,7 +47,7 @@ const webhookLimiter = rateLimit({
 app.post(
   '/v1/enterprise/stripe/webhook',
   webhookLimiter,
-  express.raw({ type: 'application/json', limit: '10mb' }),
+  express.raw({ type: 'application/json', limit: '15mb' }),
   async (req, res) => {
     try {
       const enterpriseHooks = (await import('../services/enterpriseHooks'))
@@ -70,9 +70,9 @@ app.post(
 );
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: false, limit: '10mb' }));
-app.use(express.text({ limit: '10mb' }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: false, limit: '15mb' }));
+app.use(express.text({ limit: '15mb' }));
 
 // Compression
 app.use(compression());
