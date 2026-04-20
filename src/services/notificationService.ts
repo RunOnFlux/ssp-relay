@@ -49,6 +49,9 @@ async function sendNotificationKey(wkIdentity, data) {
     } else if (data.action === 'enterprisekeynoncesync') {
       title = 'Nonce Sync Request';
       body = 'Your enterprise nonces need to be synced.';
+    } else if (data.action === 'enterprisefluxnodestart') {
+      title = 'Flux Node Start Request';
+      body = 'An enterprise Flux node start requires your signature.';
     }
     try {
       if (data.payload && data.action === 'tx') {
