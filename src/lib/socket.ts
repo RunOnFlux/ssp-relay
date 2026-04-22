@@ -158,7 +158,8 @@ function initIOKey(httpServer?, path = '/v1/socket/key') {
           actionToSend.action === 'wksigningrequest' ||
           actionToSend.action === 'enterprisevaultxpub' ||
           actionToSend.action === 'enterprisevaultsign' ||
-          actionToSend.action === 'enterprisefluxnodestart'
+          actionToSend.action === 'enterprisefluxnodestart' ||
+          actionToSend.action === 'recoveryrequest'
         ) {
           ioKey.to(wkIdentity).emit(actionToSend.action, actionToSend);
         }

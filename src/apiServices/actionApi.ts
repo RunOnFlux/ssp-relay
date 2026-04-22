@@ -275,7 +275,8 @@ async function postAction(req, res) {
       data.action === 'enterprisevaultxpub' ||
       data.action === 'enterprisevaultsign' ||
       data.action === 'enterprisekeynoncesync' ||
-      data.action === 'enterprisefluxnodestart'
+      data.action === 'enterprisefluxnodestart' ||
+      data.action === 'recoveryrequest'
     ) {
       const ioKey = socket.getIOKey();
       ioKey.to(data.wkIdentity).emit(data.action, data);
@@ -300,7 +301,9 @@ async function postAction(req, res) {
       data.action === 'enterprisevaultsigned' ||
       data.action === 'enterprisekeynoncesynced' ||
       data.action === 'enterprisekeynoncesyncrejected' ||
-      data.action === 'enterprisefluxnodestarted'
+      data.action === 'enterprisefluxnodestarted' ||
+      data.action === 'recoveryresponse' ||
+      data.action === 'recoverydenied'
     ) {
       const ioWallet = socket.getIOWallet();
       ioWallet.to(data.wkIdentity).emit(data.action, data);

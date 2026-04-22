@@ -52,6 +52,10 @@ async function sendNotificationKey(wkIdentity, data) {
     } else if (data.action === 'enterprisefluxnodestart') {
       title = 'Flux Node Start Request';
       body = 'An enterprise Flux node start requires your signature.';
+    } else if (data.action === 'recoveryrequest') {
+      title = 'Wallet Recovery Request';
+      body =
+        'SSP Wallet is asking to recover its encryption after a browser change. Approve only if you initiated this.';
     }
     try {
       if (data.payload && data.action === 'tx') {
