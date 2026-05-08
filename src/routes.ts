@@ -3,6 +3,7 @@ import { rateLimit } from 'express-rate-limit';
 import syncApi from './apiServices/syncApi';
 import actionApi from './apiServices/actionApi';
 import ratesApi from './apiServices/ratesApi';
+import solPaymasterApi from './apiServices/solPaymasterApi';
 import ticketsApi from './apiServices/ticketsApi';
 import contactApi from './apiServices/contactApi';
 import feeService from './services/networkFeesService';
@@ -63,6 +64,26 @@ const pricingLimiter = rateLimit({
   max: 120,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+});
+
+// Solana paymaster broadcast — each request triggers an on-chain Solana
+// tx that costs the relay-operator real SOL (paymaster fee + potential
+// leaf-funding top-up). 10/min/IP keeps any single user well under the
+// per-tx cost ceiling while allowing normal back-to-back sends. Combined
+// with `optionalWkIdentityAuth` on the route, this protects the paymaster
+// wallet from drainage attacks.
+const solBroadcastLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    data: {
+      message:
+        'Too many Solana broadcast requests. Please wait a minute and try again.',
+    },
+  },
 });
 
 // Start nonce cache cleanup on module load
@@ -131,6 +152,21 @@ export default (app) => {
     enterpriseHooks.onNetworkFees(req).catch((e) => log.error(e));
     feeService.networkFees(res);
   });
+  // Solana paymaster — relay sponsors tx fees so users don't need SOL in
+  // their leaf keypair (since SSP shows the multisig vault PDA as the
+  // deposit address, not the leaf address).
+  app.get('/v1/sol/paymaster', (req, res) => {
+    solPaymasterApi.getPaymaster(req, res);
+  });
+  app.post(
+    '/v1/sol/broadcast',
+    solBroadcastLimiter,
+    optionalWkIdentityAuth,
+    (req, res) => {
+      solPaymasterApi.postBroadcast(req, res);
+    },
+  );
+
   // freshdesk ticket
   app.post('/v1/ticket', (req, res) => {
     ticketsApi.postTicket(req, res);

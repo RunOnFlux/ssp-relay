@@ -4,6 +4,7 @@ import freshdesksecrets from './freshdesksecrets';
 import alchemysecrets from './alchemysecrets';
 import onrampersecrets from './onrampersecrets';
 import emailsecrets from './emailsecrets';
+import solanasecrets from './solanasecrets';
 
 export default {
   server: {
@@ -49,5 +50,23 @@ export default {
     onramp: true,
     offramp: true,
     swap: true,
+  },
+  solana: {
+    // Per-chain paymaster keypairs + RPC endpoints. The paymaster signs
+    // tx feePayer slot for SSP users so they don't need SOL in their leaf
+    // keypair; relay broadcasts the resulting fully-signed tx.
+    devnet: {
+      rpc: 'https://api.devnet.solana.com',
+      paymasterSecretKey: solanasecrets.solDevnet.paymasterSecretKey,
+    },
+    // Mainnet — disabled until the SSP Solana Multisig program is audited
+    // and deployed to mainnet. Operators should override `rpc` with a paid
+    // RPC (Helius, Triton, etc.) and set `paymasterSecretKey` before going
+    // live; the public mainnet-beta endpoint is rate-limited and unsuitable
+    // for production traffic.
+    mainnet: {
+      rpc: 'https://api.mainnet-beta.solana.com',
+      paymasterSecretKey: solanasecrets.solMainnet.paymasterSecretKey,
+    },
   },
 };

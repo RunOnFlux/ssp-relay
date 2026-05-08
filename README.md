@@ -81,6 +81,91 @@ yarn test
 
 ---
 
+## Solana Paymaster
+
+SSP Relay runs an optional Solana paymaster service that sponsors transaction fees on behalf of SSP Wallet users on Solana chains. This solves a UX gap unique to Solana: SSP shows users their multisig vault PDA as the deposit address, but Solana transactions require a feePayer keypair (PDAs cannot sign). Without a paymaster, users would have to keep SOL in a separate "leaf" keypair address that's never shown to them — confusing and error-prone.
+
+The paymaster:
+- **Pays Solana tx fees** by signing the `feePayer` slot on user transactions
+- **Auto-tops-up member signers** for proposal account rent (~0.05 SOL per top-up, covers ~7 sends per fund)
+- **Validates** that incoming txs have `feePayer` set to the paymaster pubkey before signing
+
+This is purely a UX layer — the underlying SSP Solana Multisig program enforces all multisig security regardless of who pays fees. See [solana-multisig README](https://github.com/RunOnFlux/Solana-Multisig#how-this-differs-from-squads-v4) for the protocol-level guarantees.
+
+### Endpoints
+
+- `GET /v1/sol/paymaster?chain=solDevnet` — returns `{ status, data: { chain, pubkey } }`. Wallet calls this to learn what address to set as `feePayer` when building a tx.
+- `POST /v1/sol/broadcast` — body `{ chain, serializedTxBase64 }`. Accepts a partially-signed tx (signed by both wallet and key members), validates `feePayer` matches paymaster, auto-tops-up member signers if needed, adds paymaster signature, broadcasts to Solana RPC. Returns `{ status, data: { signature } }`.
+
+### Setup
+
+The paymaster keypair is configured via `config/solanasecrets.ts`. The placeholder shipped with the repo is empty — production deployments must override with a real, funded keypair.
+
+**1. Generate a keypair** (one per supported chain):
+
+```bash
+solana-keygen new -o /tmp/paymaster-devnet.json --no-bip39-passphrase
+solana-keygen pubkey /tmp/paymaster-devnet.json
+# 9XYZAbcde123...   ← the paymaster pubkey (publicly visible to users)
+cat /tmp/paymaster-devnet.json
+# [12, 89, 41, 15, ...]   ← the 64-byte secret key (KEEP SECRET)
+```
+
+**2. Configure `config/solanasecrets.ts`** with the secret key. Two formats are accepted — the JSON byte array form (as `solana-keygen` produces) or a base58-encoded 64-byte secret key:
+
+```typescript
+// config/solanasecrets.ts
+export default {
+  solDevnet: {
+    paymasterSecretKey: '[12,89,41,15,...]', // JSON array form
+    // — OR —
+    // paymasterSecretKey: '4xY6...zKp9', // base58 form
+  },
+};
+```
+
+**3. Fund the paymaster wallet** with SOL on the relevant chain. For devnet:
+
+```bash
+solana airdrop 5 9XYZAbcde123... --url devnet
+```
+
+For mainnet, transfer SOL from a treasury account.
+
+**4. Restart the relay** to load the new keypair. On startup you should see:
+
+```
+[solPaymaster] loaded solDevnet paymaster 9XYZAbcde123...
+```
+
+**5. Verify** by hitting `GET https://your-relay/v1/sol/paymaster?chain=solDevnet` and confirming the returned pubkey matches.
+
+### Cost expectations
+
+Per user / per send (figures approximate, vary with rent rates):
+
+| Event | SOL cost | Recoverable? | Paid by |
+|---|---|---|---|
+| First send (init+create+approve+approve+execute) | ~0.01 SOL | Multisig rent: yes (closing program); proposal rent: yes (closing proposal) | Paymaster (auto-top-up + tx fees + init rent) |
+| Subsequent sends | ~0.007 SOL | Proposal rent: yes (closing proposal) | Paymaster (auto-top-up of leaf + tx fees) |
+| Tx fees alone | ~5,000 lamports = 0.000005 SOL | No (burned by network) | Paymaster |
+
+The auto-top-up mechanism transfers 0.05 SOL to a member's leaf address whenever its balance drops below 0.01 SOL, so most "top-ups" cover ~7 sends. SOL parked in user leaf addresses is recoverable but not auto-reclaimed by the relay — at scale you'd want a periodic sweep.
+
+### Monitoring
+
+Relay logs `[solPaymaster] broadcast {chain} tx {signature}` on every broadcast and `[solPaymaster] top-up {pubkey}` on every leaf funding. Operational priorities:
+
+- **Watch paymaster balance** — set up alerting at e.g. `< 1 SOL` for proactive top-ups
+- **Watch tx success rate** — broadcast failures usually indicate insufficient paymaster balance, RPC issues, or malformed user txs (the relay validates `feePayer` but trusts the rest of the user's tx structure)
+- **Rate-limit by `wkIdentity`** is not yet implemented — the broadcast endpoint currently uses `optionalWkIdentityAuth`. Adding strict per-user rate limiting + fee budgets is a known follow-up before high traffic
+
+### Disabling / unconfigured behavior
+
+If `paymasterSecretKey` is empty, the paymaster service throws on first call (`Solana paymaster not configured for {chain}`) and SSP Wallet's Solana send flow fails with a clear error. Solana support effectively becomes unavailable until configured. Other chains (BTC, EVM, etc.) are unaffected.
+
+---
+
 ## Enterprise Module
 
 SSP Relay includes an optional private enterprise module (`ssp-relay-enterprise`) available as a git submodule for **SSP Enterprise** - a Multi-Party Self-Custody Solution built on the proven SSP Wallet foundation, extending 2-of-2 multisig security to multi-party business coordination.

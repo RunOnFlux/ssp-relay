@@ -16,6 +16,8 @@ interface syncData {
   keyIdentity?: string;
   redeemScript?: string;
   witnessScript?: string;
+  // For chainType === 'sol', keyXpub/walletXpub are JSON-stringified
+  // arrays of 42 base58 Ed25519 leaf pubkeys.
 }
 
 async function getSync(req, res) {
@@ -96,7 +98,36 @@ async function postSync(req, res) {
     }
     if (
       !processedBody.keyXpub ||
-      typeof processedBody.keyXpub !== 'string' ||
+      typeof processedBody.keyXpub !== 'string'
+    ) {
+      throw new Error('Invalid XPUB of Key specified');
+    }
+    // For Solana chains the xpub field carries a JSON-stringified array of
+    // 42 base58 Ed25519 leaf pubkeys (Ed25519 has no non-hardened public-key
+    // derivation, so an actual xpub is useless). Validate accordingly.
+    if (processedBody.chain && /sol/i.test(processedBody.chain)) {
+      if (processedBody.keyXpub.length > 3000) {
+        throw new Error('Invalid XPUB of Key specified');
+      }
+      try {
+        const arr = JSON.parse(processedBody.keyXpub);
+        if (!Array.isArray(arr) || arr.length !== 42) {
+          throw new Error('expected 42-entry array');
+        }
+        for (const pk of arr) {
+          if (
+            typeof pk !== 'string' ||
+            pk.length < 32 ||
+            pk.length > 64 ||
+            !/^[1-9A-HJ-NP-Za-km-z]+$/.test(pk)
+          ) {
+            throw new Error('invalid base58 entry');
+          }
+        }
+      } catch {
+        throw new Error('Invalid XPUB of Key specified');
+      }
+    } else if (
       processedBody.keyXpub.length > 200 ||
       !/^[a-zA-Z0-9_:-]+$/.test(processedBody.keyXpub)
     ) {
@@ -161,14 +192,39 @@ async function postSync(req, res) {
       throw new Error('Too many public nonces submitted');
     }
 
-    // validate walletXpub (optional)
-    if (
-      processedBody.walletXpub &&
-      (typeof processedBody.walletXpub !== 'string' ||
+    // validate walletXpub (optional). For Solana, same JSON-array shape.
+    if (processedBody.walletXpub) {
+      if (typeof processedBody.walletXpub !== 'string') {
+        throw new Error('Invalid Wallet XPUB specified');
+      }
+      if (processedBody.chain && /sol/i.test(processedBody.chain)) {
+        if (processedBody.walletXpub.length > 3000) {
+          throw new Error('Invalid Wallet XPUB specified');
+        }
+        try {
+          const arr = JSON.parse(processedBody.walletXpub);
+          if (!Array.isArray(arr) || arr.length !== 42) {
+            throw new Error('expected 42-entry array');
+          }
+          for (const pk of arr) {
+            if (
+              typeof pk !== 'string' ||
+              pk.length < 32 ||
+              pk.length > 64 ||
+              !/^[1-9A-HJ-NP-Za-km-z]+$/.test(pk)
+            ) {
+              throw new Error('invalid base58 entry');
+            }
+          }
+        } catch {
+          throw new Error('Invalid Wallet XPUB specified');
+        }
+      } else if (
         processedBody.walletXpub.length > 200 ||
-        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.walletXpub))
-    ) {
-      throw new Error('Invalid Wallet XPUB specified');
+        !/^[a-zA-Z0-9_:-]+$/.test(processedBody.walletXpub)
+      ) {
+        throw new Error('Invalid Wallet XPUB specified');
+      }
     }
 
     // validate keyIdentity (optional)
