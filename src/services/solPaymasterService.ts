@@ -20,7 +20,9 @@
  *
  * Keypair resolution (per chain), tried in order:
  *   1. Env var: SSP_SOLANA_DEVNET_PAYMASTER_KEY / SSP_SOLANA_MAINNET_PAYMASTER_KEY
- *   2. Local file: ~/.config/ssp-relay/paymaster-{chain}.json
+ *   2. Local file: ~/.config/solana/ssp-paymaster-{devnet|mainnet}.json
+ *      (canonical Solana CLI keypair location — same place `solana-keygen
+ *      new` writes by default, so operators can use familiar tooling)
  *   3. (devnet only) auto-generate a fresh keypair, persist to (2)
  *   4. (mainnet) leave unconfigured — endpoint will return errors
  */
@@ -94,11 +96,13 @@ function envVarFor(chain: string): string {
 }
 
 function keypairPathFor(chain: string): string {
+  // Use the canonical Solana CLI config dir so operators can manage the
+  // keypair with `solana-keygen` / `solana config` etc.
   return path.join(
     os.homedir(),
     '.config',
-    'ssp-relay',
-    `paymaster-${chain}.json`,
+    'solana',
+    `ssp-paymaster-${chainSlot(chain)}.json`,
   );
 }
 

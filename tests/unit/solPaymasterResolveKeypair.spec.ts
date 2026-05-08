@@ -40,11 +40,17 @@ describe('Solana Paymaster Service — resolveKeypair', function () {
   });
 
   function paymasterFilePath(chain: string): string {
+    const slot =
+      chain === 'solDevnet'
+        ? 'devnet'
+        : chain === 'solMainnet'
+          ? 'mainnet'
+          : chain;
     return path.join(
       tmpHome,
       '.config',
-      'ssp-relay',
-      `paymaster-${chain}.json`,
+      'solana',
+      `ssp-paymaster-${slot}.json`,
     );
   }
 

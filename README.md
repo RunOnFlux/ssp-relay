@@ -102,7 +102,7 @@ This is purely a UX layer — the underlying SSP Solana Multisig program enforce
 The paymaster keypair is resolved at runtime from one of these sources, in order:
 
 1. **Env var** — `SSP_SOLANA_DEVNET_PAYMASTER_KEY` / `SSP_SOLANA_MAINNET_PAYMASTER_KEY`. Preferred for prod deploys (containers, secret managers).
-2. **Local file** — `~/.config/ssp-relay/paymaster-{chain}.json`. Convenient for local dev and single-host deploys.
+2. **Local file** — `~/.config/solana/ssp-paymaster-{devnet|mainnet}.json`. Convenient for local dev and single-host deploys.
 3. **Auto-generated (devnet only)** — if neither of the above is present, the relay generates a fresh devnet keypair on startup, persists it to (2) with `0o600` mode, and prints its pubkey + funding instructions. Mainnet is **never** auto-generated and must always be explicit.
 
 Both inputs accept either the JSON byte-array form (as `solana-keygen` produces) or a base58-encoded 64-byte secret key.
@@ -110,7 +110,7 @@ Both inputs accept either the JSON byte-array form (as `solana-keygen` produces)
 **Devnet — zero-config**: just start the relay. On first boot you'll see:
 
 ```
-[solPaymaster] solDevnet: generated new keypair at ~/.config/ssp-relay/paymaster-solDevnet.json — fund 9XYZAbcde123... with ~5 SOL via https://faucet.solana.com before sending
+[solPaymaster] solDevnet: generated new keypair at ~/.config/solana/ssp-paymaster-devnet.json — fund 9XYZAbcde123... with ~5 SOL via https://faucet.solana.com before sending
 ```
 
 Fund it (devnet faucet caps at ~2 SOL/req, rate-limited):
@@ -132,9 +132,9 @@ Subsequent restarts log:
 
 ```bash
 # A) Place at the standard path
-mkdir -p ~/.config/ssp-relay
-echo '[12,89,...]' > ~/.config/ssp-relay/paymaster-solMainnet.json
-chmod 600 ~/.config/ssp-relay/paymaster-solMainnet.json
+mkdir -p ~/.config/solana
+echo '[12,89,...]' > ~/.config/solana/ssp-paymaster-mainnet.json
+chmod 600 ~/.config/solana/ssp-paymaster-mainnet.json
 
 # B) Or pass via env var (preferred for container deploys)
 export SSP_SOLANA_MAINNET_PAYMASTER_KEY='[12,89,...]'
@@ -143,7 +143,7 @@ export SSP_SOLANA_MAINNET_PAYMASTER_KEY='[12,89,...]'
 Fund the resulting pubkey from a treasury account, then restart the relay. Until you do, mainnet startup logs a loud warning and the mainnet `/v1/sol/paymaster` endpoint returns "not configured" errors:
 
 ```
-[solPaymaster] solMainnet: NOT CONFIGURED — set SSP_SOLANA_MAINNET_PAYMASTER_KEY env var or place a keypair at ~/.config/ssp-relay/paymaster-solMainnet.json. Solana solMainnet paymaster endpoint will return errors until configured.
+[solPaymaster] solMainnet: NOT CONFIGURED — set SSP_SOLANA_MAINNET_PAYMASTER_KEY env var or place a keypair at ~/.config/solana/ssp-paymaster-mainnet.json. Solana solMainnet paymaster endpoint will return errors until configured.
 ```
 
 **Verify** by hitting `GET https://your-relay/v1/sol/paymaster?chain=solDevnet` and confirming the returned pubkey matches.
