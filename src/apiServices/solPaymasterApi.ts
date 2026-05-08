@@ -1,7 +1,4 @@
-import {
-  getPaymasterPubkey,
-  broadcastWithPaymaster,
-} from '../services/solPaymasterService';
+import solPaymasterService from '../services/solPaymasterService';
 import serviceHelper from '../services/serviceHelper';
 import log from '../lib/log';
 import { stripAuthFields } from '../middleware/authMiddleware';
@@ -23,7 +20,7 @@ async function getPaymaster(req, res) {
     if (!isValidChainId(chain)) {
       throw new Error('Invalid or unsupported chain');
     }
-    const pubkey = getPaymasterPubkey(chain);
+    const pubkey = solPaymasterService.getPaymasterPubkey(chain);
     res.json(serviceHelper.createDataMessage({ chain, pubkey }));
   } catch (error) {
     log.error(error);
@@ -53,7 +50,10 @@ async function postBroadcast(req, res) {
     ) {
       throw new Error('Invalid serialized transaction');
     }
-    const signature = await broadcastWithPaymaster(chain, serializedTxBase64);
+    const signature = await solPaymasterService.broadcastWithPaymaster(
+      chain,
+      serializedTxBase64,
+    );
     res.json(serviceHelper.createDataMessage({ signature }));
   } catch (error) {
     log.error(error);

@@ -50,7 +50,9 @@ interface PaymasterInfo {
 
 const paymasters: Record<string, PaymasterInfo | null> = {};
 
-function decodeSecretKey(input: string): Uint8Array {
+// Exported for unit testing — parses either base58 or JSON-array-form
+// secret keys produced by `solana-keygen new`.
+export function decodeSecretKey(input: string): Uint8Array {
   if (!input) {
     throw new Error('Paymaster secret key is empty');
   }
@@ -79,7 +81,11 @@ function getPaymaster(chain: string): PaymasterInfo {
   }
   // Map chain id → solana config slot.
   const slotKey =
-    chain === 'solDevnet' ? 'devnet' : chain === 'solMainnet' ? 'mainnet' : null;
+    chain === 'solDevnet'
+      ? 'devnet'
+      : chain === 'solMainnet'
+        ? 'mainnet'
+        : null;
   if (!slotKey) {
     throw new Error(`Unsupported Solana chain: ${chain}`);
   }
@@ -105,7 +111,7 @@ function getPaymaster(chain: string): PaymasterInfo {
 }
 
 /** Returns the configured paymaster public key for a chain. */
-export function getPaymasterPubkey(chain: string): string {
+function getPaymasterPubkey(chain: string): string {
   return getPaymaster(chain).pubkey.toBase58();
 }
 
@@ -124,7 +130,7 @@ export function getPaymasterPubkey(chain: string): string {
  *
  * Returns the broadcast tx signature.
  */
-export async function broadcastWithPaymaster(
+async function broadcastWithPaymaster(
   chain: string,
   serializedTxBase64: string,
 ): Promise<string> {
@@ -180,3 +186,8 @@ export async function broadcastWithPaymaster(
   log.info(`[solPaymaster] broadcast ${chain} tx ${signature}`);
   return signature;
 }
+
+export default {
+  getPaymasterPubkey,
+  broadcastWithPaymaster,
+};

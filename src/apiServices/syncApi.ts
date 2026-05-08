@@ -96,10 +96,7 @@ async function postSync(req, res) {
     ) {
       throw new Error('Invalid Wallet identity specified');
     }
-    if (
-      !processedBody.keyXpub ||
-      typeof processedBody.keyXpub !== 'string'
-    ) {
+    if (!processedBody.keyXpub || typeof processedBody.keyXpub !== 'string') {
       throw new Error('Invalid XPUB of Key specified');
     }
     // For Solana chains the xpub field carries a JSON-stringified array of
