@@ -19,12 +19,15 @@ import {
 const paymasterKp = Keypair.generate();
 const memberKp = Keypair.generate(); // a "wallet leaf" signer in the tx
 
+// Provide the paymaster via the env-var path of resolveKeypair() so the
+// service doesn't try to auto-generate a real file under ~/.config/ssp-relay/.
+process.env.SSP_SOLANA_DEVNET_PAYMASTER_KEY = bs58.encode(
+  paymasterKp.secretKey,
+);
+
 const configGetStub = sinon.stub(config, 'get').callsFake((path: string) => {
   if (path === 'solana.devnet') {
-    return {
-      rpc: 'https://api.devnet.solana.com',
-      paymasterSecretKey: bs58.encode(paymasterKp.secretKey),
-    };
+    return { rpc: 'https://api.devnet.solana.com' };
   }
   return (config.get as any).wrappedMethod.call(config, path);
 });
@@ -35,6 +38,7 @@ import solPaymasterService from '../../src/services/solPaymasterService';
 
 after(function () {
   configGetStub.restore();
+  delete process.env.SSP_SOLANA_DEVNET_PAYMASTER_KEY;
 });
 
 // Mimics the real wire shape: tx has feePayer = paymaster and the member
@@ -66,10 +70,7 @@ function reinstallConfigStub() {
   }
   sinon.stub(config, 'get').callsFake((path: string) => {
     if (path === 'solana.devnet') {
-      return {
-        rpc: 'https://api.devnet.solana.com',
-        paymasterSecretKey: bs58.encode(paymasterKp.secretKey),
-      };
+      return { rpc: 'https://api.devnet.solana.com' };
     }
     return undefined;
   });

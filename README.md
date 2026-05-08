@@ -99,46 +99,54 @@ This is purely a UX layer — the underlying SSP Solana Multisig program enforce
 
 ### Setup
 
-The paymaster keypair is configured via `config/solanasecrets.ts`. The placeholder shipped with the repo is empty — production deployments must override with a real, funded keypair.
+The paymaster keypair is resolved at runtime from one of these sources, in order:
 
-**1. Generate a keypair** (one per supported chain):
+1. **Env var** — `SSP_SOLANA_DEVNET_PAYMASTER_KEY` / `SSP_SOLANA_MAINNET_PAYMASTER_KEY`. Preferred for prod deploys (containers, secret managers).
+2. **Local file** — `~/.config/ssp-relay/paymaster-{chain}.json`. Convenient for local dev and single-host deploys.
+3. **Auto-generated (devnet only)** — if neither of the above is present, the relay generates a fresh devnet keypair on startup, persists it to (2) with `0o600` mode, and prints its pubkey + funding instructions. Mainnet is **never** auto-generated and must always be explicit.
+
+Both inputs accept either the JSON byte-array form (as `solana-keygen` produces) or a base58-encoded 64-byte secret key.
+
+**Devnet — zero-config**: just start the relay. On first boot you'll see:
+
+```
+[solPaymaster] solDevnet: generated new keypair at ~/.config/ssp-relay/paymaster-solDevnet.json — fund 9XYZAbcde123... with ~5 SOL via https://faucet.solana.com before sending
+```
+
+Fund it (devnet faucet caps at ~2 SOL/req, rate-limited):
 
 ```bash
-solana-keygen new -o /tmp/paymaster-devnet.json --no-bip39-passphrase
-solana-keygen pubkey /tmp/paymaster-devnet.json
-# 9XYZAbcde123...   ← the paymaster pubkey (publicly visible to users)
-cat /tmp/paymaster-devnet.json
-# [12, 89, 41, 15, ...]   ← the 64-byte secret key (KEEP SECRET)
+# via the public devnet RPC (works with Solana CLI)
+solana airdrop 2 9XYZAbcde123... --url devnet
+
+# or paste the pubkey at https://faucet.solana.com (web UI, captcha)
 ```
 
-**2. Configure `config/solanasecrets.ts`** with the secret key. Two formats are accepted — the JSON byte array form (as `solana-keygen` produces) or a base58-encoded 64-byte secret key:
+Subsequent restarts log:
 
-```typescript
-// config/solanasecrets.ts
-export default {
-  solDevnet: {
-    paymasterSecretKey: '[12,89,41,15,...]', // JSON array form
-    // — OR —
-    // paymasterSecretKey: '4xY6...zKp9', // base58 form
-  },
-};
+```
+[solPaymaster] solDevnet ready, paymaster=9XYZAbcde123... balance=4.9821 SOL (source: file)
 ```
 
-**3. Fund the paymaster wallet** with SOL on the relevant chain. For devnet:
+**Mainnet — explicit setup required**. Generate a keypair on a secure machine (or via `solana-keygen new`), then either:
 
 ```bash
-solana airdrop 5 9XYZAbcde123... --url devnet
+# A) Place at the standard path
+mkdir -p ~/.config/ssp-relay
+echo '[12,89,...]' > ~/.config/ssp-relay/paymaster-solMainnet.json
+chmod 600 ~/.config/ssp-relay/paymaster-solMainnet.json
+
+# B) Or pass via env var (preferred for container deploys)
+export SSP_SOLANA_MAINNET_PAYMASTER_KEY='[12,89,...]'
 ```
 
-For mainnet, transfer SOL from a treasury account.
-
-**4. Restart the relay** to load the new keypair. On startup you should see:
+Fund the resulting pubkey from a treasury account, then restart the relay. Until you do, mainnet startup logs a loud warning and the mainnet `/v1/sol/paymaster` endpoint returns "not configured" errors:
 
 ```
-[solPaymaster] loaded solDevnet paymaster 9XYZAbcde123...
+[solPaymaster] solMainnet: NOT CONFIGURED — set SSP_SOLANA_MAINNET_PAYMASTER_KEY env var or place a keypair at ~/.config/ssp-relay/paymaster-solMainnet.json. Solana solMainnet paymaster endpoint will return errors until configured.
 ```
 
-**5. Verify** by hitting `GET https://your-relay/v1/sol/paymaster?chain=solDevnet` and confirming the returned pubkey matches.
+**Verify** by hitting `GET https://your-relay/v1/sol/paymaster?chain=solDevnet` and confirming the returned pubkey matches.
 
 ### Cost expectations
 
@@ -162,7 +170,7 @@ Relay logs `[solPaymaster] broadcast {chain} tx {signature}` on every broadcast 
 
 ### Disabling / unconfigured behavior
 
-If `paymasterSecretKey` is empty, the paymaster service throws on first call (`Solana paymaster not configured for {chain}`) and SSP Wallet's Solana send flow fails with a clear error. Solana support effectively becomes unavailable until configured. Other chains (BTC, EVM, etc.) are unaffected.
+If no paymaster is configured for a chain (mainnet only — devnet auto-generates), the paymaster service throws on first call (`Solana paymaster not configured for {chain}`) and SSP Wallet's Solana send flow fails with a clear error. Solana support effectively becomes unavailable on that chain until configured. Other chains (BTC, EVM, devnet Solana) are unaffected.
 
 ---
 

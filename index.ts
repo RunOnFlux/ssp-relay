@@ -12,6 +12,7 @@ import serviceHelper from './src/services/serviceHelper';
 import databaseService from './src/services/databaseIndexCreationService';
 import ratesService from './src/services/ratesService';
 import networkFeesService from './src/services/networkFeesService';
+import { logPaymasterStatus } from './src/services/solPaymasterService';
 
 async function startServer() {
   try {
@@ -65,6 +66,10 @@ async function startServer() {
     });
 
     registerShutdownDependency('httpServer', server);
+
+    // Solana paymaster startup banner — fire-and-forget, balance lookup
+    // shouldn't block server readiness.
+    logPaymasterStatus().catch((e) => log.error(e));
   } catch (error) {
     log.error(error);
     process.exit(1);
