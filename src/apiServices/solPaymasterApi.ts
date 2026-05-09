@@ -21,7 +21,8 @@ async function getPaymaster(req, res) {
       throw new Error('Invalid or unsupported chain');
     }
     const pubkey = solPaymasterService.getPaymasterPubkey(chain);
-    res.json(serviceHelper.createDataMessage({ chain, pubkey }));
+    const fees = solPaymasterService.getFeeSchedule();
+    res.json(serviceHelper.createDataMessage({ chain, pubkey, fees }));
   } catch (error) {
     log.error(error);
     res.json(

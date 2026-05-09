@@ -1,7 +1,152 @@
 import { Alchemy, Network } from 'alchemy-sdk';
 import config from 'config';
+import axios from 'axios';
+
+interface TokenMetadata {
+  name: string | null;
+  symbol: string | null;
+  decimals: number | null;
+  logo: string | null;
+}
+
+const SOLANA_RPC: Record<string, string> = {
+  solDevnet: 'https://api.devnet.solana.com',
+  solMainnet: 'https://api.mainnet-beta.solana.com',
+};
+
+/**
+ * Fetch SPL token metadata via Solana JSON-RPC.
+ *
+ * Returns decimals (always available, from the mint account) plus optional
+ * name/symbol if the token has a Metaplex metadata account. Token images
+ * are not fetched here — the wallet falls back to a default token icon
+ * when `logo` is null. Operators with a Helius/Triton API key can swap
+ * the RPC URL via env override for richer Metaplex resolution.
+ */
+async function getSolanaTokenMetadata(
+  mintAddress: string,
+  network: string,
+): Promise<TokenMetadata> {
+  const url = SOLANA_RPC[network];
+  if (!url) throw new Error(`Unsupported Solana network: ${network}`);
+
+  // 1. Read the mint account to get decimals + supply (fast, always works).
+  const mintResp = await axios.post<{
+    result: {
+      value: {
+        data: {
+          parsed: { info: { decimals: number; supply: string } };
+        };
+      } | null;
+    };
+  }>(url, {
+    id: 1,
+    jsonrpc: '2.0',
+    method: 'getAccountInfo',
+    params: [mintAddress, { encoding: 'jsonParsed' }],
+  });
+  const mintInfo = mintResp.data.result?.value?.data?.parsed?.info;
+  if (!mintInfo) {
+    throw new Error('Mint account not found');
+  }
+  const decimals = mintInfo.decimals;
+
+  // 2. Try to fetch Metaplex metadata account for name/symbol. Optional —
+  // tokens without on-chain metadata still return decimals.
+  let name: string | null = null;
+  let symbol: string | null = null;
+  let logo: string | null = null;
+  try {
+    const meta = await fetchMetaplexMetadata(url, mintAddress);
+    if (meta) {
+      name = meta.name;
+      symbol = meta.symbol;
+      logo = meta.logo;
+    }
+  } catch {
+    // Non-fatal — token simply has no metadata account.
+  }
+
+  return { name, symbol, decimals, logo };
+}
+
+const METAPLEX_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
+
+async function fetchMetaplexMetadata(
+  rpcUrl: string,
+  mintAddress: string,
+): Promise<TokenMetadata | null> {
+  // Derive the Metaplex Metadata PDA: ["metadata", METAPLEX_PROGRAM_ID, mint]
+  const { PublicKey } = await import('@solana/web3.js');
+  const mintPubkey = new PublicKey(mintAddress);
+  const [metadataPda] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from('metadata'),
+      new PublicKey(METAPLEX_PROGRAM_ID).toBuffer(),
+      mintPubkey.toBuffer(),
+    ],
+    new PublicKey(METAPLEX_PROGRAM_ID),
+  );
+
+  const resp = await axios.post<{
+    result: {
+      value: { data: [string, string] } | null;
+    };
+  }>(rpcUrl, {
+    id: 1,
+    jsonrpc: '2.0',
+    method: 'getAccountInfo',
+    params: [metadataPda.toBase58(), { encoding: 'base64' }],
+  });
+
+  const accountData = resp.data.result?.value?.data;
+  if (!accountData) return null;
+  const raw = Buffer.from(accountData[0], 'base64');
+
+  // Metaplex metadata layout (relevant prefix):
+  //   1 byte: discriminator (key)
+  //   32: update_authority
+  //   32: mint
+  //   4 + N: name (length-prefixed)
+  //   4 + N: symbol (length-prefixed)
+  //   4 + N: uri (length-prefixed)
+  // Strings are zero-padded to fixed lengths (32 / 10 / 200 in v1).
+  if (raw.length < 1 + 32 + 32 + 4) return null;
+  let offset = 1 + 32 + 32;
+  const readString = (): string => {
+    const len = raw.readUInt32LE(offset);
+    offset += 4;
+    const str = raw.subarray(offset, offset + len).toString('utf8');
+    offset += len;
+    // Strip null padding bytes
+    return str.replace(/\0+$/, '').trim();
+  };
+  const name = readString();
+  const symbol = readString();
+  const uri = readString();
+
+  // Try to resolve image URL from the off-chain JSON pointed at by `uri`.
+  let logo: string | null = null;
+  if (uri && uri.startsWith('http')) {
+    try {
+      const offChain = await axios.get<{ image?: string }>(uri, {
+        timeout: 5000,
+      });
+      if (offChain.data?.image) logo = offChain.data.image;
+    } catch {
+      // Ignore — off-chain JSON may be flaky / 404 / unreachable
+    }
+  }
+
+  return { name: name || null, symbol: symbol || null, decimals: null, logo };
+}
 
 export async function getFromAlchemy(contractAddress: string, network: string) {
+  // Solana SPL tokens — read mint + Metaplex metadata via JSON-RPC.
+  if (network === 'solDevnet' || network === 'solMainnet') {
+    return getSolanaTokenMetadata(contractAddress, network);
+  }
+
   let networkValue: Network;
 
   // need to add here if new network with tokens

@@ -41,16 +41,93 @@ after(function () {
   delete process.env.SSP_SOLANA_DEVNET_PAYMASTER_KEY;
 });
 
-// Mimics the real wire shape: tx has feePayer = paymaster and the member
-// signer has already partial-signed (the wallet/key contributes its sig
-// before the relay adds the paymaster's feePayer signature).
+// Build a synthetic create_transaction ix that mirrors what the SSP Solana
+// Multisig SDK produces. The relay's validateReimbursement walks this ix
+// data to confirm a vault → paymaster transfer of >= minLamports is present.
+const PROGRAM_ID = new PublicKey(
+  'CisPSFTQoTnEqn5cUi1pgpfPp2xiTVRkK7eD5jBevxdX',
+);
+
+import { createHash } from 'crypto';
+const CREATE_TRANSACTION_DISCRIMINATOR = createHash('sha256')
+  .update('global:create_transaction')
+  .digest()
+  .subarray(0, 8);
+
+function encodeSystemTransferData(lamports: number): Buffer {
+  const buf = Buffer.alloc(12);
+  buf.writeUInt32LE(2, 0);
+  buf.writeBigUInt64LE(BigInt(lamports), 4);
+  return buf;
+}
+
+function buildCreateTransactionIxWithReimbursement(
+  paymaster: PublicKey,
+  vault: PublicKey,
+  reimbursementLamports: number,
+) {
+  // Encode minimal proposal message: 1 ix = SystemProgram.transfer(vault → paymaster)
+  const chunks: Buffer[] = [];
+  chunks.push(Buffer.from([1, 1, 1])); // numSigners, numWritableSigners, numWritableNonSigners
+  // account_keys
+  const akLen = Buffer.alloc(4);
+  akLen.writeUInt32LE(3, 0);
+  chunks.push(
+    akLen,
+    vault.toBuffer(),
+    SystemProgram.programId.toBuffer(),
+    paymaster.toBuffer(),
+  );
+  // instructions: 1
+  const ixLen = Buffer.alloc(4);
+  ixLen.writeUInt32LE(1, 0);
+  chunks.push(ixLen);
+  chunks.push(Buffer.from([1])); // programIdIndex (SystemProgram)
+  const aiLen = Buffer.alloc(4);
+  aiLen.writeUInt32LE(2, 0);
+  chunks.push(aiLen, Buffer.from([0, 2])); // [vault, paymaster]
+  const dLen = Buffer.alloc(4);
+  dLen.writeUInt32LE(12, 0);
+  chunks.push(dLen, encodeSystemTransferData(reimbursementLamports));
+  // address_table_lookups: empty
+  const altLen = Buffer.alloc(4);
+  altLen.writeUInt32LE(0, 0);
+  chunks.push(altLen);
+
+  const data = Buffer.concat([
+    CREATE_TRANSACTION_DISCRIMINATOR,
+    Buffer.from([0]), // vault_index
+    ...chunks,
+  ]);
+  return new (
+    require('@solana/web3.js') as typeof import('@solana/web3.js')
+  ).TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [],
+    data,
+  });
+}
+
+// Mimics the real wire shape: tx has feePayer = paymaster + create_transaction
+// ix with reimbursement embedded. The member signer has already partial-signed.
 function buildPaymasterPayingTx(opts: {
   paymaster: PublicKey;
   signerKp: Keypair;
+  reimbursementLamports?: number;
 }): string {
+  const reimbursement = opts.reimbursementLamports ?? 7_500_000;
   const tx = new Transaction();
   tx.recentBlockhash = 'EETubP5AKHgjPAhzPAFcb8BAY6hDtV5oqBe5LBdnDS6E';
   tx.feePayer = opts.paymaster;
+  tx.add(
+    buildCreateTransactionIxWithReimbursement(
+      opts.paymaster,
+      opts.signerKp.publicKey, // use the signer pubkey as a stand-in for vault
+      reimbursement,
+    ),
+  );
+  // Add a minimal SystemProgram transfer signed by the member so the outer
+  // tx has a real signer to satisfy partialSign.
   tx.add(
     SystemProgram.transfer({
       fromPubkey: opts.signerKp.publicKey,

@@ -48,6 +48,51 @@ import log from '../lib/log';
 const LEAF_TOP_UP_THRESHOLD_LAMPORTS = 10_000_000; // 0.01 SOL
 const LEAF_TOP_UP_AMOUNT_LAMPORTS = 50_000_000; // 0.05 SOL — covers ~7 sends
 
+// ============================================================================
+// Reimbursement fee schedule
+// ============================================================================
+// Every Solana broadcast must include a SystemProgram.transfer from the
+// vault PDA to the paymaster INSIDE the multisig proposal's executed
+// instructions. The paymaster signs feePayer for free in exchange. This
+// keeps the paymaster's balance flat-or-positive over time and protects
+// against abuse — the validator below rejects any tx without a sufficient
+// reimbursement.
+//
+// As of the program upgrade that added `close_transaction`, the wallet
+// also bundles a close instruction in the same outer tx as execute, which
+// refunds proposal rent (~0.007 SOL) to the creator (the leaf). That
+// dropped per-send fees by ~75× since the rent now cycles instead of being
+// permanently locked on-chain.
+//
+// Fee components covered:
+//   - Network tx fee:               ~15,000 lamports (3 sigs × 5,000) [non-recoverable]
+//   - Markup (positive accrual):    ~85,000 lamports (~0.000085 SOL margin per send)
+//   - First send adds:              ~2,500,000 (multisig PDA rent — never recovered)
+//   - SPL adds:                     ~2,500,000 (recipient ATA rent if creating)
+//
+// Wallets compute the same numbers when constructing txs (fetched via
+// `GET /v1/sol/paymaster?chain=...`). MIN_REIMBURSEMENT_LAMPORTS is the
+// floor enforced by validateReimbursement().
+export const FEE_SCHEDULE = {
+  /** Per-send base reimbursement (subsequent sends, native SOL).
+   *  ~0.0001 SOL — covers tx fee + small markup since rent cycles via close_transaction. */
+  subsequentSendLamports: 100_000, // 0.0001 SOL
+  /** Atomic first send (init+create+approve×2+execute+close), native SOL.
+   *  Adds multisig PDA rent (~2.4M) which stays permanently on-chain
+   *  (no close_multisig ix yet). */
+  firstSendLamports: 2_600_000, // 0.0026 SOL
+  /** Additional bump for SPL token transfers (covers recipient ATA rent
+   *  when creating a new ATA — overcharges slightly when ATA already
+   *  exists, in exchange for simpler logic and no info leak about
+   *  recipient's token holdings). */
+  splFeeBumpLamports: 2_500_000, // 0.0025 SOL
+  /** Floor enforced by validateReimbursement. Slightly under the
+   *  subsequent-send fee to allow client-side rounding drift. */
+  minReimbursementLamports: 50_000, // 0.00005 SOL
+} as const;
+
+export type FeeSchedule = typeof FEE_SCHEDULE;
+
 interface SolanaChainConfig {
   rpc: string;
 }
@@ -180,6 +225,140 @@ function getPaymasterPubkey(chain: string): string {
   return getPaymaster(chain).pubkey.toBase58();
 }
 
+/** Returns the fee schedule (lamports) for wallets to compute reimbursement. */
+function getFeeSchedule(): FeeSchedule {
+  return FEE_SCHEDULE;
+}
+
+// ============================================================================
+// Reimbursement validation
+// ============================================================================
+
+/**
+ * Anchor instruction discriminator: sha256("global:create_transaction")[:8].
+ * Computed at module load — the multisig program's `create_transaction` ix
+ * always begins its instruction data with these 8 bytes. Wallets that
+ * construct a Solana tx via the SDK's `buildCreateTransactionInstruction`
+ * always include this prefix.
+ */
+const CREATE_TRANSACTION_DISCRIMINATOR: Buffer = (() => {
+  // Lazy require to avoid pulling crypto at import time.
+
+  const { createHash } = require('crypto') as typeof import('crypto');
+  return createHash('sha256')
+    .update('global:create_transaction')
+    .digest()
+    .subarray(0, 8);
+})();
+
+/** SystemProgram pubkey, used to identify transfer ixs in the proposal. */
+const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
+
+/**
+ * Walks the outer tx's instructions, finds the `create_transaction` ix
+ * (which carries the proposal's TransactionMessage inline as ix data),
+ * decodes the message, and verifies it includes a SystemProgram.transfer
+ * to `paymasterPubkey` totaling at least `minLamports`.
+ *
+ * Throws on any failure mode: missing create_transaction ix, malformed
+ * proposal data, or insufficient reimbursement. The caller (broadcastWithPaymaster)
+ * surfaces the error to the client.
+ */
+export function validateReimbursement(
+  tx: Transaction,
+  paymasterPubkey: PublicKey,
+  minLamports: number,
+): void {
+  // Find the create_transaction ix in the outer tx. Every SSP-built Solana
+  // tx (consumer or enterprise, first or subsequent send) includes one.
+  const createIx = tx.instructions.find(
+    (ix) =>
+      ix.data.length >= 8 &&
+      ix.data.subarray(0, 8).equals(CREATE_TRANSACTION_DISCRIMINATOR),
+  );
+  if (!createIx) {
+    throw new Error(
+      'Tx does not contain a create_transaction instruction — paymaster only signs SSP multisig txs',
+    );
+  }
+
+  // Decode borsh-encoded args after the discriminator:
+  //   1 byte: vault_index (u8)
+  //   TransactionMessage:
+  //     u8 num_signers
+  //     u8 num_writable_signers
+  //     u8 num_writable_non_signers
+  //     Vec<Pubkey> account_keys = u32 LE length + N×32
+  //     Vec<CompiledInstruction> instructions = u32 LE length +
+  //       per ix: u8 program_id_index + Vec<u8> account_indexes (u32 + N) + Vec<u8> data (u32 + N)
+  //     Vec<MessageAddressTableLookup> address_table_lookups = u32 LE length + per: 32 + Vec<u8> + Vec<u8>
+  const data = createIx.data;
+  let off = 8 + 1; // skip discriminator + vault_index
+
+  // Header: 3 × u8
+  off += 3;
+
+  // account_keys
+  const accountKeysLen = data.readUInt32LE(off);
+  off += 4;
+  const accountKeys: PublicKey[] = [];
+  for (let i = 0; i < accountKeysLen; i++) {
+    accountKeys.push(new PublicKey(data.subarray(off, off + 32)));
+    off += 32;
+  }
+
+  // instructions
+  const ixCount = data.readUInt32LE(off);
+  off += 4;
+
+  let totalToPaymaster = 0;
+  for (let i = 0; i < ixCount; i++) {
+    const programIdIdx = data.readUInt8(off);
+    off += 1;
+    const accountIdxLen = data.readUInt32LE(off);
+    off += 4;
+    const accountIdxs = data.subarray(off, off + accountIdxLen);
+    off += accountIdxLen;
+    const ixDataLen = data.readUInt32LE(off);
+    off += 4;
+    const ixData = data.subarray(off, off + ixDataLen);
+    off += ixDataLen;
+
+    // Is this a SystemProgram instruction?
+    const ixProgram = accountKeys[programIdIdx];
+    if (!ixProgram || !ixProgram.equals(SYSTEM_PROGRAM_ID)) continue;
+
+    // SystemInstruction tag is u32 LE at offset 0:
+    //   2 = Transfer, with payload [u64 lamports]
+    if (ixData.length < 4) continue;
+    const tag = ixData.readUInt32LE(0);
+    if (tag !== 2) continue; // not Transfer
+    if (ixData.length < 12) continue;
+
+    // accountIndexes for Transfer: [from, to]
+    if (accountIdxs.length < 2) continue;
+    const toIdx = accountIdxs[1];
+    const toPubkey = accountKeys[toIdx];
+    if (!toPubkey || !toPubkey.equals(paymasterPubkey)) continue;
+
+    // Read u64 lamports as bigint (proposal can specify > 2^53 in theory,
+    // but practically all amounts fit in safe integer range — clamp to MAX
+    // for the comparison below).
+    const lamportsBig = ixData.readBigUInt64LE(4);
+    const lamports =
+      lamportsBig > BigInt(Number.MAX_SAFE_INTEGER)
+        ? Number.MAX_SAFE_INTEGER
+        : Number(lamportsBig);
+    totalToPaymaster += lamports;
+  }
+
+  if (totalToPaymaster < minLamports) {
+    throw new Error(
+      `Tx must reimburse paymaster at least ${minLamports} lamports inside the proposal (got ${totalToPaymaster})`,
+    );
+  }
+}
+
 /**
  * Add the paymaster's feePayer signature to a partially-signed tx and
  * broadcast it. Auto-tops-up the user's leaf keypair from paymaster if
@@ -208,6 +387,11 @@ async function broadcastWithPaymaster(
       `Tx feePayer (${tx.feePayer?.toBase58() ?? 'unset'}) does not match paymaster (${info.pubkey.toBase58()})`,
     );
   }
+
+  // Anti-abuse: require the proposal to reimburse the paymaster. Validates
+  // the create_transaction ix's inline TransactionMessage for a
+  // SystemProgram.transfer to paymaster of >= MIN_REIMBURSEMENT_LAMPORTS.
+  validateReimbursement(tx, info.pubkey, FEE_SCHEDULE.minReimbursementLamports);
 
   // Auto-fund member signers (wallet leaf + key leaf) so they can pay any
   // creator/payer rent the multisig program forces them to cover. Find all
@@ -300,4 +484,5 @@ export async function logPaymasterStatus(): Promise<void> {
 export default {
   getPaymasterPubkey,
   broadcastWithPaymaster,
+  getFeeSchedule,
 };
