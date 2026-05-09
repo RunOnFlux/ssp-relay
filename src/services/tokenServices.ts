@@ -14,15 +14,9 @@ const SOLANA_RPC: Record<string, string> = {
   solMainnet: 'https://api.mainnet-beta.solana.com',
 };
 
-/**
- * Fetch SPL token metadata via Solana JSON-RPC.
- *
- * Returns decimals (always available, from the mint account) plus optional
- * name/symbol if the token has a Metaplex metadata account. Token images
- * are not fetched here — the wallet falls back to a default token icon
- * when `logo` is null. Operators with a Helius/Triton API key can swap
- * the RPC URL via env override for richer Metaplex resolution.
- */
+// Returns decimals (from the mint account) plus optional name/symbol/logo
+// from a Metaplex metadata account if one exists. SPL tokens without
+// Metaplex metadata return null for name/symbol/logo.
 async function getSolanaTokenMetadata(
   mintAddress: string,
   network: string,
@@ -30,7 +24,6 @@ async function getSolanaTokenMetadata(
   const url = SOLANA_RPC[network];
   if (!url) throw new Error(`Unsupported Solana network: ${network}`);
 
-  // 1. Read the mint account to get decimals + supply (fast, always works).
   const mintResp = await axios.post<{
     result: {
       value: {
@@ -76,7 +69,6 @@ async function fetchMetaplexMetadata(
   rpcUrl: string,
   mintAddress: string,
 ): Promise<TokenMetadata | null> {
-  // Derive the Metaplex Metadata PDA: ["metadata", METAPLEX_PROGRAM_ID, mint]
   const { PublicKey } = await import('@solana/web3.js');
   const mintPubkey = new PublicKey(mintAddress);
   const [metadataPda] = PublicKey.findProgramAddressSync(
@@ -103,14 +95,8 @@ async function fetchMetaplexMetadata(
   if (!accountData) return null;
   const raw = Buffer.from(accountData[0], 'base64');
 
-  // Metaplex metadata layout (relevant prefix):
-  //   1 byte: discriminator (key)
-  //   32: update_authority
-  //   32: mint
-  //   4 + N: name (length-prefixed)
-  //   4 + N: symbol (length-prefixed)
-  //   4 + N: uri (length-prefixed)
-  // Strings are zero-padded to fixed lengths (32 / 10 / 200 in v1).
+  // Metaplex layout: 1 byte key + 32 update_authority + 32 mint, then
+  // length-prefixed name/symbol/uri zero-padded to fixed widths.
   if (raw.length < 1 + 32 + 32 + 4) return null;
   let offset = 1 + 32 + 32;
   const readString = (): string => {
@@ -118,7 +104,6 @@ async function fetchMetaplexMetadata(
     offset += 4;
     const str = raw.subarray(offset, offset + len).toString('utf8');
     offset += len;
-    // Strip null padding bytes
     return str.replace(/\0+$/, '').trim();
   };
   const name = readString();
@@ -134,7 +119,7 @@ async function fetchMetaplexMetadata(
       });
       if (offChain.data?.image) logo = offChain.data.image;
     } catch {
-      // Ignore — off-chain JSON may be flaky / 404 / unreachable
+      /* off-chain JSON unavailable — return without logo */
     }
   }
 
@@ -142,7 +127,6 @@ async function fetchMetaplexMetadata(
 }
 
 export async function getFromAlchemy(contractAddress: string, network: string) {
-  // Solana SPL tokens — read mint + Metaplex metadata via JSON-RPC.
   if (network === 'solDevnet' || network === 'solMainnet') {
     return getSolanaTokenMetadata(contractAddress, network);
   }

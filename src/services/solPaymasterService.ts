@@ -1,36 +1,16 @@
 /**
- * Solana paymaster service.
+ * Solana paymaster — signs feePayer slot for SSP multisig sends so users
+ * don't need SOL in their leaf keypair (vault PDA is the deposit address).
  *
- * SSP users hold their funds in a multisig vault PDA, but Solana txs
- * require a feePayer keypair (PDAs can't sign). Without a paymaster, users
- * would need to keep SOL in their leaf Ed25519 keypair address — bad UX
- * since the visible deposit address (vault) is different from the leaf.
- *
- * This service holds per-chain paymaster keypairs that sign tx feePayer
- * slots on behalf of users. The relay validates the inbound tx (signed by
- * both wallet+key members) and adds the paymaster's feePayer signature
- * before broadcasting.
- *
- * Cost model:
- *   First send (init+create+approve+approve+execute): ~0.01 SOL per user
- *     - Most goes to multisig PDA + proposal PDA rent (recoverable)
- *   Subsequent sends: ~0.007 SOL per send (proposal rent)
- *
- * Per-user rate limiting + fee budget tracking left for follow-up.
- *
- * Keypair resolution (per chain), tried in order:
- *   1. Env var: SSP_SOLANA_DEVNET_PAYMASTER_KEY / SSP_SOLANA_MAINNET_PAYMASTER_KEY
- *   2. Local file: ~/.config/solana/ssp-paymaster-{devnet|mainnet}.json
- *      (canonical Solana CLI keypair location — same place `solana-keygen
- *      new` writes by default, so operators can use familiar tooling)
- *   3. (devnet only) auto-generate a fresh keypair, persist to (2)
- *   4. (mainnet) leave unconfigured — endpoint will return errors
+ * Keypair resolution: env var → ~/.config/solana/ssp-paymaster-{slot}.json
+ * → (devnet only) auto-generate. See README for setup.
  */
 import config from 'config';
 import bs58 from 'bs58';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { createHash } from 'crypto';
 import {
   Connection,
   Keypair,
@@ -41,54 +21,19 @@ import {
 } from '@solana/web3.js';
 import log from '../lib/log';
 
-// Wallet's leaf must hold ~0.007 SOL to cover proposal PDA rent for a
-// multisig send (program design forces `payer = creator`, where creator
-// must be a multisig member). When relay broadcasts a user's tx, it
-// auto-tops-up the creator from paymaster if low.
-const LEAF_TOP_UP_THRESHOLD_LAMPORTS = 10_000_000; // 0.01 SOL
-const LEAF_TOP_UP_AMOUNT_LAMPORTS = 50_000_000; // 0.05 SOL — covers ~7 sends
+// Auto-top-up the leaf keypair when low — the program forces payer=creator
+// and creator must be a multisig member, so the leaf needs SOL for rent.
+const LEAF_TOP_UP_THRESHOLD_LAMPORTS = 10_000_000;
+const LEAF_TOP_UP_AMOUNT_LAMPORTS = 50_000_000;
 
-// ============================================================================
-// Reimbursement fee schedule
-// ============================================================================
-// Every Solana broadcast must include a SystemProgram.transfer from the
-// vault PDA to the paymaster INSIDE the multisig proposal's executed
-// instructions. The paymaster signs feePayer for free in exchange. This
-// keeps the paymaster's balance flat-or-positive over time and protects
-// against abuse — the validator below rejects any tx without a sufficient
-// reimbursement.
-//
-// As of the program upgrade that added `close_transaction`, the wallet
-// also bundles a close instruction in the same outer tx as execute, which
-// refunds proposal rent (~0.007 SOL) to the creator (the leaf). That
-// dropped per-send fees by ~75× since the rent now cycles instead of being
-// permanently locked on-chain.
-//
-// Fee components covered:
-//   - Network tx fee:               ~15,000 lamports (3 sigs × 5,000) [non-recoverable]
-//   - Markup (positive accrual):    ~85,000 lamports (~0.000085 SOL margin per send)
-//   - First send adds:              ~2,500,000 (multisig PDA rent — never recovered)
-//   - SPL adds:                     ~2,500,000 (recipient ATA rent if creating)
-//
-// Wallets compute the same numbers when constructing txs (fetched via
-// `GET /v1/sol/paymaster?chain=...`). MIN_REIMBURSEMENT_LAMPORTS is the
-// floor enforced by validateReimbursement().
+// Reimbursement fees the wallet pays via vault → paymaster transfer inside
+// the multisig proposal. Wallets fetch via GET /v1/sol/paymaster.
+// minReimbursementLamports is the floor enforced by validateReimbursement.
 export const FEE_SCHEDULE = {
-  /** Per-send base reimbursement (subsequent sends, native SOL).
-   *  ~0.0001 SOL — covers tx fee + small markup since rent cycles via close_transaction. */
-  subsequentSendLamports: 100_000, // 0.0001 SOL
-  /** Atomic first send (init+create+approve×2+execute+close), native SOL.
-   *  Adds multisig PDA rent (~2.4M) which stays permanently on-chain
-   *  (no close_multisig ix yet). */
-  firstSendLamports: 2_600_000, // 0.0026 SOL
-  /** Additional bump for SPL token transfers (covers recipient ATA rent
-   *  when creating a new ATA — overcharges slightly when ATA already
-   *  exists, in exchange for simpler logic and no info leak about
-   *  recipient's token holdings). */
-  splFeeBumpLamports: 2_500_000, // 0.0025 SOL
-  /** Floor enforced by validateReimbursement. Slightly under the
-   *  subsequent-send fee to allow client-side rounding drift. */
-  minReimbursementLamports: 50_000, // 0.00005 SOL
+  subsequentSendLamports: 100_000,
+  firstSendLamports: 2_600_000, // adds multisig PDA rent (~2.4M, permanent)
+  splFeeBumpLamports: 2_500_000, // recipient ATA rent if creating
+  minReimbursementLamports: 50_000,
 } as const;
 
 export type FeeSchedule = typeof FEE_SCHEDULE;
@@ -156,12 +101,8 @@ interface ResolveResult {
   source: 'env' | 'file' | 'generated';
 }
 
-/**
- * Resolves a Solana paymaster keypair for the given chain. Tries env var,
- * then a local file, then (devnet only) auto-generates and persists.
- * Returns null for mainnet if nothing is configured (the operator must
- * deliberately set up mainnet — never auto-gen).
- */
+// Mainnet returns null when unconfigured — auto-gen is devnet-only since
+// mainnet must always be a deliberate operator action.
 export function resolveKeypair(chain: string): ResolveResult | null {
   const envKey = process.env[envVarFor(chain)];
   if (envKey && envKey.length > 0) {
@@ -230,47 +171,24 @@ function getFeeSchedule(): FeeSchedule {
   return FEE_SCHEDULE;
 }
 
-// ============================================================================
-// Reimbursement validation
-// ============================================================================
+// Anchor discriminator for the multisig program's create_transaction ix.
+const CREATE_TRANSACTION_DISCRIMINATOR: Buffer = createHash('sha256')
+  .update('global:create_transaction')
+  .digest()
+  .subarray(0, 8);
 
-/**
- * Anchor instruction discriminator: sha256("global:create_transaction")[:8].
- * Computed at module load — the multisig program's `create_transaction` ix
- * always begins its instruction data with these 8 bytes. Wallets that
- * construct a Solana tx via the SDK's `buildCreateTransactionInstruction`
- * always include this prefix.
- */
-const CREATE_TRANSACTION_DISCRIMINATOR: Buffer = (() => {
-  // Lazy require to avoid pulling crypto at import time.
-
-  const { createHash } = require('crypto') as typeof import('crypto');
-  return createHash('sha256')
-    .update('global:create_transaction')
-    .digest()
-    .subarray(0, 8);
-})();
-
-/** SystemProgram pubkey, used to identify transfer ixs in the proposal. */
 const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
 
 /**
- * Walks the outer tx's instructions, finds the `create_transaction` ix
- * (which carries the proposal's TransactionMessage inline as ix data),
- * decodes the message, and verifies it includes a SystemProgram.transfer
- * to `paymasterPubkey` totaling at least `minLamports`.
- *
- * Throws on any failure mode: missing create_transaction ix, malformed
- * proposal data, or insufficient reimbursement. The caller (broadcastWithPaymaster)
- * surfaces the error to the client.
+ * Walks the outer tx for a `create_transaction` ix, borsh-decodes the
+ * inline proposal message, and confirms it has a SystemProgram.transfer
+ * to `paymasterPubkey` totaling at least `minLamports`. Throws otherwise.
  */
 export function validateReimbursement(
   tx: Transaction,
   paymasterPubkey: PublicKey,
   minLamports: number,
 ): void {
-  // Find the create_transaction ix in the outer tx. Every SSP-built Solana
-  // tx (consumer or enterprise, first or subsequent send) includes one.
   const createIx = tx.instructions.find(
     (ix) =>
       ix.data.length >= 8 &&
@@ -282,23 +200,12 @@ export function validateReimbursement(
     );
   }
 
-  // Decode borsh-encoded args after the discriminator:
-  //   1 byte: vault_index (u8)
-  //   TransactionMessage:
-  //     u8 num_signers
-  //     u8 num_writable_signers
-  //     u8 num_writable_non_signers
-  //     Vec<Pubkey> account_keys = u32 LE length + N×32
-  //     Vec<CompiledInstruction> instructions = u32 LE length +
-  //       per ix: u8 program_id_index + Vec<u8> account_indexes (u32 + N) + Vec<u8> data (u32 + N)
-  //     Vec<MessageAddressTableLookup> address_table_lookups = u32 LE length + per: 32 + Vec<u8> + Vec<u8>
+  // Borsh layout after the 8-byte discriminator: u8 vault_index, then
+  // TransactionMessage = 3×u8 header + Vec<Pubkey> + Vec<CompiledInstruction>
+  // + Vec<AddressTableLookup>.
   const data = createIx.data;
-  let off = 8 + 1; // skip discriminator + vault_index
+  let off = 8 + 1 + 3;
 
-  // Header: 3 × u8
-  off += 3;
-
-  // account_keys
   const accountKeysLen = data.readUInt32LE(off);
   off += 4;
   const accountKeys: PublicKey[] = [];
@@ -307,7 +214,6 @@ export function validateReimbursement(
     off += 32;
   }
 
-  // instructions
   const ixCount = data.readUInt32LE(off);
   off += 4;
 
@@ -324,26 +230,13 @@ export function validateReimbursement(
     const ixData = data.subarray(off, off + ixDataLen);
     off += ixDataLen;
 
-    // Is this a SystemProgram instruction?
     const ixProgram = accountKeys[programIdIdx];
     if (!ixProgram || !ixProgram.equals(SYSTEM_PROGRAM_ID)) continue;
-
-    // SystemInstruction tag is u32 LE at offset 0:
-    //   2 = Transfer, with payload [u64 lamports]
-    if (ixData.length < 4) continue;
-    const tag = ixData.readUInt32LE(0);
-    if (tag !== 2) continue; // not Transfer
-    if (ixData.length < 12) continue;
-
-    // accountIndexes for Transfer: [from, to]
+    if (ixData.length < 12 || ixData.readUInt32LE(0) !== 2) continue; // not Transfer
     if (accountIdxs.length < 2) continue;
-    const toIdx = accountIdxs[1];
-    const toPubkey = accountKeys[toIdx];
+    const toPubkey = accountKeys[accountIdxs[1]];
     if (!toPubkey || !toPubkey.equals(paymasterPubkey)) continue;
 
-    // Read u64 lamports as bigint (proposal can specify > 2^53 in theory,
-    // but practically all amounts fit in safe integer range — clamp to MAX
-    // for the comparison below).
     const lamportsBig = ixData.readBigUInt64LE(4);
     const lamports =
       lamportsBig > BigInt(Number.MAX_SAFE_INTEGER)
@@ -359,21 +252,6 @@ export function validateReimbursement(
   }
 }
 
-/**
- * Add the paymaster's feePayer signature to a partially-signed tx and
- * broadcast it. Auto-tops-up the user's leaf keypair from paymaster if
- * needed (SSP Solana Multisig program forces `payer = creator` for the
- * proposal PDA, where creator must be a member, so the wallet's leaf
- * keypair must hold a small SOL balance for proposal rent — paymaster
- * funds it transparently).
- *
- * `serializedTxBase64` should be a Solana Transaction with:
- *   - feePayer = paymaster pubkey
- *   - all member-level partial signatures in place (wallet+key)
- *   - paymaster's signer slot still unsigned
- *
- * Returns the broadcast tx signature.
- */
 async function broadcastWithPaymaster(
   chain: string,
   serializedTxBase64: string,
@@ -388,16 +266,10 @@ async function broadcastWithPaymaster(
     );
   }
 
-  // Anti-abuse: require the proposal to reimburse the paymaster. Validates
-  // the create_transaction ix's inline TransactionMessage for a
-  // SystemProgram.transfer to paymaster of >= MIN_REIMBURSEMENT_LAMPORTS.
   validateReimbursement(tx, info.pubkey, FEE_SCHEDULE.minReimbursementLamports);
 
-  // Auto-fund member signers (wallet leaf + key leaf) so they can pay any
-  // creator/payer rent the multisig program forces them to cover. Find all
-  // Signer pubkeys in the tx other than the paymaster and top up each one
-  // that's below threshold. The amount is small (covers ~7 sends per fund)
-  // and acts as a transparent fee sponsorship.
+  // Top up any non-paymaster signer that's below threshold so the proposal
+  // creator has rent to pay. Cycles back via close_transaction in steady state.
   const signerPubkeys = new Set<string>();
   for (const sig of tx.signatures) {
     const pk = sig.publicKey.toBase58();
@@ -436,11 +308,8 @@ async function broadcastWithPaymaster(
   return signature;
 }
 
-/**
- * Startup banner: for each Solana chain, print the configured paymaster
- * pubkey + balance, OR a loud notice if it's unconfigured (mainnet) or
- * was just generated (devnet) and needs funding.
- */
+// Startup banner: prints paymaster pubkey + balance per chain, or a loud
+// warning if unconfigured / freshly generated.
 export async function logPaymasterStatus(): Promise<void> {
   for (const chain of ['solDevnet', 'solMainnet']) {
     const slotKey = chainSlot(chain);
