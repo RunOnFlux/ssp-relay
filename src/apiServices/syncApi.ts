@@ -17,7 +17,7 @@ interface syncData {
   redeemScript?: string;
   witnessScript?: string;
   // For chainType === 'sol', keyXpub/walletXpub are JSON-stringified
-  // arrays of 42 base58 Ed25519 leaf pubkeys.
+  // arrays of 20 base58 Ed25519 leaf pubkeys.
 }
 
 async function getSync(req, res) {
@@ -100,7 +100,7 @@ async function postSync(req, res) {
       throw new Error('Invalid XPUB of Key specified');
     }
     // For Solana chains the xpub field carries a JSON-stringified array of
-    // 42 base58 Ed25519 leaf pubkeys (Ed25519 has no non-hardened public-key
+    // 20 base58 Ed25519 leaf pubkeys (Ed25519 has no non-hardened public-key
     // derivation, so an actual xpub is useless). Validate accordingly.
     if (processedBody.chain && /sol/i.test(processedBody.chain)) {
       if (processedBody.keyXpub.length > 3000) {
@@ -108,8 +108,8 @@ async function postSync(req, res) {
       }
       try {
         const arr = JSON.parse(processedBody.keyXpub);
-        if (!Array.isArray(arr) || arr.length !== 42) {
-          throw new Error('expected 42-entry array');
+        if (!Array.isArray(arr) || arr.length !== 20) {
+          throw new Error('expected 20-entry array');
         }
         for (const pk of arr) {
           if (
@@ -200,8 +200,8 @@ async function postSync(req, res) {
         }
         try {
           const arr = JSON.parse(processedBody.walletXpub);
-          if (!Array.isArray(arr) || arr.length !== 42) {
-            throw new Error('expected 42-entry array');
+          if (!Array.isArray(arr) || arr.length !== 20) {
+            throw new Error('expected 20-entry array');
           }
           for (const pk of arr) {
             if (
