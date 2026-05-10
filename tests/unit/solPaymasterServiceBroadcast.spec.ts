@@ -241,10 +241,14 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
     expect(memberSig!.signature).to.not.be.null;
   });
 
-  it('checks balances of all non-paymaster signers (top-up trigger)', async function () {
+  it('does not query signer balances (leaf top-up was removed)', async function () {
+    // After the program upgrade decoupled creator/payer, the paymaster pays
+    // proposal rent directly via the `payer` field and gets it back on
+    // close_transaction — leaves never need SOL, so the broadcast service
+    // no longer queries non-paymaster signer balances or does any top-up.
     const balanceStub = sinon
       .stub(Connection.prototype, 'getBalance')
-      .resolves(1_000_000_000); // above threshold — no top-up performed
+      .resolves(1_000_000_000);
     sinon.stub(Connection.prototype, 'sendRawTransaction').resolves('5xSig');
     sinon
       .stub(Connection.prototype, 'confirmTransaction')
@@ -254,69 +258,14 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
       paymaster: paymasterKp.publicKey,
       signerKp: memberKp,
     });
-
-    await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64);
-
-    // getBalance called for each unique non-paymaster signer.
-    expect(balanceStub.calledOnce).to.equal(true);
-    const checkedPubkey = (
-      balanceStub.firstCall.args[0] as PublicKey
-    ).toBase58();
-    expect(checkedPubkey).to.equal(memberKp.publicKey.toBase58());
-  });
-
-  it('does not trigger top-up when signer balance is above threshold', async function () {
-    // Build the tx FIRST (its internal Transaction.add() is unrelated to
-    // the top-up branch), then install the spy.
-    const txB64 = buildPaymasterPayingTx({
-      paymaster: paymasterKp.publicKey,
-      signerKp: memberKp,
-    });
-
-    // 0.05 SOL == 50,000,000 lamports — well above the 0.01 SOL top-up threshold.
-    sinon.stub(Connection.prototype, 'getBalance').resolves(50_000_000);
-    sinon.stub(Connection.prototype, 'sendRawTransaction').resolves('5xSig');
-    sinon
-      .stub(Connection.prototype, 'confirmTransaction')
-      .resolves({ value: { err: null } } as any);
 
     const addSpy = sinon.spy(Transaction.prototype, 'add');
     await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64);
 
-    // Service must NOT have built a top-up tx (which would call
-    // `new Transaction().add(SystemProgram.transfer(...))` internally).
+    // No balance lookup — leaves are never funded by the paymaster anymore.
+    expect(balanceStub.called).to.equal(false);
+    // No internal Transaction.add() — the broadcast service doesn't build
+    // its own auxiliary txs.
     expect(addSpy.called).to.equal(false);
-  });
-
-  it('attempts top-up when signer balance is below threshold', async function () {
-    const txB64 = buildPaymasterPayingTx({
-      paymaster: paymasterKp.publicKey,
-      signerKp: memberKp,
-    });
-
-    // 0.005 SOL == 5,000,000 lamports — below the 0.01 SOL threshold.
-    sinon.stub(Connection.prototype, 'getBalance').resolves(5_000_000);
-    sinon.stub(Connection.prototype, 'sendRawTransaction').resolves('5xSig');
-    sinon
-      .stub(Connection.prototype, 'confirmTransaction')
-      .resolves({ value: { err: null } } as any);
-
-    const addSpy = sinon.spy(Transaction.prototype, 'add');
-
-    let threw: Error | null = null;
-    try {
-      await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64);
-    } catch (e) {
-      // sendAndConfirmTransaction is a top-level export (not a Connection
-      // method), so we can't intercept it without proxyquire/esmock. The
-      // top-up path will fail downstream — that's fine: we just want to
-      // assert the service tried to build a top-up tx.
-      threw = e as Error;
-    }
-    // The service constructed a top-up Transaction and called .add() on it.
-    expect(addSpy.called).to.equal(true);
-    // Either the test errored downstream (real network call to sendAndConfirm)
-    // or finished — both prove the top-up branch executed.
-    expect(threw === null || threw instanceof Error).to.equal(true);
   });
 });
