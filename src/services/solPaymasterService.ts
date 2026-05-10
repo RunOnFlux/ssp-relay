@@ -11,27 +11,25 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { createHash } from 'crypto';
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  sendAndConfirmTransaction,
-} from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import log from '../lib/log';
-
-// Auto-top-up the leaf keypair when low — the program forces payer=creator
-// and creator must be a multisig member, so the leaf needs SOL for rent.
-const LEAF_TOP_UP_THRESHOLD_LAMPORTS = 10_000_000;
-const LEAF_TOP_UP_AMOUNT_LAMPORTS = 50_000_000;
 
 // Reimbursement fees the wallet pays via vault → paymaster transfer inside
 // the multisig proposal. Wallets fetch via GET /v1/sol/paymaster.
 // minReimbursementLamports is the floor enforced by validateReimbursement.
+//
+// First-send rent (consumer 2-of-2):
+//   multisig PDA  86 bytes → ~0.00149 SOL  (permanent — never refunded)
+//   network fee   ~3 sigs  → ~0.000015 SOL
+//   proposal rent          → refunded via close_transaction (net 0)
+//   total cost            ≈ 0.00150 SOL = 1.5M lamports
+//   firstSendLamports     = 1.7M  → ~200K lamport surplus per first send
+//
+// Subsequent send: 5K network fee, paymaster collects 100K → ~95K surplus.
+// SPL with new ATA: + 2.04M ATA rent, paymaster collects extra 2.5M → ~460K surplus.
 export const FEE_SCHEDULE = {
   subsequentSendLamports: 100_000,
-  firstSendLamports: 2_600_000, // adds multisig PDA rent (~2.4M, permanent)
+  firstSendLamports: 1_700_000, // multisig PDA rent (~1.5M, permanent) + network + small bump
   splFeeBumpLamports: 2_500_000, // recipient ATA rent if creating
   minReimbursementLamports: 50_000,
 } as const;
@@ -267,35 +265,6 @@ async function broadcastWithPaymaster(
   }
 
   validateReimbursement(tx, info.pubkey, FEE_SCHEDULE.minReimbursementLamports);
-
-  // Top up any non-paymaster signer that's below threshold so the proposal
-  // creator has rent to pay. Cycles back via close_transaction in steady state.
-  const signerPubkeys = new Set<string>();
-  for (const sig of tx.signatures) {
-    const pk = sig.publicKey.toBase58();
-    if (pk !== info.pubkey.toBase58()) {
-      signerPubkeys.add(pk);
-    }
-  }
-  for (const pk of signerPubkeys) {
-    const target = new PublicKey(pk);
-    const balance = await info.connection.getBalance(target);
-    if (balance < LEAF_TOP_UP_THRESHOLD_LAMPORTS) {
-      log.info(
-        `[solPaymaster] top-up ${pk} (balance ${balance} < ${LEAF_TOP_UP_THRESHOLD_LAMPORTS})`,
-      );
-      const fundTx = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: info.pubkey,
-          toPubkey: target,
-          lamports: LEAF_TOP_UP_AMOUNT_LAMPORTS,
-        }),
-      );
-      await sendAndConfirmTransaction(info.connection, fundTx, [info.keypair], {
-        commitment: 'confirmed',
-      });
-    }
-  }
 
   tx.partialSign(info.keypair);
 
