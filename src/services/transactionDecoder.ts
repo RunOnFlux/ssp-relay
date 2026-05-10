@@ -171,10 +171,141 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
   }
 }
 
+/**
+ * Decode an SSP Solana proposal payload for the push-notification body.
+ *
+ * The wallet sends `tx` actions for SOL chains as a JSON wrapper:
+ *   { unsignedTxBase64, needsInit, walletInitSigBase64, ... }
+ *
+ * We pull `unsignedTxBase64` out, deserialize it as a Solana tx, find the
+ * `create_transaction` ix, and walk its inline proposal message to identify
+ * the user's send (vault → recipient) and the paymaster reimbursement
+ * (vault → paymaster, used as the displayed fee).
+ */
+async function decodeSOLTransactionForApproval(rawTx, chain) {
+  try {
+    const { Transaction, PublicKey, SystemProgram } =
+      await import('@solana/web3.js');
+    const { createHash } = await import('crypto');
+
+    let serialized = rawTx;
+    try {
+      const parsed = JSON.parse(rawTx);
+      if (parsed && typeof parsed.unsignedTxBase64 === 'string') {
+        serialized = parsed.unsignedTxBase64;
+      }
+    } catch {
+      // not JSON — assume it's already a base64 tx
+    }
+
+    const decimals = blockchains[chain].decimals;
+    const tokenSymbol = blockchains[chain].symbol;
+
+    const tx = Transaction.from(Buffer.from(serialized, 'base64'));
+    if (!tx.feePayer) {
+      throw new Error('Solana tx missing feePayer');
+    }
+    const paymasterPubkey = tx.feePayer;
+
+    const createIxDiscriminator = createHash('sha256')
+      .update('global:create_transaction')
+      .digest()
+      .subarray(0, 8);
+
+    const createIx = tx.instructions.find(
+      (ix) =>
+        ix.data.length >= 8 &&
+        Buffer.from(ix.data).subarray(0, 8).equals(createIxDiscriminator),
+    );
+    if (!createIx) {
+      throw new Error('Solana tx does not contain a create_transaction ix');
+    }
+
+    const data = Buffer.from(createIx.data);
+    let off = 8 + 1 + 3; // skip discriminator + vault_index + 3-byte header
+    const accountKeysLen = data.readUInt32LE(off);
+    off += 4;
+    const accountKeys = [];
+    for (let i = 0; i < accountKeysLen; i++) {
+      accountKeys.push(new PublicKey(data.subarray(off, off + 32)));
+      off += 32;
+    }
+    const ixCount = data.readUInt32LE(off);
+    off += 4;
+
+    const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+
+    let userReceiver = '';
+    let userAmountBase = '0';
+    let userTokenSymbol = tokenSymbol;
+
+    for (let i = 0; i < ixCount; i++) {
+      off += 1; // programIdIndex consumed below via ixProgram lookup
+      const programIdIdx = data.readUInt8(off - 1);
+      const aiLen = data.readUInt32LE(off);
+      off += 4;
+      const accountIdxs = data.subarray(off, off + aiLen);
+      off += aiLen;
+      const ixDataLen = data.readUInt32LE(off);
+      off += 4;
+      const ixData = data.subarray(off, off + ixDataLen);
+      off += ixDataLen;
+
+      const ixProgram = accountKeys[programIdIdx];
+      if (!ixProgram) continue;
+
+      if (ixProgram.equals(SystemProgram.programId)) {
+        // SystemProgram::transfer = tag 2 (4-byte LE) + 8-byte lamports
+        if (ixData.length < 12 || ixData.readUInt32LE(0) !== 2) continue;
+        if (accountIdxs.length < 2) continue;
+        const toPubkey = accountKeys[accountIdxs[1]];
+        if (!toPubkey) continue;
+        if (toPubkey.equals(paymasterPubkey)) continue; // skip fee transfer
+        userReceiver = toPubkey.toBase58();
+        userAmountBase = ixData.readBigUInt64LE(4).toString();
+        continue;
+      }
+
+      if (ixProgram.toBase58() === TOKEN_PROGRAM) {
+        const tag = ixData.readUInt8(0);
+        if ((tag !== 3 && tag !== 12) || ixData.length < 9) continue;
+        if (accountIdxs.length < 2) continue;
+        const destAta = accountKeys[accountIdxs[1]];
+        if (!destAta) continue;
+        userReceiver = destAta.toBase58();
+        userAmountBase = ixData.readBigUInt64LE(1).toString();
+        userTokenSymbol = '(token)';
+      }
+    }
+
+    const isNative = userTokenSymbol === tokenSymbol;
+    const displayAmount = isNative
+      ? new BigNumber(userAmountBase).dividedBy(10 ** decimals).toFixed()
+      : userAmountBase;
+
+    return {
+      receiver: userReceiver || 'decodingError',
+      amount: displayAmount,
+      tokenSymbol: userTokenSymbol,
+    };
+  } catch (error) {
+    log.error(error);
+    return {
+      receiver: 'decodingError',
+      amount: 'decodingError',
+      tokenSymbol: 'decodingError',
+    };
+  }
+}
+
 async function decodeTransactionForApproval(rawTx, chain = 'btc') {
   try {
     if (blockchains[chain].chainType === 'evm') {
       const decoded = await decodeEVMTransactionForApproval(rawTx, chain);
+      return decoded;
+    }
+    if (blockchains[chain].chainType === 'sol') {
+      const decoded = await decodeSOLTransactionForApproval(rawTx, chain);
       return decoded;
     }
     log.info('Decoding transaction for approval');
