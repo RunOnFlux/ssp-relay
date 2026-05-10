@@ -104,9 +104,13 @@ async function postAction(req, res) {
     ) {
       throw new Error('Invalid Action specified');
     }
+    // Most actions carry data in the payload; some (e.g. solinitsigrequest —
+    // wallet asking key to sign the Solana multisig init message) have no
+    // useful payload because path + wkIdentity already identify the request.
+    const allowsEmptyPayload = processedBody.action === 'solinitsigrequest';
     if (
-      !processedBody.payload ||
       typeof processedBody.payload !== 'string' ||
+      (!allowsEmptyPayload && !processedBody.payload) ||
       processedBody.payload.length > 10000000
     ) {
       throw new Error('Invalid Payload specified'); // max 10MB
@@ -272,6 +276,7 @@ async function postAction(req, res) {
       data.action === 'publicnoncesrequest' ||
       data.action === 'evmsigningrequest' ||
       data.action === 'wksigningrequest' ||
+      data.action === 'solinitsigrequest' ||
       data.action === 'enterprisevaultxpub' ||
       data.action === 'enterprisevaultsign' ||
       data.action === 'enterprisekeynoncesync' ||
@@ -295,6 +300,7 @@ async function postAction(req, res) {
       data.action === 'evmsigned' ||
       data.action === 'wksigningrejected' ||
       data.action === 'wksigned' ||
+      data.action === 'solinitsig' ||
       data.action === 'enterprisevaultxpubrejected' ||
       data.action === 'enterprisevaultxpubsigned' ||
       data.action === 'enterprisevaultsignrejected' ||
