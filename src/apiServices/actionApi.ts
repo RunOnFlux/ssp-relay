@@ -272,6 +272,8 @@ async function postAction(req, res) {
       data.action === 'publicnoncesrequest' ||
       data.action === 'evmsigningrequest' ||
       data.action === 'wksigningrequest' ||
+      data.action === 'sol_broadcasted' ||
+      data.action === 'sol_broadcast_failed' ||
       data.action === 'enterprisevaultxpub' ||
       data.action === 'enterprisevaultsign' ||
       data.action === 'enterprisekeynoncesync' ||
