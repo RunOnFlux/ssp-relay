@@ -174,13 +174,14 @@ async function decodeEVMTransactionForApproval(rawTx, chain = 'eth') {
 /**
  * Decode an SSP Solana proposal payload for the push-notification body.
  *
- * The wallet sends `tx` actions for SOL chains as a JSON wrapper:
- *   { unsignedTxBase64, needsInit, walletInitSigBase64, ... }
+ * The wallet sends `tx` actions for SOL chains as a bare base64-serialized
+ * Solana transaction (same wire format for first / subsequent sends; on
+ * first send the tx contains a permissionless `initialize_multisig` ix at
+ * the head, which we just skip when walking ixs).
  *
- * We pull `unsignedTxBase64` out, deserialize it as a Solana tx, find the
- * `create_transaction` ix, and walk its inline proposal message to identify
- * the user's send (vault → recipient) and the paymaster reimbursement
- * (vault → paymaster, used as the displayed fee).
+ * We deserialize, find the `create_transaction` ix, and walk its inline
+ * proposal message to identify the user's send (vault → recipient) and the
+ * paymaster reimbursement (vault → paymaster, used as the displayed fee).
  */
 async function decodeSOLTransactionForApproval(rawTx, chain) {
   try {
@@ -188,20 +189,10 @@ async function decodeSOLTransactionForApproval(rawTx, chain) {
       await import('@solana/web3.js');
     const { createHash } = await import('crypto');
 
-    let serialized = rawTx;
-    try {
-      const parsed = JSON.parse(rawTx);
-      if (parsed && typeof parsed.unsignedTxBase64 === 'string') {
-        serialized = parsed.unsignedTxBase64;
-      }
-    } catch {
-      // not JSON — assume it's already a base64 tx
-    }
-
     const decimals = blockchains[chain].decimals;
     const tokenSymbol = blockchains[chain].symbol;
 
-    const tx = Transaction.from(Buffer.from(serialized, 'base64'));
+    const tx = Transaction.from(Buffer.from(rawTx, 'base64'));
     if (!tx.feePayer) {
       throw new Error('Solana tx missing feePayer');
     }

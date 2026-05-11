@@ -7,10 +7,6 @@ import socket from '../lib/socket';
 import blockchains from '../services/blockchains';
 import { stripAuthFields } from '../middleware/authMiddleware';
 import { validateWkSigningRequestPayload } from '../lib/wkSignValidation';
-import {
-  waitForBroadcastResult,
-  resolveBroadcastResult,
-} from '../services/solBroadcastResolver';
 
 interface utxo {
   txid: string;
@@ -276,8 +272,6 @@ async function postAction(req, res) {
       data.action === 'publicnoncesrequest' ||
       data.action === 'evmsigningrequest' ||
       data.action === 'wksigningrequest' ||
-      data.action === 'sol_broadcasted' ||
-      data.action === 'sol_broadcast_failed' ||
       data.action === 'enterprisevaultxpub' ||
       data.action === 'enterprisevaultsign' ||
       data.action === 'enterprisekeynoncesync' ||
@@ -289,20 +283,6 @@ async function postAction(req, res) {
       await notificationService
         .sendNotificationKey(data.wkIdentity, data)
         .catch((error) => log.error(error));
-      // Wallet just told us the SOL broadcast outcome — wake up any
-      // waiting Key POST so it returns the result inline (avoids a
-      // separate poll on the Key device).
-      if (data.action === 'sol_broadcasted') {
-        resolveBroadcastResult(data.wkIdentity, {
-          ok: true,
-          signature: data.payload || '',
-        });
-      } else if (data.action === 'sol_broadcast_failed') {
-        resolveBroadcastResult(data.wkIdentity, {
-          ok: false,
-          error: data.payload || 'broadcast failed',
-        });
-      }
     }
 
     // SSP Wallet listens for these actions
@@ -315,8 +295,6 @@ async function postAction(req, res) {
       data.action === 'evmsigned' ||
       data.action === 'wksigningrejected' ||
       data.action === 'wksigned' ||
-      data.action === 'sol_co_signed' ||
-      data.action === 'sol_rejected' ||
       data.action === 'enterprisevaultxpubrejected' ||
       data.action === 'enterprisevaultxpubsigned' ||
       data.action === 'enterprisevaultsignrejected' ||
@@ -329,21 +307,6 @@ async function postAction(req, res) {
     ) {
       const ioWallet = socket.getIOWallet();
       ioWallet.to(data.wkIdentity).emit(data.action, data);
-    }
-
-    // For Solana co-signing: the Key device's POST blocks here until the
-    // wallet (or relay-side timeout) reports the broadcast outcome. The
-    // outcome is folded into the response body so Key can display the
-    // txid + explorer link without doing a separate poll.
-    if (data.action === 'sol_co_signed') {
-      const broadcast = await waitForBroadcastResult(data.wkIdentity, 60_000);
-      res.json(
-        serviceHelper.createDataMessage({
-          ...(actionOK as Record<string, unknown>),
-          broadcast,
-        }),
-      );
-      return;
     }
 
     res.json(result);
