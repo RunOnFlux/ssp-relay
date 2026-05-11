@@ -68,7 +68,56 @@ async function postBroadcast(req, res) {
   }
 }
 
+function isValidSolanaPubkey(v: unknown): v is string {
+  return (
+    typeof v === 'string' &&
+    v.length >= 32 &&
+    v.length <= 44 &&
+    // base58 alphabet
+    /^[1-9A-HJ-NP-Za-km-z]+$/.test(v)
+  );
+}
+
+async function postSetup(req, res) {
+  try {
+    const processedBody = stripAuthFields(req.body) as Record<string, unknown>;
+    const chain = processedBody.chain;
+    const walletPubkey = processedBody.walletPubkey;
+    const keyPubkey = processedBody.keyPubkey;
+    if (!isValidChainId(chain)) {
+      throw new Error('Invalid or unsupported chain');
+    }
+    if (!isValidSolanaPubkey(walletPubkey)) {
+      throw new Error('Invalid walletPubkey');
+    }
+    if (!isValidSolanaPubkey(keyPubkey)) {
+      throw new Error('Invalid keyPubkey');
+    }
+    if (walletPubkey === keyPubkey) {
+      throw new Error('walletPubkey and keyPubkey must differ');
+    }
+
+    const result = await solPaymasterService.setupSolMultisig({
+      chain,
+      walletPubkey,
+      keyPubkey,
+    });
+
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(
+        error instanceof Error ? error.message : 'Unknown error',
+        error instanceof Error ? error.name : 'Error',
+        '500',
+      ),
+    );
+  }
+}
+
 export default {
   getPaymaster,
   postBroadcast,
+  postSetup,
 };

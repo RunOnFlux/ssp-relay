@@ -229,4 +229,197 @@ describe('Solana Paymaster API', function () {
       expect(body.data.message).to.match(/feePayer/);
     });
   });
+
+  describe('POST /v1/sol/setup — postSetup', function () {
+    afterEach(function () {
+      sinon.restore();
+    });
+
+    // Two known-valid base58 pubkeys for the wallet+key leaves. These are
+    // ed25519 pubkeys (32 bytes → ~44 chars base58) — static fixtures only;
+    // they don't sign anything. base58 alphabet is `[1-9A-HJ-NP-Za-km-z]`
+    // (no 0/O/I/l).
+    const FAKE_WALLET_PUB = 'D7v8Z2Yk1XQGv8sRf3jPmK9LtH4n2BcWdEhA6pNuS5xT';
+    const FAKE_KEY_PUB = 'F3wQ8L2nM4kRpX5jY7uV6bH9cT8sA1dN2gECiB4mP3xK';
+
+    function makeReq(body: unknown) {
+      return httpMocks.createRequest({
+        method: 'POST',
+        url: '/v1/sol/setup',
+        body,
+      });
+    }
+
+    it('calls the service and returns the bundled setup result', async function () {
+      const setupStub = sinon
+        .stub(solPaymasterService, 'setupSolMultisig')
+        .resolves({
+          signature: '5setupSig',
+          multisigAddress: 'Multisig111',
+          vaultAddress: 'Vault111',
+          nonceAccount: 'Nonce111',
+          nonceValue: 'NonceHashDeadbeef',
+          alreadyProvisioned: false,
+        });
+      const req = makeReq({
+        chain: 'solDevnet',
+        walletPubkey: FAKE_WALLET_PUB,
+        keyPubkey: FAKE_KEY_PUB,
+      });
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      const body = JSON.parse(res._getData());
+      expect(body.status).to.equal('success');
+      expect(body.data.signature).to.equal('5setupSig');
+      expect(body.data.multisigAddress).to.equal('Multisig111');
+      expect(body.data.nonceAccount).to.equal('Nonce111');
+      expect(body.data.nonceValue).to.equal('NonceHashDeadbeef');
+      expect(body.data.alreadyProvisioned).to.equal(false);
+      expect(setupStub.calledOnce).to.equal(true);
+      const [args] = setupStub.firstCall.args;
+      expect(args.chain).to.equal('solDevnet');
+      expect(args.walletPubkey).to.equal(FAKE_WALLET_PUB);
+      expect(args.keyPubkey).to.equal(FAKE_KEY_PUB);
+    });
+
+    it('returns the existing state when service reports already provisioned', async function () {
+      sinon.stub(solPaymasterService, 'setupSolMultisig').resolves({
+        signature: null,
+        multisigAddress: 'Multisig222',
+        vaultAddress: 'Vault222',
+        nonceAccount: 'Nonce222',
+        nonceValue: 'CurrentNonceHash',
+        alreadyProvisioned: true,
+      });
+      const req = makeReq({
+        chain: 'solDevnet',
+        walletPubkey: FAKE_WALLET_PUB,
+        keyPubkey: FAKE_KEY_PUB,
+      });
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      const body = JSON.parse(res._getData());
+      expect(body.status).to.equal('success');
+      expect(body.data.alreadyProvisioned).to.equal(true);
+      expect(body.data.signature).to.equal(null);
+    });
+
+    it('surfaces service errors (e.g. vault balance gate rejection)', async function () {
+      sinon
+        .stub(solPaymasterService, 'setupSolMultisig')
+        .rejects(
+          new Error(
+            'Vault Vault333 balance 100000 lamports is below the required minimum 3250000',
+          ),
+        );
+      const req = makeReq({
+        chain: 'solDevnet',
+        walletPubkey: FAKE_WALLET_PUB,
+        keyPubkey: FAKE_KEY_PUB,
+      });
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      const body = JSON.parse(res._getData());
+      expect(body.status).to.equal('error');
+      expect(body.data.message).to.match(/below the required minimum/);
+    });
+
+    it('rejects an unsupported chain', async function () {
+      const req = makeReq({
+        chain: 'btc',
+        walletPubkey: FAKE_WALLET_PUB,
+        keyPubkey: FAKE_KEY_PUB,
+      });
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      const body = JSON.parse(res._getData());
+      expect(body.status).to.equal('error');
+      expect(body.data.message).to.match(/Invalid or unsupported chain/);
+    });
+
+    it('rejects missing walletPubkey', async function () {
+      const req = makeReq({
+        chain: 'solDevnet',
+        keyPubkey: FAKE_KEY_PUB,
+      });
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      const body = JSON.parse(res._getData());
+      expect(body.status).to.equal('error');
+      expect(body.data.message).to.match(/Invalid walletPubkey/);
+    });
+
+    it('rejects missing keyPubkey', async function () {
+      const req = makeReq({
+        chain: 'solDevnet',
+        walletPubkey: FAKE_WALLET_PUB,
+      });
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      const body = JSON.parse(res._getData());
+      expect(body.status).to.equal('error');
+      expect(body.data.message).to.match(/Invalid keyPubkey/);
+    });
+
+    it('rejects malformed walletPubkey (non-base58)', async function () {
+      const req = makeReq({
+        chain: 'solDevnet',
+        walletPubkey: 'not!a!base58!key',
+        keyPubkey: FAKE_KEY_PUB,
+      });
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      const body = JSON.parse(res._getData());
+      expect(body.status).to.equal('error');
+      expect(body.data.message).to.match(/Invalid walletPubkey/);
+    });
+
+    it('rejects equal walletPubkey and keyPubkey', async function () {
+      const req = makeReq({
+        chain: 'solDevnet',
+        walletPubkey: FAKE_WALLET_PUB,
+        keyPubkey: FAKE_WALLET_PUB,
+      });
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      const body = JSON.parse(res._getData());
+      expect(body.status).to.equal('error');
+      expect(body.data.message).to.match(
+        /walletPubkey and keyPubkey must differ/,
+      );
+    });
+
+    it('strips auth fields before passing to the service', async function () {
+      const setupStub = sinon
+        .stub(solPaymasterService, 'setupSolMultisig')
+        .resolves({
+          signature: '5authStrippedSig',
+          multisigAddress: 'M',
+          vaultAddress: 'V',
+          nonceAccount: 'N',
+          nonceValue: 'H',
+          alreadyProvisioned: false,
+        });
+      const req = makeReq({
+        chain: 'solDevnet',
+        walletPubkey: FAKE_WALLET_PUB,
+        keyPubkey: FAKE_KEY_PUB,
+        // auth fields that should NOT reach the service
+        wkIdentity: 'bc1xyz',
+        signature: 'abcdef',
+        publicKey: '02deadbeef',
+      });
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      const body = JSON.parse(res._getData());
+      expect(body.status).to.equal('success');
+      const [args] = setupStub.firstCall.args;
+      // Service receives ONLY the validated business fields
+      expect(Object.keys(args).sort()).to.deep.equal([
+        'chain',
+        'keyPubkey',
+        'walletPubkey',
+      ]);
+    });
+  });
 });

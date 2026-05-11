@@ -11,7 +11,17 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { createHash } from 'crypto';
-import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+} from '@solana/web3.js';
+import {
+  SolanaMultisigClient,
+  deriveNonceAccount,
+} from '@runonflux/solana-multisig';
 import log from '../lib/log';
 
 // Reimbursement fees the wallet pays via vault → paymaster transfer inside
@@ -19,17 +29,20 @@ import log from '../lib/log';
 // minReimbursementLamports is the floor enforced by validateReimbursement.
 //
 // First-send rent (consumer 2-of-2):
-//   multisig PDA  86 bytes → ~0.00149 SOL  (permanent — never refunded)
+//   multisig PDA      86 bytes → ~0.00149 SOL   (permanent — never refunded)
+//   durable nonce account  80 bytes → ~0.00145 SOL   (permanent — recoverable
+//                                                     only on vault offboarding
+//                                                     via SystemProgram::nonceWithdraw)
 //   network fee   ~3 sigs  → ~0.000015 SOL
 //   proposal rent          → refunded via close_transaction (net 0)
-//   total cost            ≈ 0.00150 SOL = 1.5M lamports
-//   firstSendLamports     = 1.7M  → ~200K lamport surplus per first send
+//   total cost            ≈ 0.00295 SOL = ~3.0M lamports
+//   firstSendLamports     = 3.2M  → ~200K lamport surplus per first send
 //
 // Subsequent send: 5K network fee, paymaster collects 100K → ~95K surplus.
 // SPL with new ATA: + 2.04M ATA rent, paymaster collects extra 2.5M → ~460K surplus.
 export const FEE_SCHEDULE = {
   subsequentSendLamports: 100_000,
-  firstSendLamports: 1_700_000, // multisig PDA rent (~1.5M, permanent) + network + small bump
+  firstSendLamports: 3_200_000, // multisig PDA rent + nonce account rent + network + small bump
   splFeeBumpLamports: 2_500_000, // recipient ATA rent if creating
   minReimbursementLamports: 50_000,
 } as const;
@@ -250,6 +263,168 @@ export function validateReimbursement(
   }
 }
 
+/**
+ * Hard-coded SSP Solana Multisig program ID. Same address on devnet AND
+ * mainnet (will be deployed under separate authority on mainnet).
+ *
+ * Hard-coded (not config) because there's only ever one canonical program
+ * per chain — the wallet/key apps embed the same constant.
+ */
+const SOL_MULTISIG_PROGRAM_ID = new PublicKey(
+  'CisPSFTQoTnEqn5cUi1pgpfPp2xiTVRkK7eD5jBevxdX',
+);
+
+/**
+ * One-shot pre-setup for a new SSP Solana vault: initializes the multisig
+ * AND provisions its durable nonce account, in a single paymaster-signed
+ * tx. After this lands, the wallet can immediately build durable-nonce send
+ * txes — every subsequent send is blockhash-race-immune.
+ *
+ * Called via `POST /v1/sol/setup` before the user's first send. The wallet
+ * detects "multisig and/or nonce missing" via `getAccountInfo` and posts
+ * here; the relay paymaster handles setup atomically and synchronously.
+ *
+ * Recovery accounting:
+ *   - Multisig PDA rent (~1.5M lamports): permanent, never refundable.
+ *   - Nonce account rent (~1.44M lamports): refundable via
+ *     `SystemProgram.nonceWithdraw` if user later offboards.
+ *   - First user send reimburses paymaster via vault → paymaster transfer
+ *     inside the proposal message (firstSendLamports = 3.2M covers both
+ *     rents + network + small surplus).
+ *
+ * Anti-grief: this function validates the vault has SOL balance ≥
+ * firstSendLamports + buffer before provisioning. Without that, an attacker
+ * could spin up endless fake `(walletPub, keyPub)` pairs and bleed paymaster
+ * SOL. Combined with `requireWkIdentityAuth` on the endpoint, griefing
+ * requires (a) being an authenticated SSP user and (b) parking ≥3.2M
+ * lamports per spawned vault — net-negative for the attacker.
+ *
+ * Idempotent: if multisig + nonce already exist on-chain, returns the
+ * current state without sending any tx (handy for wallet retries).
+ */
+async function setupSolMultisig(opts: {
+  chain: string;
+  walletPubkey: string;
+  keyPubkey: string;
+}): Promise<{
+  signature: string | null;
+  multisigAddress: string;
+  vaultAddress: string;
+  nonceAccount: string;
+  nonceValue: string;
+  alreadyProvisioned: boolean;
+}> {
+  const info = getPaymaster(opts.chain);
+  const walletPubkey = new PublicKey(opts.walletPubkey);
+  const keyPubkey = new PublicKey(opts.keyPubkey);
+  const members = [walletPubkey, keyPubkey];
+  const threshold = 2;
+
+  const client = new SolanaMultisigClient(
+    info.connection,
+    SOL_MULTISIG_PROGRAM_ID,
+  );
+
+  const multisigAddress = client.deriveAddress(members, threshold);
+  const vaultAddress = client.deriveVaultAddress(multisigAddress, 0);
+  const nonceAccount = await deriveNonceAccount(multisigAddress);
+
+  // Idempotency check: if both multisig + nonce already exist, return
+  // current state immediately. Wallet treats this as success and proceeds
+  // with the actual send.
+  const [existingMultisig, existingNonceAccountInfo] = await Promise.all([
+    client.getMultisig(multisigAddress),
+    info.connection.getAccountInfo(nonceAccount),
+  ]);
+  if (existingMultisig && existingNonceAccountInfo) {
+    const nonceState = await info.connection.getNonceAndContext(nonceAccount);
+    if (!nonceState.value) {
+      throw new Error(
+        `nonce ${nonceAccount.toBase58()} exists but is uninitialized — corrupt state`,
+      );
+    }
+    return {
+      signature: null,
+      multisigAddress: multisigAddress.toBase58(),
+      vaultAddress: vaultAddress.toBase58(),
+      nonceAccount: nonceAccount.toBase58(),
+      nonceValue: nonceState.value.nonce,
+      alreadyProvisioned: true,
+    };
+  }
+
+  // Balance gate: refuse to provision if the vault can't reimburse the
+  // paymaster on its first send. This prevents the "drain paymaster by
+  // spamming setup on never-funded vaults" attack.
+  const vaultBalance = await info.connection.getBalance(vaultAddress);
+  const minVaultBalance = FEE_SCHEDULE.firstSendLamports + 50_000; // buffer for tx fees
+  if (vaultBalance < minVaultBalance) {
+    throw new Error(
+      `Vault ${vaultAddress.toBase58()} balance ${vaultBalance} lamports is below the required minimum ${minVaultBalance} for setup (firstSendLamports + buffer). Fund the vault before calling setup.`,
+    );
+  }
+
+  // Build the bundled setup ixs. Order is order-dependent: init must come
+  // before provision because provision_nonce reads multisig.members for
+  // the invoke_signed seed derivation.
+  const setupIxs: TransactionInstruction[] = [];
+  if (!existingMultisig) {
+    const sortedMembers = members
+      .slice()
+      .sort((a, b) => Buffer.compare(a.toBuffer(), b.toBuffer()));
+    const { instruction: initIx } =
+      await client.buildInitializeMultisigInstruction({
+        members: sortedMembers,
+        threshold,
+        payer: info.pubkey,
+      });
+    setupIxs.push(initIx);
+  }
+  if (!existingNonceAccountInfo) {
+    const { instruction: provisionIx } =
+      await client.buildProvisionNonceInstruction({
+        multisigAddress,
+        payer: info.pubkey,
+      });
+    setupIxs.push(provisionIx);
+  }
+
+  // Legacy tx is fine here — 2 ixs, ~6 unique accounts, well under 1232 bytes.
+  const tx = new Transaction().add(...setupIxs);
+  const { blockhash } = await info.connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = info.pubkey;
+  tx.partialSign(info.keypair);
+
+  const signature = await info.connection.sendRawTransaction(tx.serialize(), {
+    skipPreflight: false,
+    maxRetries: 3,
+  });
+  await info.connection.confirmTransaction(signature, 'confirmed');
+
+  // Re-fetch nonce so the caller gets the live nonce value to use as
+  // `recentBlockhash` in their next bundled send tx.
+  const nonceState = await info.connection.getNonceAndContext(nonceAccount);
+  if (!nonceState.value) {
+    throw new Error(
+      `nonce ${nonceAccount.toBase58()} did not initialize after setup tx`,
+    );
+  }
+
+  log.info(
+    `[solPaymaster] setup ${opts.chain} multisig=${multisigAddress.toBase58()} nonce=${nonceAccount.toBase58()} sig=${signature}`,
+  );
+
+  return {
+    signature,
+    multisigAddress: multisigAddress.toBase58(),
+    vaultAddress: vaultAddress.toBase58(),
+    nonceAccount: nonceAccount.toBase58(),
+    nonceValue: nonceState.value.nonce,
+    alreadyProvisioned: false,
+  };
+}
+
 async function broadcastWithPaymaster(
   chain: string,
   serializedTxBase64: string,
@@ -322,5 +497,6 @@ export async function logPaymasterStatus(): Promise<void> {
 export default {
   getPaymasterPubkey,
   broadcastWithPaymaster,
+  setupSolMultisig,
   getFeeSchedule,
 };

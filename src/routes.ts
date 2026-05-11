@@ -166,6 +166,18 @@ export default (app) => {
       solPaymasterApi.postBroadcast(req, res);
     },
   );
+  // One-shot pre-provision for a new Solana vault: paymaster atomically
+  // initializes the multisig + provisions its durable nonce account so the
+  // wallet's first send can use the durable-nonce flow (no blockhash race).
+  // wkIdentity-authed + balance-gated to prevent griefing the paymaster.
+  app.post(
+    '/v1/sol/setup',
+    solBroadcastLimiter,
+    optionalWkIdentityAuth,
+    (req, res) => {
+      solPaymasterApi.postSetup(req, res);
+    },
+  );
 
   // freshdesk ticket
   app.post('/v1/ticket', (req, res) => {
