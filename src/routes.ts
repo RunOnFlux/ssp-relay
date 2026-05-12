@@ -475,6 +475,16 @@ export default (app) => {
       enterpriseApi.patchVaultAddress(req, res);
     },
   );
+  // Solana enterprise: bundle initialize_multisig + provision_nonce in a
+  // single paymaster-signed tx for the multisig PDA at the given addressIndex.
+  // Required once per (vault, addressIndex) before the first proposal.
+  // Body: { addressIndex: number }
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/sol/setup',
+    (req, res) => {
+      enterpriseApi.postVaultSolanaSetup(req, res);
+    },
+  );
 
   // Vault balances & transactions
   app.get(

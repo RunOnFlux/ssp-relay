@@ -452,6 +452,45 @@ async function broadcastWithPaymaster(
   return signature;
 }
 
+/**
+ * Sign + submit a setup-class paymaster tx (initialize_multisig +
+ * provision_nonce, or similar one-shot provisioning). Unlike
+ * `broadcastWithPaymaster` this does NOT enforce a vault→paymaster
+ * reimbursement transfer — setup costs are recovered later on the FIRST
+ * send via the proposal's reimbursement transfer. Anti-grief (vault
+ * balance gate) is the caller's responsibility; enterprise checks vault
+ * balance ≥ firstSendLamports + buffer before invoking this primitive.
+ *
+ * Trust boundary: enterprise builds the tx with paymaster as feePayer +
+ * the on-chain ixs, passes the unsigned blob here; this function adds the
+ * paymaster sig and submits. Paymaster private key never leaves the
+ * public layer.
+ */
+async function signAndSubmitSetupTx(
+  chain: string,
+  serializedTxBase64: string,
+): Promise<string> {
+  const info = getPaymaster(chain);
+  const txBytes = Buffer.from(serializedTxBase64, 'base64');
+  const tx = Transaction.from(txBytes);
+
+  if (!tx.feePayer || !tx.feePayer.equals(info.pubkey)) {
+    throw new Error(
+      `Setup tx feePayer (${tx.feePayer?.toBase58() ?? 'unset'}) does not match paymaster (${info.pubkey.toBase58()})`,
+    );
+  }
+
+  tx.partialSign(info.keypair);
+
+  const signature = await info.connection.sendRawTransaction(tx.serialize(), {
+    skipPreflight: false,
+    maxRetries: 3,
+  });
+  await info.connection.confirmTransaction(signature, 'confirmed');
+  log.info(`[solPaymaster] setup-broadcast ${chain} tx ${signature}`);
+  return signature;
+}
+
 // Startup banner: prints paymaster pubkey + balance per chain, or a loud
 // warning if unconfigured / freshly generated.
 export async function logPaymasterStatus(): Promise<void> {
@@ -498,5 +537,6 @@ export default {
   getPaymasterPubkey,
   broadcastWithPaymaster,
   setupSolMultisig,
+  signAndSubmitSetupTx,
   getFeeSchedule,
 };

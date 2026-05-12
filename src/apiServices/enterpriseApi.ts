@@ -713,6 +713,7 @@ const postVaultXpub = vaultHandler('vaultXpubSubmit');
 const getVaultPendingSetups = vaultHandler('vaultPendingSetups');
 const getVaultAddresses = vaultHandler('vaultAddressList');
 const postVaultAddress = vaultHandler('vaultAddressGenerate');
+const postVaultSolanaSetup = vaultHandler('vaultSolanaSetup');
 const patchVaultAddress = vaultHandler('vaultAddressUpdateLabel');
 const getVaultBalances = vaultHandler('vaultBalances');
 const getVaultTransactions = vaultHandler('vaultTransactions');
@@ -899,6 +900,7 @@ export default {
   getVaultPendingSetups,
   getVaultAddresses,
   postVaultAddress,
+  postVaultSolanaSetup,
   patchVaultAddress,
   getVaultBalances,
   getVaultTransactions,

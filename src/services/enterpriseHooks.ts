@@ -193,6 +193,19 @@ interface HooksModule {
     ratesService: RatesService;
     authFunctions?: AuthFunctions;
     getKnownTokens?: (network: string) => Array<{ contract: string }> | null;
+    solanaPaymasterBroadcast?: (params: {
+      chain: string;
+      partialSignedTxBase64: string;
+    }) => Promise<{ txid?: string; error?: string }>;
+    getSolanaPaymasterContext?: (chain: string) => {
+      paymasterPubkey: string;
+      minPaymasterFeeLamports: string;
+      firstSendLamports: string;
+    } | null;
+    solanaPaymasterSubmitSetupTx?: (params: {
+      chain: string;
+      partialSignedTxBase64: string;
+    }) => Promise<{ signature?: string; error?: string }>;
   }) => void;
   onGetSync?: (req: unknown, id: string) => Promise<void>;
   onGetAction?: (req: unknown, id: string) => Promise<void>;
@@ -515,9 +528,11 @@ async function init(deps: {
             return { error: (e as Error).message };
           }
         },
-        // Resolve paymaster pubkey + fee floor for create/sign flows.
-        // Returns null if the chain has no paymaster configured (env vars
-        // missing) so enterprise can surface a clean error.
+        // Resolve paymaster pubkey + fee schedule for create/sign/setup
+        // flows. Returns null if the chain has no paymaster configured (env
+        // vars missing) so enterprise can surface a clean error.
+        // firstSendLamports + buffer is the balance gate enterprise enforces
+        // on its setup endpoint to prevent paymaster-drain via setup spam.
         getSolanaPaymasterContext: (chain: string) => {
           try {
             const paymasterPubkey =
@@ -526,9 +541,31 @@ async function init(deps: {
             return {
               paymasterPubkey,
               minPaymasterFeeLamports: String(fee.minReimbursementLamports),
+              firstSendLamports: String(fee.firstSendLamports),
             };
           } catch {
             return null;
+          }
+        },
+        // Sign + submit an enterprise-built setup tx (initialize_multisig +
+        // provision_nonce). Enterprise builds the tx, computes PDAs, runs
+        // the balance gate, then hands the unsigned blob here. Paymaster
+        // key never leaves this public layer. Mirrors
+        // solanaPaymasterBroadcast but skips the reimbursement check —
+        // setup costs are recovered on the first send via the proposal's
+        // own reimbursement transfer.
+        solanaPaymasterSubmitSetupTx: async (opts: {
+          chain: string;
+          partialSignedTxBase64: string;
+        }) => {
+          try {
+            const signature = await solPaymasterService.signAndSubmitSetupTx(
+              opts.chain,
+              opts.partialSignedTxBase64,
+            );
+            return { signature };
+          } catch (e) {
+            return { error: (e as Error).message };
           }
         },
       });
