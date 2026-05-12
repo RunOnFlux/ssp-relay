@@ -13,6 +13,7 @@ import {
   parseWitnessScript,
 } from '../lib/identityAuth';
 import { getKnownTokensForNetwork } from './knownTokens';
+import solPaymasterService from './solPaymasterService';
 
 // Rates service interface (from ssp-relay)
 interface RatesService {
@@ -494,6 +495,42 @@ async function init(deps: {
           parseWitnessScript,
         },
         getKnownTokens: getKnownTokensForNetwork,
+        // Bridge enterprise's bundled Solana broadcast into the public
+        // paymaster service. Enterprise stamps all member ed25519 sigs;
+        // here paymaster adds feePayer sig + submits to RPC.
+        solanaPaymasterBroadcast: async ({
+          chain,
+          partialSignedTxBase64,
+        }: {
+          chain: string;
+          partialSignedTxBase64: string;
+        }) => {
+          try {
+            const txid = await solPaymasterService.broadcastWithPaymaster(
+              chain,
+              partialSignedTxBase64,
+            );
+            return { txid };
+          } catch (e) {
+            return { error: (e as Error).message };
+          }
+        },
+        // Resolve paymaster pubkey + fee floor for create/sign flows.
+        // Returns null if the chain has no paymaster configured (env vars
+        // missing) so enterprise can surface a clean error.
+        getSolanaPaymasterContext: (chain: string) => {
+          try {
+            const paymasterPubkey =
+              solPaymasterService.getPaymasterPubkey(chain);
+            const fee = solPaymasterService.getFeeSchedule();
+            return {
+              paymasterPubkey,
+              minPaymasterFeeLamports: String(fee.minReimbursementLamports),
+            };
+          } catch {
+            return null;
+          }
+        },
       });
       log.info('[HOOKS] Extension module loaded');
     }

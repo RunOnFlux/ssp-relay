@@ -180,6 +180,18 @@ SSP Relay includes an optional private enterprise module (`ssp-relay-enterprise`
 
 The main relay functions fully without it.
 
+### Solana enterprise integration
+
+The relay bridges enterprise Solana vaults to the public paymaster service via two callbacks injected at boot from `enterpriseHooks.ts`:
+
+- **`solanaPaymasterBroadcast`** — takes a partial-signed tx (all member ed25519 sigs already stamped by enterprise) and delegates the final paymaster `feePayer` sig + RPC submission to `solPaymasterService.broadcastWithPaymaster`. Enterprise never sees the paymaster keypair.
+- **`getSolanaPaymasterContext`** — returns `{paymasterPubkey, minPaymasterFeeLamports}` for proposal create/sign. Server-resolved (env or file), never from the request body.
+
+Per-vault wire-budget caps (M ≤ 2 dual / M ≤ 4 single) come from
+the bundled-tx smoke test in
+`solana-multisig/sdk/examples/enterprise-bundle-smoke.ts`. See
+`ssp-relay-enterprise/SOLANA_ARCHITECTURE.md` for full lifecycle.
+
 ---
 
 ## Contribution
