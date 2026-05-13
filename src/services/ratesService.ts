@@ -155,12 +155,11 @@ async function fetchCryptoRates() {
       avax: response.data.data['5805'].quote.USD.price,
       base: response.data.data['1027'].quote.USD.price, // ETH
       kda: response.data.data['5647'].quote.USD.price,
-      // Solana SOL (CMC ID 5426). solDevnet's symbol is 'TEST-SOL' which
-      // falls through with no rate (same testnet behavior as BTC/ETH/POL/
-      // etc.) — devnet USD valuation is informational only and not a hard
-      // dependency. The 'sol' key is unused today (solMainnet is not yet
-      // enabled in blockchains.ts) but kept ready so mainnet works the
-      // moment that chain config lands.
+      // Solana SOL (CMC ID 5426). Exposed under the `sol` symbol only.
+      // `solDevnet` is intentionally NOT mapped to a USD rate — testnet
+      // tokens have no value, and pretending they do inflates enterprise
+      // treasury displays with fake balances. `solMainnet` will be added
+      // here when the mainnet chain config lands.
       sol: response.data.data['5426'].quote.USD.price,
     };
     cryptoRates = prices;

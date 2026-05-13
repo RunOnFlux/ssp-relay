@@ -102,7 +102,10 @@ async function postSync(req, res) {
     // For Solana chains the xpub field carries a JSON-stringified array of
     // 20 base58 Ed25519 leaf pubkeys (Ed25519 has no non-hardened public-key
     // derivation, so an actual xpub is useless). Validate accordingly.
-    if (processedBody.chain && /sol/i.test(processedBody.chain)) {
+    if (
+      processedBody.chain === 'solDevnet' ||
+      processedBody.chain === 'solMainnet'
+    ) {
       if (processedBody.keyXpub.length > 3000) {
         throw new Error('Invalid XPUB of Key specified');
       }
@@ -111,6 +114,7 @@ async function postSync(req, res) {
         if (!Array.isArray(arr) || arr.length !== 20) {
           throw new Error('expected 20-entry array');
         }
+        const seen = new Set<string>();
         for (const pk of arr) {
           if (
             typeof pk !== 'string' ||
@@ -120,6 +124,12 @@ async function postSync(req, res) {
           ) {
             throw new Error('invalid base58 entry');
           }
+          // Each HD slot derives a distinct ed25519 leaf — duplicates are a
+          // malformed submission (wallet/key bug) or a tampering attempt.
+          if (seen.has(pk)) {
+            throw new Error('duplicate pubkey in array');
+          }
+          seen.add(pk);
         }
       } catch {
         throw new Error('Invalid XPUB of Key specified');
@@ -194,7 +204,10 @@ async function postSync(req, res) {
       if (typeof processedBody.walletXpub !== 'string') {
         throw new Error('Invalid Wallet XPUB specified');
       }
-      if (processedBody.chain && /sol/i.test(processedBody.chain)) {
+      if (
+        processedBody.chain === 'solDevnet' ||
+        processedBody.chain === 'solMainnet'
+      ) {
         if (processedBody.walletXpub.length > 3000) {
           throw new Error('Invalid Wallet XPUB specified');
         }
@@ -203,6 +216,7 @@ async function postSync(req, res) {
           if (!Array.isArray(arr) || arr.length !== 20) {
             throw new Error('expected 20-entry array');
           }
+          const seen = new Set<string>();
           for (const pk of arr) {
             if (
               typeof pk !== 'string' ||
@@ -212,6 +226,12 @@ async function postSync(req, res) {
             ) {
               throw new Error('invalid base58 entry');
             }
+            // Each HD slot derives a distinct ed25519 leaf — duplicates are
+            // malformed (wallet/key bug or tampering attempt).
+            if (seen.has(pk)) {
+              throw new Error('duplicate pubkey in array');
+            }
+            seen.add(pk);
           }
         } catch {
           throw new Error('Invalid Wallet XPUB specified');

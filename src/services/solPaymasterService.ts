@@ -194,12 +194,43 @@ const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
  * Walks the outer tx for a `create_transaction` ix, borsh-decodes the
  * inline proposal message, and confirms it has a SystemProgram.transfer
  * to `paymasterPubkey` totaling at least `minLamports`. Throws otherwise.
+ *
+ * Also enforces that the OUTER tx contains no rogue SystemProgram.transfer
+ * ixs that drain the paymaster. The paymaster signs the outer tx so any
+ * top-level transfer FROM paymaster would be implicitly authorized — a
+ * user could otherwise submit a tx like `[create_transaction(legit
+ * reimbursement), SystemProgram.transfer(paymaster → attacker)]` that
+ * passes inner-message validation but drains paymaster funds. Legitimate
+ * proposal bundles only contain nonceAdvance + multisig-program ixs at
+ * the outer level — never raw SystemProgram.transfer.
  */
 export function validateReimbursement(
   tx: Transaction,
   paymasterPubkey: PublicKey,
   minLamports: number,
 ): void {
+  // SystemProgram outer-ix allowlist. Legitimate proposal bundles only need
+  // one SystemProgram ix at the outer level: AdvanceNonceAccount (tag 4).
+  // Anything else risks draining the paymaster since the paymaster signs
+  // the entire outer tx — e.g. Transfer (tag 2) or TransferWithSeed (tag 11)
+  // would let a malicious caller move paymaster SOL anywhere. Reject all
+  // SystemProgram tags except AdvanceNonceAccount.
+  const SYSTEM_ADVANCE_NONCE_TAG = 4;
+  for (const ix of tx.instructions) {
+    if (!ix.programId.equals(SYSTEM_PROGRAM_ID)) continue;
+    if (ix.data.length < 4) {
+      throw new Error(
+        'Outer tx contains a malformed SystemProgram ix (data < 4 bytes)',
+      );
+    }
+    const tag = ix.data.readUInt32LE(0);
+    if (tag !== SYSTEM_ADVANCE_NONCE_TAG) {
+      throw new Error(
+        `Outer tx contains a non-allowlisted SystemProgram ix (tag ${tag}) — paymaster only signs proposal bundles that use SystemProgram for AdvanceNonceAccount only`,
+      );
+    }
+  }
+
   const createIx = tx.instructions.find(
     (ix) =>
       ix.data.length >= 8 &&
@@ -400,7 +431,18 @@ async function setupSolMultisig(opts: {
     skipPreflight: false,
     maxRetries: 3,
   });
-  await info.connection.confirmTransaction(signature, 'confirmed');
+  // Check tx didn't just confirm-but-fail on-chain (e.g., concurrent setup
+  // race lands first → our duplicate fails). Confirmation alone doesn't
+  // imply execution success.
+  const confirmResult = await info.connection.confirmTransaction(
+    signature,
+    'confirmed',
+  );
+  if (confirmResult.value.err) {
+    throw new Error(
+      `Consumer setup tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
+    );
+  }
 
   // Re-fetch nonce so the caller gets the live nonce value to use as
   // `recentBlockhash` in their next bundled send tx.
@@ -447,7 +489,21 @@ async function broadcastWithPaymaster(
     skipPreflight: false,
     maxRetries: 3,
   });
-  await info.connection.confirmTransaction(signature, 'confirmed');
+  // `confirmTransaction` resolves once the tx is included + confirmed by the
+  // cluster — but a CONFIRMED tx may still have FAILED in execution (ix
+  // returned an error, insufficient funds, etc.). The on-chain SignatureResult
+  // surfaces this via `value.err` (non-null = failure). If we don't check it,
+  // the enterprise layer marks the proposal as `broadcast` and emails success
+  // for a tx that actually didn't move funds.
+  const confirmResult = await info.connection.confirmTransaction(
+    signature,
+    'confirmed',
+  );
+  if (confirmResult.value.err) {
+    throw new Error(
+      `Solana tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
+    );
+  }
   log.info(`[solPaymaster] broadcast ${chain} tx ${signature}`);
   return signature;
 }
@@ -486,7 +542,19 @@ async function signAndSubmitSetupTx(
     skipPreflight: false,
     maxRetries: 3,
   });
-  await info.connection.confirmTransaction(signature, 'confirmed');
+  // Setup txs (initialize_multisig + provision_nonce) can fail on-chain if
+  // a concurrent call already initialized the multisig, or if the multisig
+  // program rejects the config. Surface the on-chain error instead of
+  // returning a "success" signature for a failed tx.
+  const confirmResult = await info.connection.confirmTransaction(
+    signature,
+    'confirmed',
+  );
+  if (confirmResult.value.err) {
+    throw new Error(
+      `Solana setup tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
+    );
+  }
   log.info(`[solPaymaster] setup-broadcast ${chain} tx ${signature}`);
   return signature;
 }
