@@ -182,6 +182,29 @@ function getFeeSchedule(): FeeSchedule {
   return FEE_SCHEDULE;
 }
 
+/**
+ * Probe whether an Associated Token Account already exists on-chain.
+ * Enterprise fee estimation uses this to decide whether to add the
+ * splFeeBumpLamports surcharge — when the ATA exists, the bundled
+ * create-ATA-idempotent ix is a no-op and the paymaster pays no rent.
+ *
+ * Returns false on any RPC error so the caller falls back to charging
+ * the bump defensively.
+ */
+async function checkAtaExists(
+  chain: string,
+  ataPubkeyBase58: string,
+): Promise<boolean> {
+  try {
+    const info = getPaymaster(chain);
+    const ata = new PublicKey(ataPubkeyBase58);
+    const account = await info.connection.getAccountInfo(ata);
+    return account !== null;
+  } catch {
+    return false;
+  }
+}
+
 // Anchor discriminator for the multisig program's create_transaction ix.
 const CREATE_TRANSACTION_DISCRIMINATOR: Buffer = createHash('sha256')
   .update('global:create_transaction')
@@ -189,6 +212,22 @@ const CREATE_TRANSACTION_DISCRIMINATOR: Buffer = createHash('sha256')
   .subarray(0, 8);
 
 const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
+
+// SPL Token Program (legacy) — same on devnet + mainnet.
+const SPL_TOKEN_PROGRAM_ID = new PublicKey(
+  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+);
+
+export interface ReimbursementInspection {
+  totalToPaymaster: number;
+  // Set when the inner proposal contains an SPL Transfer (tag 3) or
+  // TransferChecked (tag 12). Caller can query getAccountInfo(destAta) to
+  // decide whether the splFeeBumpLamports floor applies — if the ATA
+  // doesn't exist on-chain, the paymaster will pay ~2.04M lamports in rent
+  // to create it (the create-idempotent ix sits on the outer tx with the
+  // paymaster as payer), and the wallet must reimburse that bump.
+  splDestAta?: PublicKey;
+}
 
 /**
  * Walks the outer tx for a `create_transaction` ix, borsh-decodes the
@@ -203,12 +242,16 @@ const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
  * passes inner-message validation but drains paymaster funds. Legitimate
  * proposal bundles only contain nonceAdvance + multisig-program ixs at
  * the outer level — never raw SystemProgram.transfer.
+ *
+ * Returns inspection metadata (totalToPaymaster + any SPL destAta found
+ * in the inner proposal) so callers can run additional async checks like
+ * `enforceSplAtaFloor`.
  */
 export function validateReimbursement(
   tx: Transaction,
   paymasterPubkey: PublicKey,
   minLamports: number,
-): void {
+): ReimbursementInspection {
   // SystemProgram outer-ix allowlist. Legitimate proposal bundles only need
   // one SystemProgram ix at the outer level: AdvanceNonceAccount (tag 4).
   // Anything else risks draining the paymaster since the paymaster signs
@@ -260,6 +303,7 @@ export function validateReimbursement(
   off += 4;
 
   let totalToPaymaster = 0;
+  let splDestAta: PublicKey | undefined;
   for (let i = 0; i < ixCount; i++) {
     const programIdIdx = data.readUInt8(off);
     off += 1;
@@ -273,23 +317,72 @@ export function validateReimbursement(
     off += ixDataLen;
 
     const ixProgram = accountKeys[programIdIdx];
-    if (!ixProgram || !ixProgram.equals(SYSTEM_PROGRAM_ID)) continue;
-    if (ixData.length < 12 || ixData.readUInt32LE(0) !== 2) continue; // not Transfer
-    if (accountIdxs.length < 2) continue;
-    const toPubkey = accountKeys[accountIdxs[1]];
-    if (!toPubkey || !toPubkey.equals(paymasterPubkey)) continue;
+    if (!ixProgram) continue;
 
-    const lamportsBig = ixData.readBigUInt64LE(4);
-    const lamports =
-      lamportsBig > BigInt(Number.MAX_SAFE_INTEGER)
-        ? Number.MAX_SAFE_INTEGER
-        : Number(lamportsBig);
-    totalToPaymaster += lamports;
+    if (ixProgram.equals(SYSTEM_PROGRAM_ID)) {
+      if (ixData.length < 12 || ixData.readUInt32LE(0) !== 2) continue; // not Transfer
+      if (accountIdxs.length < 2) continue;
+      const toPubkey = accountKeys[accountIdxs[1]];
+      if (!toPubkey || !toPubkey.equals(paymasterPubkey)) continue;
+
+      const lamportsBig = ixData.readBigUInt64LE(4);
+      const lamports =
+        lamportsBig > BigInt(Number.MAX_SAFE_INTEGER)
+          ? Number.MAX_SAFE_INTEGER
+          : Number(lamportsBig);
+      totalToPaymaster += lamports;
+      continue;
+    }
+
+    if (ixProgram.equals(SPL_TOKEN_PROGRAM_ID)) {
+      // SPL Transfer (tag 3) or TransferChecked (tag 12).
+      // accountIdxs layout: [source_ata, dest_ata, authority, ...].
+      if (ixData.length < 1) continue;
+      const tag = ixData.readUInt8(0);
+      if (tag !== 3 && tag !== 12) continue;
+      if (accountIdxs.length < 2) continue;
+      const destAta = accountKeys[accountIdxs[1]];
+      if (destAta) splDestAta = destAta;
+      continue;
+    }
   }
 
   if (totalToPaymaster < minLamports) {
     throw new Error(
       `Tx must reimburse paymaster at least ${minLamports} lamports inside the proposal (got ${totalToPaymaster})`,
+    );
+  }
+
+  return { totalToPaymaster, splDestAta };
+}
+
+/**
+ * Verify the reimbursement floor is high enough to cover the paymaster's
+ * outlay for SPL transfers that create a new recipient ATA. The wallet
+ * may legitimately skip the splFeeBumpLamports surcharge when it has
+ * pre-checked that the destination ATA already exists (the create-ATA
+ * ix is idempotent — no rent paid). We re-verify on-chain at broadcast
+ * time so a malicious wallet can't claim "ATA exists" and stick the
+ * paymaster with ~2.04M lamports of unreimbursed rent.
+ *
+ * Floor model: base reimbursement minimum + splFeeBumpLamports when the
+ * recipient ATA is missing. We don't try to detect first-vs-subsequent
+ * here — the wallet over-pays firstSendLamports voluntarily; the floor
+ * just guards against under-payment of the ATA rent component.
+ */
+export async function enforceSplAtaFloor(
+  inspection: ReimbursementInspection,
+  connection: Connection,
+  feeSchedule: FeeSchedule,
+): Promise<void> {
+  if (!inspection.splDestAta) return;
+  const ataInfo = await connection.getAccountInfo(inspection.splDestAta);
+  if (ataInfo !== null) return; // ATA exists — idempotent create is a no-op
+  const requiredMin =
+    feeSchedule.minReimbursementLamports + feeSchedule.splFeeBumpLamports;
+  if (inspection.totalToPaymaster < requiredMin) {
+    throw new Error(
+      `SPL transfer to non-existent ATA ${inspection.splDestAta.toBase58()} requires at least ${requiredMin} lamports of paymaster reimbursement to cover ATA rent (got ${inspection.totalToPaymaster})`,
     );
   }
 }
@@ -481,7 +574,12 @@ async function broadcastWithPaymaster(
     );
   }
 
-  validateReimbursement(tx, info.pubkey, FEE_SCHEDULE.minReimbursementLamports);
+  const inspection = validateReimbursement(
+    tx,
+    info.pubkey,
+    FEE_SCHEDULE.minReimbursementLamports,
+  );
+  await enforceSplAtaFloor(inspection, info.connection, FEE_SCHEDULE);
 
   tx.partialSign(info.keypair);
 
@@ -607,4 +705,5 @@ export default {
   setupSolMultisig,
   signAndSubmitSetupTx,
   getFeeSchedule,
+  checkAtaExists,
 };

@@ -201,7 +201,13 @@ interface HooksModule {
       paymasterPubkey: string;
       minPaymasterFeeLamports: string;
       firstSendLamports: string;
+      subsequentSendLamports: string;
+      splFeeBumpLamports: string;
     } | null;
+    solanaCheckAtaExists?: (
+      chain: string,
+      ataPubkeyBase58: string,
+    ) => Promise<boolean>;
     solanaPaymasterSubmitSetupTx?: (params: {
       chain: string;
       partialSignedTxBase64: string;
@@ -542,10 +548,22 @@ async function init(deps: {
               paymasterPubkey,
               minPaymasterFeeLamports: String(fee.minReimbursementLamports),
               firstSendLamports: String(fee.firstSendLamports),
+              subsequentSendLamports: String(fee.subsequentSendLamports),
+              splFeeBumpLamports: String(fee.splFeeBumpLamports),
             };
           } catch {
             return null;
           }
+        },
+        // Probe ATA existence on-chain. Enterprise uses this to decide
+        // whether to add splFeeBumpLamports to the paymaster reimbursement
+        // (when ATA missing, paymaster pays ~2.04M lamports in rent to
+        // create it via the bundled outer create-ATA-idempotent ix).
+        solanaCheckAtaExists: async (
+          chain: string,
+          ataPubkeyBase58: string,
+        ) => {
+          return solPaymasterService.checkAtaExists(chain, ataPubkeyBase58);
         },
         // Sign + submit an enterprise-built setup tx (initialize_multisig +
         // provision_nonce). Enterprise builds the tx, computes PDAs, runs
