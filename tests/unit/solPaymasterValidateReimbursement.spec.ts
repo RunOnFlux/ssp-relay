@@ -231,16 +231,18 @@ describe('Solana Paymaster Service — validateReimbursement', function () {
   });
 
   it('rejects a tx with no create_transaction ix at all', function () {
+    // Use the outer-allowlisted AdvanceNonceAccount ix so the outer-ix
+    // check passes and the validator can reach the create_transaction
+    // search (which is what this test is actually exercising). A plain
+    // SystemProgram.transfer at the outer level would be rejected first
+    // with a different error message.
+    const fakeNonceAccount = Keypair.generate().publicKey;
     const tx = makeOuterTx({
       paymaster,
       ixs: [
-        // Just a SystemProgram transfer at the OUTER level — even if it
-        // pays the paymaster, validation requires the multisig program's
-        // create_transaction ix to be present.
-        SystemProgram.transfer({
-          fromPubkey: vault,
-          toPubkey: paymaster,
-          lamports: MIN_LAMPORTS,
+        SystemProgram.nonceAdvance({
+          noncePubkey: fakeNonceAccount,
+          authorizedPubkey: vault,
         }),
       ],
     });

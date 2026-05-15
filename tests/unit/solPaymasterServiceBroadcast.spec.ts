@@ -119,21 +119,23 @@ function buildPaymasterPayingTx(opts: {
   const tx = new Transaction();
   tx.recentBlockhash = 'EETubP5AKHgjPAhzPAFcb8BAY6hDtV5oqBe5LBdnDS6E';
   tx.feePayer = opts.paymaster;
+  // Outer SystemProgram allowlist permits AdvanceNonceAccount only — use a
+  // nonceAdvance ix to add `signerKp` as a signer (it's the authorized
+  // pubkey on a fake nonce account). A plain Transfer would be rejected
+  // by validateReimbursement's outer-ix allowlist.
+  const fakeNonceAccount = Keypair.generate().publicKey;
+  tx.add(
+    SystemProgram.nonceAdvance({
+      noncePubkey: fakeNonceAccount,
+      authorizedPubkey: opts.signerKp.publicKey,
+    }),
+  );
   tx.add(
     buildCreateTransactionIxWithReimbursement(
       opts.paymaster,
       opts.signerKp.publicKey, // use the signer pubkey as a stand-in for vault
       reimbursement,
     ),
-  );
-  // Add a minimal SystemProgram transfer signed by the member so the outer
-  // tx has a real signer to satisfy partialSign.
-  tx.add(
-    SystemProgram.transfer({
-      fromPubkey: opts.signerKp.publicKey,
-      toPubkey: opts.paymaster,
-      lamports: 1,
-    }),
   );
   tx.partialSign(opts.signerKp);
   return tx
