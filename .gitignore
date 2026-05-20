@@ -118,3 +118,7 @@ dist
 !.yarn/patches/
 !.yarnrc.yml
 !.pnp.cjs
+
+# Local planning artifacts (specs, plans) — not tracked in git
+docs/superpowers/
+
