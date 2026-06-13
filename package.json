@@ -42,10 +42,10 @@
     "firebase-admin": "13.10.0",
     "freshdesk-client": "1.10.0",
     "lru-cache": "11.5.1",
-    "mongodb": "7.2.0",
+    "mongodb": "7.3.0",
     "morgan": "1.11.0",
     "node-cmd": "5.0.0",
-    "nodemailer": "7.0.12",
+    "nodemailer": "8.0.11",
     "qs": "6.15.2",
     "socket.io": "4.8.3",
     "stripe": "22.2.0",
@@ -59,7 +59,7 @@
     "@types/express": "5.0.6",
     "@types/mocha": "10.0.10",
     "@types/morgan": "1.9.10",
-    "@types/nodemailer": "7.0.5",
+    "@types/nodemailer": "8.0.1",
     "chai": "6.2.2",
     "eslint": "9.39.2",
     "eslint-config-prettier": "10.1.8",
@@ -69,11 +69,11 @@
     "mocha": "11.7.6",
     "node-mocks-http": "1.17.2",
     "nyc": "17.1.0",
-    "prettier": "3.8.3",
+    "prettier": "3.8.4",
     "sinon": "21.0.1",
     "tsx": "4.22.4",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.60.1"
+    "typescript-eslint": "8.61.0"
   },
   "engines": {
     "node": ">=24"

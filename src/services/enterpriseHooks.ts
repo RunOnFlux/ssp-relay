@@ -203,6 +203,7 @@ interface HooksModule {
       firstSendLamports: string;
       subsequentSendLamports: string;
       splFeeBumpLamports: string;
+      splitPerTxLamports: string;
     } | null;
     solanaCheckAtaExists?: (
       chain: string,
@@ -212,6 +213,33 @@ interface HooksModule {
       chain: string;
       partialSignedTxBase64: string;
     }) => Promise<{ signature?: string; error?: string }>;
+    // Split-approval flow (§4, §5). Enterprise owns lease state + orchestration;
+    // the public layer owns the paymaster keypair + per-kind allowlist.
+    solanaPaymasterSubmitSplitTx?: (params: {
+      chain: string;
+      partialSignedTxBase64: string;
+      kind: 'create' | 'approve' | 'execute';
+      // Number of member-signed signer txs (designatedSigners.length). The
+      // enterprise layer passes this on kind='create' so the public layer can
+      // enforce the M-aware reimbursement floor: minReimbursementLamports +
+      // splitPerTxLamports × (expectedSignerTxCount + 1). Absent for non-create
+      // kinds (and falls back to a conservative minimum when absent).
+      expectedSignerTxCount?: number;
+    }) => Promise<{
+      txid?: string;
+      error?: string;
+      landed?: boolean;
+      // True only when kind='execute' "failed" solely because the on-chain tx
+      // was already executed (front-run). close runs separately (§5).
+      alreadyExecuted?: boolean;
+    }>;
+    solanaPaymasterCreatePoolNonce?: (
+      chain: string,
+    ) => Promise<{ nonceAccount?: string; error?: string }>;
+    solanaPaymasterGetNonceValue?: (
+      chain: string,
+      nonceAccount: string,
+    ) => Promise<{ nonceValue?: string; error?: string }>;
   }) => void;
   onGetSync?: (req: unknown, id: string) => Promise<void>;
   onGetAction?: (req: unknown, id: string) => Promise<void>;
@@ -501,7 +529,12 @@ async function init(deps: {
     // Try to load optional extension module directly from submodule path
     // @ts-expect-error - module is optional and may not exist
     const ext = await import('../../ssp-relay-enterprise/src/index.ts');
-    const module = ext.default;
+    // The optional submodule's exported types (e.g. its strict InitDeps.db: Db)
+    // must not be imposed on the public HooksModule contract — the public layer
+    // intentionally declares looser `unknown` deps. Decouple via an explicit
+    // cast so the public type-check stays independent of the submodule's
+    // internal signatures (which evolve in parallel).
+    const module = ext.default as unknown as HooksModule;
     if (module && typeof module.init === 'function') {
       hooksModule = module;
       hooksModule.init({
@@ -550,6 +583,7 @@ async function init(deps: {
               firstSendLamports: String(fee.firstSendLamports),
               subsequentSendLamports: String(fee.subsequentSendLamports),
               splFeeBumpLamports: String(fee.splFeeBumpLamports),
+              splitPerTxLamports: String(fee.splitPerTxLamports),
             };
           } catch {
             return null;
@@ -585,6 +619,42 @@ async function init(deps: {
           } catch (e) {
             return { error: (e as Error).message };
           }
+        },
+        // Split-approval flow (§5). Enterprise builds + stamps member sigs on
+        // each per-signer split tx (create/approve/execute), then hands the
+        // partial-signed blob here. The paymaster validates it against the
+        // POSITIVE per-kind allowlist (programId + discriminator both bound),
+        // adds its feePayer sig, submits + confirms. Returns landed:true on
+        // confirmed-with-error so enterprise knows the durable nonce advanced
+        // and must rebuild + re-sign. submitSplitTx never throws — it always
+        // resolves to { txid } | { error, landed? }.
+        solanaPaymasterSubmitSplitTx: async (opts: {
+          chain: string;
+          partialSignedTxBase64: string;
+          kind: 'create' | 'approve' | 'execute';
+          expectedSignerTxCount?: number;
+        }) => {
+          return solPaymasterService.submitSplitTx({
+            chain: opts.chain,
+            partialSignedTxBase64: opts.partialSignedTxBase64,
+            kind: opts.kind,
+            expectedSignerTxCount: opts.expectedSignerTxCount,
+          });
+        },
+        // Provision a fresh paymaster-owned durable-nonce account for the pool
+        // (§4). Enterprise owns lease state; this just creates the on-chain
+        // account (lowest unused ssp-pool-<i> seed, authority = paymaster).
+        solanaPaymasterCreatePoolNonce: async (chain: string) => {
+          return solPaymasterService.createPoolNonce(chain);
+        },
+        // Read the current durable-nonce value for a pool account (§4).
+        // Enterprise re-fetches this fresh on every (re)build — never reuses a
+        // stored value.
+        solanaPaymasterGetNonceValue: async (
+          chain: string,
+          nonceAccount: string,
+        ) => {
+          return solPaymasterService.getPoolNonceValue(chain, nonceAccount);
         },
       });
       log.info('[HOOKS] Extension module loaded');

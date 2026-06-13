@@ -549,6 +549,18 @@ export default (app) => {
       enterpriseApi.postVaultProposalSign(req, res);
     },
   );
+  // Solana split-approval flow: per-signer signing payload. Returns the
+  // unsigned per-signer tx (create/approve kind) for the requesting signer to
+  // stamp with their wallet [+ key] ed25519 sigs. All orchestration (creator
+  // claim, claim TTL reassignment, index re-prediction, supersede) lives in
+  // the enterprise module. Error codes surfaced to the app: 409 CREATE_PENDING,
+  // 409 ALREADY_SIGNING, 410 PAYLOAD_SUPERSEDED.
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/solana-signing-payload',
+    (req, res) => {
+      enterpriseApi.postVaultProposalSolanaSigningPayload(req, res);
+    },
+  );
   app.post(
     '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/reject',
     (req, res) => {

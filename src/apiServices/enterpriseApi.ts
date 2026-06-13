@@ -727,6 +727,9 @@ const postVaultProposalPreviewPolicy = vaultHandler(
 const getVaultProposals = vaultHandler('vaultProposalList');
 const getVaultProposal = vaultHandler('vaultProposalGet');
 const postVaultProposalSign = vaultHandler('vaultProposalSign');
+const postVaultProposalSolanaSigningPayload = vaultHandler(
+  'vaultProposalSolanaSigningPayload',
+);
 const postVaultProposalReject = vaultHandler('vaultProposalReject');
 const postVaultProposalCancel = vaultHandler('vaultProposalCancel');
 const postVaultProposalRetryBroadcast = vaultHandler(
@@ -912,6 +915,7 @@ export default {
   getVaultProposals,
   getVaultProposal,
   postVaultProposalSign,
+  postVaultProposalSolanaSigningPayload,
   postVaultProposalReject,
   postVaultProposalCancel,
   postVaultProposalRetryBroadcast,
