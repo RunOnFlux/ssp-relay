@@ -5,7 +5,7 @@
   "main": "index.ts",
   "type": "module",
   "scripts": {
-    "start": "tsc && tsx index.ts",
+    "start": "tsx index.ts",
     "test": "nyc --reporter=lcov mocha --import=tsx --config .mocharc.json",
     "lint": "eslint ./",
     "lint:fix": "eslint ./ --fix",
