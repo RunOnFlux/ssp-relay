@@ -1,12 +1,14 @@
-import admin, { ServiceAccount } from 'firebase-admin';
+import { initializeApp, cert } from 'firebase-admin/app';
+import type { ServiceAccount } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 import syncService from './syncService';
 import log from '../lib/log';
 import serviceAccount from '../../config/serviceAccountKey.json';
 import transactionDecoder from './transactionDecoder';
 import blockchains from './blockchains';
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount as ServiceAccount),
+initializeApp({
+  credential: cert(serviceAccount as ServiceAccount),
 });
 
 interface decodedTx {
@@ -94,7 +96,7 @@ async function sendNotificationKey(wkIdentity, data) {
     }));
 
     try {
-      const batchResponse = await admin.messaging().sendEach(messages);
+      const batchResponse = await getMessaging().sendEach(messages);
 
       // Handle failed messages and clean up invalid tokens
       if (batchResponse.failureCount > 0) {

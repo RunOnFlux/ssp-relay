@@ -15,11 +15,6 @@
     "isolatedModules": true,
     "noEmit": true,
     "moduleDetection": "force",
-    "paths": {
-      // Type-only: redirect `config` to a loose shim (see src/types/config.d.ts).
-      // Resolved relative to this tsconfig (no baseUrl needed on TS 5+).
-      "config": ["./src/types/config.d.ts"],
-    },
     "types": [
       "node",
       "mocha",
