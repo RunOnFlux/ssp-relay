@@ -724,6 +724,12 @@ const postVaultProposalEstimateFee = vaultHandler('vaultProposalEstimateFee');
 const postVaultProposalPreviewPolicy = vaultHandler(
   'vaultProposalPreviewPolicy',
 );
+// Advisory transaction simulation (TX_SIMULATION_DESIGN §6). Read-only — never
+// gates signing. Thin pass-throughs identical in shape to the other vault hooks.
+const postVaultProposalSimulate = vaultHandler('vaultProposalSimulate');
+const postVaultProposalPreviewSimulate = vaultHandler(
+  'vaultProposalPreviewSimulate',
+);
 const getVaultProposals = vaultHandler('vaultProposalList');
 const getVaultProposal = vaultHandler('vaultProposalGet');
 const postVaultProposalSign = vaultHandler('vaultProposalSign');
@@ -820,6 +826,46 @@ const putOrgContact = vaultHandler('contactUpdate');
 const deleteOrgContact = vaultHandler('contactDelete');
 const postOrgContactRecordUsage = vaultHandler('contactRecordUsage');
 
+// Notification Preferences
+const getOrgNotificationPrefs = vaultHandler('notificationPrefsGet');
+const putOrgNotificationPrefs = vaultHandler('notificationPrefsUpdate');
+
+// Notification Subscriptions (Slack — Phase 2)
+const getOrgNotificationSubscriptions = vaultHandler(
+  'notificationSubscriptionsList',
+);
+const postOrgNotificationSubscription = vaultHandler(
+  'notificationSubscriptionCreate',
+);
+const patchOrgNotificationSubscription = vaultHandler(
+  'notificationSubscriptionUpdate',
+);
+const deleteOrgNotificationSubscription = vaultHandler(
+  'notificationSubscriptionDelete',
+);
+const postOrgNotificationSubscriptionTest = vaultHandler(
+  'notificationSubscriptionTest',
+);
+const getOrgNotificationDeliveries = vaultHandler('notificationDeliveriesList');
+
+// API Key management (session-auth, owner/admin, `integrations` entitlement)
+const getOrgApiKeys = vaultHandler('apiKeysList');
+const postOrgApiKey = vaultHandler('apiKeyCreate');
+const deleteOrgApiKey = vaultHandler('apiKeyRevoke');
+const getOrgApiKeyUsage = vaultHandler('apiKeyUsage');
+
+// Customer READ API (api-key auth — org derived FROM THE KEY, read-only).
+// These reuse the generic pass-through; the org is attached by apiKeyAuth, so
+// the enterprise handler reads it from req.apiOrgId (never the URL).
+const apiGetOrg = vaultHandler('apiGetOrg');
+const apiGetVaults = vaultHandler('apiGetVaults');
+const apiGetVault = vaultHandler('apiGetVault');
+const apiGetVaultBalances = vaultHandler('apiGetVaultBalances');
+const apiGetVaultTransactions = vaultHandler('apiGetVaultTransactions');
+const apiGetVaultProposals = vaultHandler('apiGetVaultProposals');
+const apiGetVaultProposal = vaultHandler('apiGetVaultProposal');
+const apiGetPortfolioAnalytics = vaultHandler('apiGetPortfolioAnalytics');
+
 // Subscription & Entitlements
 const getOrgEntitlements = vaultHandler('subscriptionEntitlements');
 const getOrgSubscription = vaultHandler('subscriptionGet');
@@ -912,6 +958,8 @@ export default {
   postVaultProposal,
   postVaultProposalEstimateFee,
   postVaultProposalPreviewPolicy,
+  postVaultProposalSimulate,
+  postVaultProposalPreviewSimulate,
   getVaultProposals,
   getVaultProposal,
   postVaultProposalSign,
@@ -989,6 +1037,29 @@ export default {
   putOrgContact,
   deleteOrgContact,
   postOrgContactRecordUsage,
+  // Notification Preferences
+  getOrgNotificationPrefs,
+  putOrgNotificationPrefs,
+  getOrgNotificationSubscriptions,
+  postOrgNotificationSubscription,
+  patchOrgNotificationSubscription,
+  deleteOrgNotificationSubscription,
+  postOrgNotificationSubscriptionTest,
+  getOrgNotificationDeliveries,
+  // API Key management
+  getOrgApiKeys,
+  postOrgApiKey,
+  deleteOrgApiKey,
+  getOrgApiKeyUsage,
+  // Customer READ API
+  apiGetOrg,
+  apiGetVaults,
+  apiGetVault,
+  apiGetVaultBalances,
+  apiGetVaultTransactions,
+  apiGetVaultProposals,
+  apiGetVaultProposal,
+  apiGetPortfolioAnalytics,
   // Subscription & Entitlements
   getOrgEntitlements,
   getOrgSubscription,

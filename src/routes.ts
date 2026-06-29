@@ -18,6 +18,7 @@ import {
   requireAuth,
   optionalWkIdentityAuth,
 } from './middleware/authMiddleware';
+import { apiKeyAuth } from './middleware/apiKeyAuth';
 import { startNonceCacheCleanup } from './lib/identityAuth';
 
 // Tight rate limit for Stripe-calling billing MUTATION endpoints (checkout,
@@ -55,6 +56,25 @@ const billingReadLimiter = rateLimit({
   },
 });
 
+// Notification-subscription TEST endpoint. This triggers an immediate outbound
+// POST to a customer-configured webhook/Slack URL, so it is an SSRF / egress
+// probe vector (an attacker who can call it repeatedly could use the relay to
+// scan or hammer hosts, even though the webhook delivery layer SSRF-guards the
+// target). 3/min/IP is far above any legitimate "click Send test" cadence while
+// neutering it as an abuse primitive. Mirrors billingMutationLimiter's shape.
+const webhookTestLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 3,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    data: {
+      message: 'Too many test requests. Please wait a minute and try again.',
+    },
+  },
+});
+
 // Unauthenticated /stripe/prices — purely static data (env vars + tier
 // presets, no Stripe API call). Cached aggressively at the HTTP layer so
 // in-memory rate limiting is mostly belt-and-suspenders. Higher cap so a
@@ -82,6 +102,101 @@ const solBroadcastLimiter = rateLimit({
     data: {
       message:
         'Too many Solana broadcast requests. Please wait a minute and try again.',
+    },
+  },
+});
+
+// Customer READ API (/v1/api/*) — per-KEY token bucket. Keyed by the validated
+// `apiKeyId` (attached by apiKeyAuth) so each key gets its own budget rather
+// than sharing a per-IP pool (many keys can sit behind one NAT). 60/min sustained
+// with a 120 burst matches the design (§5.6) for a read-only polling API. Falls
+// back to IP only for the rare pre-auth path (apiKeyAuth runs first, so by here
+// apiKeyId is set).
+const apiReadKeyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const keyId = (req as { apiKeyId?: string }).apiKeyId;
+    return keyId ? `apikey:${keyId}` : `ip:${req.ip ?? 'unknown'}`;
+  },
+  message: {
+    status: 'error',
+    data: {
+      message: 'API rate limit exceeded. Slow down (60 req/min sustained).',
+    },
+  },
+});
+
+// Customer READ API — global per-IP safety net (independent of the per-key
+// bucket) so a single host cannot saturate the relay by rotating many keys.
+const apiReadIpLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    data: { message: 'Too many API requests from this IP. Please slow down.' },
+  },
+});
+
+// Advisory transaction re-simulation (TX_SIMULATION_DESIGN §6, §7.7). Each
+// re-simulate may hit an external/self-hosted RPC, so cap it tightly: 6/min,
+// keyed by vault + session (Bearer token) so one signer's bursts can't starve
+// another, with IP fallback for the rare unauthenticated path. Advisory only —
+// hitting the limit never blocks signing (the GET still serves the cached sim).
+const simulateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 6,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const vaultId =
+      (req.params as Record<string, string> | undefined)?.vaultId ?? 'unknown';
+    const auth = req.headers?.authorization;
+    const session =
+      typeof auth === 'string' && auth.startsWith('Bearer ')
+        ? auth.slice(7)
+        : undefined;
+    return session
+      ? `sim:${vaultId}:${session}`
+      : `sim:${vaultId}:ip:${req.ip ?? 'unknown'}`;
+  },
+  message: {
+    status: 'error',
+    data: {
+      message: 'Too many simulation requests. Please wait a minute and retry.',
+    },
+  },
+});
+
+// Pre-create dry-run simulation (preview-simulate). Read-style — no proposal is
+// created — so a looser per-vault/session budget than the per-proposal
+// re-simulate, matching the debounced NewProposalPage usage.
+const previewSimulateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const vaultId =
+      (req.params as Record<string, string> | undefined)?.vaultId ?? 'unknown';
+    const auth = req.headers?.authorization;
+    const session =
+      typeof auth === 'string' && auth.startsWith('Bearer ')
+        ? auth.slice(7)
+        : undefined;
+    return session
+      ? `simprev:${vaultId}:${session}`
+      : `simprev:${vaultId}:ip:${req.ip ?? 'unknown'}`;
+  },
+  message: {
+    status: 'error',
+    data: {
+      message:
+        'Too many preview-simulation requests. Please slow down and retry.',
     },
   },
 });
@@ -381,6 +496,166 @@ export default (app) => {
     },
   );
 
+  // SSP Enterprise - Notification preference endpoints
+  app.get('/v1/enterprise/organizations/:id/notification-prefs', (req, res) => {
+    enterpriseApi.getOrgNotificationPrefs(req, res);
+  });
+  app.put('/v1/enterprise/organizations/:id/notification-prefs', (req, res) => {
+    enterpriseApi.putOrgNotificationPrefs(req, res);
+  });
+
+  // SSP Enterprise - Notification subscription endpoints (Slack — Phase 2)
+  app.get(
+    '/v1/enterprise/organizations/:id/notification-subscriptions',
+    (req, res) => {
+      enterpriseApi.getOrgNotificationSubscriptions(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/notification-subscriptions',
+    (req, res) => {
+      enterpriseApi.postOrgNotificationSubscription(req, res);
+    },
+  );
+  app.patch(
+    '/v1/enterprise/organizations/:id/notification-subscriptions/:subId',
+    (req, res) => {
+      enterpriseApi.patchOrgNotificationSubscription(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/notification-subscriptions/:subId',
+    (req, res) => {
+      enterpriseApi.deleteOrgNotificationSubscription(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/notification-subscriptions/:subId/test',
+    webhookTestLimiter,
+    (req, res) => {
+      enterpriseApi.postOrgNotificationSubscriptionTest(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/notification-deliveries',
+    (req, res) => {
+      enterpriseApi.getOrgNotificationDeliveries(req, res);
+    },
+  );
+
+  // SSP Enterprise - API Key management (session-auth, owner/admin, integrations
+  // entitlement). Mutations use the tight billing-style limiter; the full key is
+  // returned EXACTLY ONCE on create.
+  app.get(
+    '/v1/enterprise/organizations/:id/api-keys',
+    billingReadLimiter,
+    (req, res) => {
+      enterpriseApi.getOrgApiKeys(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/api-keys/usage',
+    billingReadLimiter,
+    (req, res) => {
+      enterpriseApi.getOrgApiKeyUsage(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/api-keys',
+    billingMutationLimiter,
+    (req, res) => {
+      enterpriseApi.postOrgApiKey(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/api-keys/:keyId',
+    billingMutationLimiter,
+    (req, res) => {
+      enterpriseApi.deleteOrgApiKey(req, res);
+    },
+  );
+
+  // ============================================================
+  // SSP Customer READ API (/v1/api/*) — api-key auth, READ-ONLY.
+  // ============================================================
+  // SECURITY: every route below is GET-only and gated by apiKeyAuth(scope).
+  // The org is derived FROM THE KEY (req.apiOrgId), never the URL. There is NO
+  // mutating /v1/api route — no signing, nonce reservation, proposal creation,
+  // vault mutation, or broadcast is reachable from an API key. Rate limited
+  // per-key (token bucket) and per-IP (global safety net).
+  app.get(
+    '/v1/api/org',
+    apiReadIpLimiter,
+    apiKeyAuth('org:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetOrg(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/vaults',
+    apiReadIpLimiter,
+    apiKeyAuth('vaults:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetVaults(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/vaults/:vaultId',
+    apiReadIpLimiter,
+    apiKeyAuth('vaults:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetVault(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/vaults/:vaultId/balances',
+    apiReadIpLimiter,
+    apiKeyAuth('balances:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetVaultBalances(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/vaults/:vaultId/transactions',
+    apiReadIpLimiter,
+    apiKeyAuth('transactions:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetVaultTransactions(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/vaults/:vaultId/proposals',
+    apiReadIpLimiter,
+    apiKeyAuth('proposals:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetVaultProposals(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/vaults/:vaultId/proposals/:proposalId',
+    apiReadIpLimiter,
+    apiKeyAuth('proposals:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetVaultProposal(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/analytics/portfolio',
+    apiReadIpLimiter,
+    apiKeyAuth('analytics:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetPortfolioAnalytics(req, res);
+    },
+  );
+
   // SSP Enterprise - Vault endpoints
   app.post('/v1/enterprise/organizations/:id/vaults', (req, res) => {
     enterpriseApi.postVault(req, res);
@@ -525,6 +800,15 @@ export default (app) => {
       enterpriseApi.postVaultProposalPreviewPolicy(req, res);
     },
   );
+  // Advisory pre-create dry-run simulation (TX_SIMULATION_DESIGN §6). No
+  // proposal is created. Read-style rate limit, keyed by vault + session.
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/preview-simulate',
+    previewSimulateLimiter,
+    (req, res) => {
+      enterpriseApi.postVaultProposalPreviewSimulate(req, res);
+    },
+  );
   app.post(
     '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals',
     (req, res) => {
@@ -541,6 +825,16 @@ export default (app) => {
     '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId',
     (req, res) => {
       enterpriseApi.getVaultProposal(req, res);
+    },
+  );
+  // Advisory on-demand re-simulation of an existing proposal
+  // (TX_SIMULATION_DESIGN §6). Read-only — only patches the proposal's embedded
+  // simulation subdoc; never signs or gates. Tightly rate-limited (6/min/vault).
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/simulate',
+    simulateLimiter,
+    (req, res) => {
+      enterpriseApi.postVaultProposalSimulate(req, res);
     },
   );
   app.post(

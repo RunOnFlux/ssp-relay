@@ -350,6 +350,38 @@ interface HooksModule {
   handleGetNonceStatus?: (req: unknown) => Promise<unknown>;
   handleValidateNonces?: (req: unknown) => Promise<unknown>;
   handleReconcileNonces?: (req: unknown) => Promise<unknown>;
+  // Customer API key management (session-auth, owner/admin)
+  apiKeysList?: (req: unknown) => Promise<unknown>;
+  apiKeyCreate?: (req: unknown) => Promise<unknown>;
+  apiKeyRevoke?: (req: unknown) => Promise<unknown>;
+  // Customer READ API key validation (used by the public apiKeyAuth middleware)
+  validateApiKey?: (
+    presentedKey: unknown,
+  ) => Promise<
+    | { ok: true; organizationId: string; scopes: string[]; keyId: string }
+    | { ok: false }
+  >;
+  apiKeyTouch?: (req: unknown) => Promise<{ ok: boolean }>;
+  // Sampled, fire-and-forget read-API request telemetry (never blocks request).
+  apiKeyLog?: (entry: {
+    keyId: string;
+    organizationId: string;
+    method: string;
+    path: string;
+    status: number;
+    ip?: string;
+  }) => void;
+  // Per-key usage rollup for the Developers page (session-auth, owner/admin).
+  apiKeyUsage?: (req: unknown) => Promise<unknown>;
+  // Customer READ API handlers (org derived FROM THE KEY, read-only)
+  apiGetOrg?: (req: unknown) => Promise<unknown>;
+  apiGetVaults?: (req: unknown) => Promise<unknown>;
+  apiGetVault?: (req: unknown) => Promise<unknown>;
+  apiGetVaultBalances?: (req: unknown) => Promise<unknown>;
+  apiGetVaultTransactions?: (req: unknown) => Promise<unknown>;
+  apiGetVaultProposals?: (req: unknown) => Promise<unknown>;
+  apiGetVaultProposal?: (req: unknown) => Promise<unknown>;
+  apiGetPortfolioAnalytics?: (req: unknown) => Promise<unknown>;
 }
 
 // No-op implementation
@@ -508,6 +540,72 @@ const noopHooks: HooksModule = {
     errorCode: 'ENTERPRISE_NOT_LOADED',
   }),
   getNoncePoolStatus: async () => [],
+  // Customer API no-ops
+  apiKeysList: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiKeyCreate: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiKeyRevoke: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  validateApiKey: async () => ({ ok: false }),
+  apiKeyTouch: async () => ({ ok: false }),
+  apiKeyLog: () => {
+    /* no-op when enterprise not loaded */
+  },
+  apiKeyUsage: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetOrg: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetVaults: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetVault: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetVaultBalances: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetVaultTransactions: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetVaultProposals: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetVaultProposal: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetPortfolioAnalytics: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
 };
 
 let hooksModule: HooksModule = noopHooks;
@@ -951,6 +1049,77 @@ const handleValidateNonces = (req: unknown) =>
 const handleReconcileNonces = (req: unknown) =>
   hooksModule.handleReconcileNonces?.(req) ?? Promise.resolve({ purged: 0 });
 
+// Customer API key management (session-auth, owner/admin)
+const apiKeysList = (req: unknown) =>
+  hooksModule.apiKeysList?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+const apiKeyCreate = (req: unknown) =>
+  hooksModule.apiKeyCreate?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+const apiKeyRevoke = (req: unknown) =>
+  hooksModule.apiKeyRevoke?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
+// Customer READ API key validation + handlers
+const validateApiKey = (presentedKey: unknown) =>
+  hooksModule.validateApiKey?.(presentedKey) ?? Promise.resolve({ ok: false });
+const apiKeyTouch = (req: unknown) =>
+  hooksModule.apiKeyTouch?.(req) ?? Promise.resolve({ ok: false });
+const apiKeyLog = (entry: {
+  keyId: string;
+  organizationId: string;
+  method: string;
+  path: string;
+  status: number;
+  ip?: string;
+}): void => {
+  // Fire-and-forget; no-op when enterprise not loaded.
+  hooksModule.apiKeyLog?.(entry);
+};
+const apiKeyUsage = (req: unknown) =>
+  hooksModule.apiKeyUsage?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+const apiGetOrg = (req: unknown) =>
+  hooksModule.apiGetOrg?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetVaults = (req: unknown) =>
+  hooksModule.apiGetVaults?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetVault = (req: unknown) =>
+  hooksModule.apiGetVault?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetVaultBalances = (req: unknown) =>
+  hooksModule.apiGetVaultBalances?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetVaultTransactions = (req: unknown) =>
+  hooksModule.apiGetVaultTransactions?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetVaultProposals = (req: unknown) =>
+  hooksModule.apiGetVaultProposals?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetVaultProposal = (req: unknown) =>
+  hooksModule.apiGetVaultProposal?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetPortfolioAnalytics = (req: unknown) =>
+  hooksModule.apiGetPortfolioAnalytics?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+
 export default {
   init,
   isLoaded,
@@ -1021,6 +1190,23 @@ export default {
   handleGetNonceStatus,
   handleValidateNonces,
   handleReconcileNonces,
+  // Customer API key management
+  apiKeysList,
+  apiKeyCreate,
+  apiKeyRevoke,
+  apiKeyUsage,
+  // Customer READ API
+  validateApiKey,
+  apiKeyTouch,
+  apiKeyLog,
+  apiGetOrg,
+  apiGetVaults,
+  apiGetVault,
+  apiGetVaultBalances,
+  apiGetVaultTransactions,
+  apiGetVaultProposals,
+  apiGetVaultProposal,
+  apiGetPortfolioAnalytics,
   // Dynamic hook lookup (used by vault API handlers)
   getHook,
 };
