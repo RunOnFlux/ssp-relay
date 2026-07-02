@@ -1473,13 +1473,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@runonflux/solana-multisig@npm:0.9.0":
-  version: 0.9.0
-  resolution: "@runonflux/solana-multisig@npm:0.9.0"
+"@runonflux/solana-multisig@npm:0.10.0":
+  version: 0.10.0
+  resolution: "@runonflux/solana-multisig@npm:0.10.0"
   dependencies:
     "@coral-xyz/anchor": "npm:^0.31.1"
     "@solana/web3.js": "npm:^1.98.4"
-  checksum: 10c0/3bc001e366d2eb122e950f48f3a8886f97110c50c5b798089ddade20224e1337a6c0139dc956c944d3a2dd4a4740cfb7d671c7588d8b57cb78ba9d15fd019de7
+  checksum: 10c0/e17cecc0320d9e92e1004a934406b8e6d4167d99b6024f1377927589508e81831d8871defcd829d54b4b228ef67779d402e6f99da208fd232cb95a1df557ba4d
   languageName: node
   linkType: hard
 
@@ -7673,7 +7673,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:9.39.2"
     "@runonflux/aa-schnorr-multisig-sdk": "npm:1.3.0"
-    "@runonflux/solana-multisig": "npm:0.9.0"
+    "@runonflux/solana-multisig": "npm:0.10.0"
     "@runonflux/utxo-lib": "npm:1.0.4"
     "@scure/bip32": "npm:2.2.0"
     "@solana/spl-token": "npm:0.4.14"
