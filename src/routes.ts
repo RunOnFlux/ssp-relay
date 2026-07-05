@@ -1,5 +1,5 @@
 import config from 'config';
-import { rateLimit } from 'express-rate-limit';
+import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import syncApi from './apiServices/syncApi';
 import actionApi from './apiServices/actionApi';
 import ratesApi from './apiServices/ratesApi';
@@ -119,7 +119,11 @@ const apiReadKeyLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const keyId = (req as { apiKeyId?: string }).apiKeyId;
-    return keyId ? `apikey:${keyId}` : `ip:${req.ip ?? 'unknown'}`;
+    // ipKeyGenerator normalizes IPv6 to a subnet so v6 clients can't bypass
+    // the fallback bucket by rotating addresses within their /64.
+    return keyId
+      ? `apikey:${keyId}`
+      : `ip:${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`;
   },
   message: {
     status: 'error',
@@ -162,7 +166,7 @@ const simulateLimiter = rateLimit({
         : undefined;
     return session
       ? `sim:${vaultId}:${session}`
-      : `sim:${vaultId}:ip:${req.ip ?? 'unknown'}`;
+      : `sim:${vaultId}:ip:${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`;
   },
   message: {
     status: 'error',
@@ -190,7 +194,7 @@ const previewSimulateLimiter = rateLimit({
         : undefined;
     return session
       ? `simprev:${vaultId}:${session}`
-      : `simprev:${vaultId}:ip:${req.ip ?? 'unknown'}`;
+      : `simprev:${vaultId}:ip:${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`;
   },
   message: {
     status: 'error',
