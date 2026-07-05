@@ -801,6 +801,10 @@ const putVaultPolicyRule = vaultHandler('vaultPolicyRuleUpdate');
 const deleteVaultPolicyRule = vaultHandler('vaultPolicyRuleDelete');
 const putVaultPolicyRulesReorder = vaultHandler('vaultPolicyRulesReorder');
 
+// Policy Templates (Advanced Policy Engine Phase 5)
+const getPolicyTemplates = vaultHandler('policyTemplatesList');
+const postVaultApplyTemplate = vaultHandler('vaultApplyTemplate');
+
 // Approval Groups (Advanced Policy Engine Phase 2)
 const getApprovalGroups = vaultHandler('approvalGroupsList');
 const postApprovalGroup = vaultHandler('approvalGroupCreate');
@@ -814,6 +818,13 @@ const putOrgPolicyRule = vaultHandler('orgPolicyRuleUpdate');
 const deleteOrgPolicyRule = vaultHandler('orgPolicyRuleDelete');
 const putOrgPolicyRulesReorder = vaultHandler('orgPolicyRulesReorder');
 const postOrgPolicyRulesTest = vaultHandler('orgPolicyRulesTest');
+
+// Compliance / Webhook Policy Decisions (Advanced Policy Engine Phase 6)
+const getOrgComplianceConfig = vaultHandler('orgComplianceConfigGet');
+const postOrgComplianceConfig = vaultHandler('orgComplianceConfigSet');
+const postOrgComplianceScreen = vaultHandler('orgComplianceScreen');
+const getOrgPolicyDecisionLogs = vaultHandler('orgPolicyDecisionLogsList');
+const postVaultPolicyWebhookTest = vaultHandler('vaultPolicyWebhookTest');
 
 // Policy Change Governance (Advanced Policy Engine Phase 4)
 const getPolicyChanges = vaultHandler('policyChangesList');
@@ -1045,6 +1056,9 @@ export default {
   putVaultPolicyRule,
   deleteVaultPolicyRule,
   putVaultPolicyRulesReorder,
+  // Policy Templates (Advanced Policy Engine Phase 5)
+  getPolicyTemplates,
+  postVaultApplyTemplate,
   // Approval Groups (Advanced Policy Engine Phase 2)
   getApprovalGroups,
   postApprovalGroup,
@@ -1057,6 +1071,12 @@ export default {
   deleteOrgPolicyRule,
   putOrgPolicyRulesReorder,
   postOrgPolicyRulesTest,
+  // Compliance / Webhook Policy Decisions (Advanced Policy Engine Phase 6)
+  getOrgComplianceConfig,
+  postOrgComplianceConfig,
+  postOrgComplianceScreen,
+  getOrgPolicyDecisionLogs,
+  postVaultPolicyWebhookTest,
   // Policy Change Governance (Advanced Policy Engine Phase 4)
   getPolicyChanges,
   postPolicyChangeApprove,

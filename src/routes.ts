@@ -1073,6 +1073,12 @@ export default (app) => {
     },
   );
 
+  // Policy templates (code-resident presets, Advanced Policy Engine Phase 5)
+  // — NOT org-scoped; any authenticated identity may list them.
+  app.get('/v1/enterprise/policy-templates', (req, res) => {
+    enterpriseApi.getPolicyTemplates(req, res);
+  });
+
   // Vault policy rules (ordered rules engine) — reorder MUST be registered
   // before the :ruleId route so 'reorder' is not captured as a rule id
   app.get(
@@ -1103,6 +1109,16 @@ export default (app) => {
     '/v1/enterprise/organizations/:id/vaults/:vaultId/policy-rules/:ruleId',
     (req, res) => {
       enterpriseApi.deleteVaultPolicyRule(req, res);
+    },
+  );
+
+  // Apply a policy template to a vault (Advanced Policy Engine Phase 5).
+  // A `preview: true` body returns the rules/flat-fields that WOULD apply
+  // without persisting.
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/apply-template',
+    (req, res) => {
+      enterpriseApi.postVaultApplyTemplate(req, res);
     },
   );
 
@@ -1180,6 +1196,41 @@ export default (app) => {
     '/v1/enterprise/organizations/:id/policy-rules/:ruleId',
     (req, res) => {
       enterpriseApi.deleteOrgPolicyRule(req, res);
+    },
+  );
+
+  // Compliance config + manual screen + synchronous policy-decision logs, and
+  // the vault-scoped webhook health-check test (Advanced Policy Engine Phase 6).
+  // Logic-free pass-throughs; all role/entitlement/governance checks live in
+  // the ssp-relay-enterprise hooks.
+  app.get(
+    '/v1/enterprise/organizations/:orgId/compliance/config',
+    (req, res) => {
+      enterpriseApi.getOrgComplianceConfig(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:orgId/compliance/config',
+    (req, res) => {
+      enterpriseApi.postOrgComplianceConfig(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:orgId/compliance/screen',
+    (req, res) => {
+      enterpriseApi.postOrgComplianceScreen(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:orgId/policy-decision-logs',
+    (req, res) => {
+      enterpriseApi.getOrgPolicyDecisionLogs(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy-webhooks/test',
+    (req, res) => {
+      enterpriseApi.postVaultPolicyWebhookTest(req, res);
     },
   );
 
