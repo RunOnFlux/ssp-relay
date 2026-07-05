@@ -767,6 +767,14 @@ const postVaultProposalCancelTimeLock = vaultHandler(
   'vaultProposalCancelTimeLock',
 );
 
+// Multi-Round Approval Workflow actions (Advanced Policy Engine Phase 2)
+const postVaultProposalWorkflowApprove = vaultHandler(
+  'vaultProposalWorkflowApprove',
+);
+const postVaultProposalWorkflowReject = vaultHandler(
+  'vaultProposalWorkflowReject',
+);
+
 // Vault Freeze/Unfreeze
 const postVaultFreeze = vaultHandler('vaultFreeze');
 const postVaultUnfreeze = vaultHandler('vaultUnfreeze');
@@ -785,6 +793,32 @@ const postVaultPolicyWhitelist = vaultHandler('vaultPolicyWhitelistAdd');
 const deleteVaultPolicyWhitelist = vaultHandler('vaultPolicyWhitelistRemove');
 const getVaultPolicyVelocity = vaultHandler('vaultPolicyVelocityGet');
 const getVaultEffectiveLimits = vaultHandler('vaultGetEffectiveLimits');
+
+// Vault Policy Rules (Advanced Policy Engine Phase 1)
+const getVaultPolicyRules = vaultHandler('vaultPolicyRulesList');
+const postVaultPolicyRule = vaultHandler('vaultPolicyRuleCreate');
+const putVaultPolicyRule = vaultHandler('vaultPolicyRuleUpdate');
+const deleteVaultPolicyRule = vaultHandler('vaultPolicyRuleDelete');
+const putVaultPolicyRulesReorder = vaultHandler('vaultPolicyRulesReorder');
+
+// Approval Groups (Advanced Policy Engine Phase 2)
+const getApprovalGroups = vaultHandler('approvalGroupsList');
+const postApprovalGroup = vaultHandler('approvalGroupCreate');
+const putApprovalGroup = vaultHandler('approvalGroupUpdate');
+const deleteApprovalGroup = vaultHandler('approvalGroupDelete');
+
+// Org-Level Policy Rules (Advanced Policy Engine Phase 4)
+const getOrgPolicyRules = vaultHandler('orgPolicyRulesList');
+const postOrgPolicyRule = vaultHandler('orgPolicyRuleCreate');
+const putOrgPolicyRule = vaultHandler('orgPolicyRuleUpdate');
+const deleteOrgPolicyRule = vaultHandler('orgPolicyRuleDelete');
+const putOrgPolicyRulesReorder = vaultHandler('orgPolicyRulesReorder');
+const postOrgPolicyRulesTest = vaultHandler('orgPolicyRulesTest');
+
+// Policy Change Governance (Advanced Policy Engine Phase 4)
+const getPolicyChanges = vaultHandler('policyChangesList');
+const postPolicyChangeApprove = vaultHandler('policyChangeApprove');
+const postPolicyChangeReject = vaultHandler('policyChangeReject');
 
 // Org Policy
 const getOrgPolicy = vaultHandler('orgPolicyGet');
@@ -988,6 +1022,9 @@ export default {
   postVaultProposalAdminApprove,
   postVaultProposalAdminReject,
   postVaultProposalCancelTimeLock,
+  // Multi-Round Approval Workflow (Advanced Policy Engine Phase 2)
+  postVaultProposalWorkflowApprove,
+  postVaultProposalWorkflowReject,
   // Vault Freeze/Unfreeze
   postVaultFreeze,
   postVaultUnfreeze,
@@ -1002,6 +1039,28 @@ export default {
   deleteVaultPolicyWhitelist,
   getVaultPolicyVelocity,
   getVaultEffectiveLimits,
+  // Vault Policy Rules (Advanced Policy Engine Phase 1)
+  getVaultPolicyRules,
+  postVaultPolicyRule,
+  putVaultPolicyRule,
+  deleteVaultPolicyRule,
+  putVaultPolicyRulesReorder,
+  // Approval Groups (Advanced Policy Engine Phase 2)
+  getApprovalGroups,
+  postApprovalGroup,
+  putApprovalGroup,
+  deleteApprovalGroup,
+  // Org-Level Policy Rules (Advanced Policy Engine Phase 4)
+  getOrgPolicyRules,
+  postOrgPolicyRule,
+  putOrgPolicyRule,
+  deleteOrgPolicyRule,
+  putOrgPolicyRulesReorder,
+  postOrgPolicyRulesTest,
+  // Policy Change Governance (Advanced Policy Engine Phase 4)
+  getPolicyChanges,
+  postPolicyChangeApprove,
+  postPolicyChangeReject,
   // Org Policy
   getOrgPolicy,
   putOrgPolicy,

@@ -987,6 +987,20 @@ export default (app) => {
     },
   );
 
+  // Multi-round approval workflow actions (Advanced Policy Engine Phase 2)
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/workflow-approve',
+    (req, res) => {
+      enterpriseApi.postVaultProposalWorkflowApprove(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/workflow-reject',
+    (req, res) => {
+      enterpriseApi.postVaultProposalWorkflowReject(req, res);
+    },
+  );
+
   // Vault freeze/unfreeze (critical actions)
   app.post(
     '/v1/enterprise/organizations/:id/vaults/:vaultId/freeze',
@@ -1059,6 +1073,59 @@ export default (app) => {
     },
   );
 
+  // Vault policy rules (ordered rules engine) — reorder MUST be registered
+  // before the :ruleId route so 'reorder' is not captured as a rule id
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy-rules',
+    (req, res) => {
+      enterpriseApi.getVaultPolicyRules(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy-rules',
+    (req, res) => {
+      enterpriseApi.postVaultPolicyRule(req, res);
+    },
+  );
+  app.put(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy-rules/reorder',
+    (req, res) => {
+      enterpriseApi.putVaultPolicyRulesReorder(req, res);
+    },
+  );
+  app.put(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy-rules/:ruleId',
+    (req, res) => {
+      enterpriseApi.putVaultPolicyRule(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/policy-rules/:ruleId',
+    (req, res) => {
+      enterpriseApi.deleteVaultPolicyRule(req, res);
+    },
+  );
+
+  // Approval groups (org-scoped, Advanced Policy Engine Phase 2)
+  app.get('/v1/enterprise/organizations/:id/approval-groups', (req, res) => {
+    enterpriseApi.getApprovalGroups(req, res);
+  });
+  app.post('/v1/enterprise/organizations/:id/approval-groups', (req, res) => {
+    enterpriseApi.postApprovalGroup(req, res);
+  });
+  app.put(
+    '/v1/enterprise/organizations/:id/approval-groups/:groupId',
+    (req, res) => {
+      enterpriseApi.putApprovalGroup(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/approval-groups/:groupId',
+    (req, res) => {
+      enterpriseApi.deleteApprovalGroup(req, res);
+    },
+  );
+
   // Organization-level default policies
   app.get('/v1/enterprise/organizations/:id/policy', (req, res) => {
     enterpriseApi.getOrgPolicy(req, res);
@@ -1082,6 +1149,54 @@ export default (app) => {
     '/v1/enterprise/organizations/:id/policy/chain/:chain',
     (req, res) => {
       enterpriseApi.deleteOrgChainPolicy(req, res);
+    },
+  );
+
+  // Org-level policy rules (ordered rules engine, Advanced Policy Engine
+  // Phase 4) — reorder/test MUST be registered before the :ruleId route so
+  // 'reorder'/'test' are not captured as a rule id
+  app.get('/v1/enterprise/organizations/:id/policy-rules', (req, res) => {
+    enterpriseApi.getOrgPolicyRules(req, res);
+  });
+  app.post('/v1/enterprise/organizations/:id/policy-rules', (req, res) => {
+    enterpriseApi.postOrgPolicyRule(req, res);
+  });
+  app.put(
+    '/v1/enterprise/organizations/:id/policy-rules/reorder',
+    (req, res) => {
+      enterpriseApi.putOrgPolicyRulesReorder(req, res);
+    },
+  );
+  app.post('/v1/enterprise/organizations/:id/policy-rules/test', (req, res) => {
+    enterpriseApi.postOrgPolicyRulesTest(req, res);
+  });
+  app.put(
+    '/v1/enterprise/organizations/:id/policy-rules/:ruleId',
+    (req, res) => {
+      enterpriseApi.putOrgPolicyRule(req, res);
+    },
+  );
+  app.delete(
+    '/v1/enterprise/organizations/:id/policy-rules/:ruleId',
+    (req, res) => {
+      enterpriseApi.deleteOrgPolicyRule(req, res);
+    },
+  );
+
+  // Policy change governance (org-scoped, Advanced Policy Engine Phase 4)
+  app.get('/v1/enterprise/organizations/:id/policy-changes', (req, res) => {
+    enterpriseApi.getPolicyChanges(req, res);
+  });
+  app.post(
+    '/v1/enterprise/organizations/:id/policy-changes/:requestId/approve',
+    (req, res) => {
+      enterpriseApi.postPolicyChangeApprove(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/policy-changes/:requestId/reject',
+    (req, res) => {
+      enterpriseApi.postPolicyChangeReject(req, res);
     },
   );
 

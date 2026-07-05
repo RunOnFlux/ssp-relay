@@ -222,7 +222,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@coral-xyz/anchor@npm:^0.31.1":
+"@coral-xyz/anchor@npm:0.31.1":
   version: 0.31.1
   resolution: "@coral-xyz/anchor@npm:0.31.1"
   dependencies:
@@ -1473,13 +1473,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@runonflux/solana-multisig@npm:0.10.0":
-  version: 0.10.0
-  resolution: "@runonflux/solana-multisig@npm:0.10.0"
+"@runonflux/solana-multisig@npm:0.11.0":
+  version: 0.11.0
+  resolution: "@runonflux/solana-multisig@npm:0.11.0"
   dependencies:
-    "@coral-xyz/anchor": "npm:^0.31.1"
-    "@solana/web3.js": "npm:^1.98.4"
-  checksum: 10c0/e17cecc0320d9e92e1004a934406b8e6d4167d99b6024f1377927589508e81831d8871defcd829d54b4b228ef67779d402e6f99da208fd232cb95a1df557ba4d
+    "@coral-xyz/anchor": "npm:0.31.1"
+    "@solana/web3.js": "npm:1.98.4"
+  checksum: 10c0/5b4012b93099ec87cd9d277babc6f513b081383324c442b1f3b7dc4d18451521dc770e637e9133e3506e8ccbebd9e040ac040c31204537870d82679385c6f814
   languageName: node
   linkType: hard
 
@@ -1783,7 +1783,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana/web3.js@npm:1.98.4, @solana/web3.js@npm:^1.32.0, @solana/web3.js@npm:^1.69.0, @solana/web3.js@npm:^1.87.6, @solana/web3.js@npm:^1.98.4":
+"@solana/web3.js@npm:1.98.4, @solana/web3.js@npm:^1.32.0, @solana/web3.js@npm:^1.69.0, @solana/web3.js@npm:^1.87.6":
   version: 1.98.4
   resolution: "@solana/web3.js@npm:1.98.4"
   dependencies:
@@ -7673,7 +7673,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:9.39.2"
     "@runonflux/aa-schnorr-multisig-sdk": "npm:1.3.0"
-    "@runonflux/solana-multisig": "npm:0.10.0"
+    "@runonflux/solana-multisig": "npm:0.11.0"
     "@runonflux/utxo-lib": "npm:1.0.4"
     "@scure/bip32": "npm:2.2.0"
     "@solana/spl-token": "npm:0.4.14"
