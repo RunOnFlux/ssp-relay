@@ -33,6 +33,8 @@ export interface ApiKeyAuthenticatedRequest extends Request {
   apiKeyId?: string;
   /** Alias consumed by enterpriseHooks.apiKeyTouch. */
   keyId?: string;
+  /** wkIdentity that created the key — `proposedBy` for write-scope routes. */
+  apiKeyCreatedBy?: string;
 }
 
 const BEARER_PREFIX = 'Bearer ';
@@ -112,11 +114,12 @@ export function apiKeyAuth(requiredScope: string) {
           );
       }
 
-      // Attach the key's OWN org (never the URL) + scopes + id.
+      // Attach the key's OWN org (never the URL) + scopes + id + creator.
       req.apiOrgId = result.organizationId;
       req.apiScopes = result.scopes;
       req.apiKeyId = result.keyId;
       req.keyId = result.keyId;
+      req.apiKeyCreatedBy = result.createdBy;
 
       // Throttled best-effort lastUsed touch — never blocks the request.
       void enterpriseHooks.apiKeyTouch(req).catch((err: unknown) => {

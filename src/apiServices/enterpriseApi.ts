@@ -910,6 +910,45 @@ const apiGetVaultTransactions = vaultHandler('apiGetVaultTransactions');
 const apiGetVaultProposals = vaultHandler('apiGetVaultProposals');
 const apiGetVaultProposal = vaultHandler('apiGetVaultProposal');
 const apiGetPortfolioAnalytics = vaultHandler('apiGetPortfolioAnalytics');
+const apiGetContacts = vaultHandler('apiGetContacts');
+const apiGetVaultPolicy = vaultHandler('apiGetVaultPolicy');
+const apiGetVaultPolicyRules = vaultHandler('apiGetVaultPolicyRules');
+const apiGetOrgPolicy = vaultHandler('apiGetOrgPolicy');
+const apiGetOrgPolicyRules = vaultHandler('apiGetOrgPolicyRules');
+const apiGetApprovalGroups = vaultHandler('apiGetApprovalGroups');
+const apiGetPolicyTemplates = vaultHandler('apiGetPolicyTemplates');
+// WRITE scopes — proposals:write (create/cancel) + policies:write + contacts:write.
+const apiCreateVaultProposal = vaultHandler('apiCreateVaultProposal');
+const apiCancelVaultProposal = vaultHandler('apiCancelVaultProposal');
+const apiUpdateVaultPolicy = vaultHandler('apiUpdateVaultPolicy');
+const apiCreateVaultPolicyRule = vaultHandler('apiCreateVaultPolicyRule');
+const apiUpdateVaultPolicyRule = vaultHandler('apiUpdateVaultPolicyRule');
+const apiDeleteVaultPolicyRule = vaultHandler('apiDeleteVaultPolicyRule');
+const apiReorderVaultPolicyRules = vaultHandler('apiReorderVaultPolicyRules');
+const apiAddVaultWhitelistAddress = vaultHandler('apiAddVaultWhitelistAddress');
+const apiRemoveVaultWhitelistAddress = vaultHandler(
+  'apiRemoveVaultWhitelistAddress',
+);
+const apiUpdateVaultWhitelistMode = vaultHandler('apiUpdateVaultWhitelistMode');
+const apiUpdateOrgPolicy = vaultHandler('apiUpdateOrgPolicy');
+const apiCreateOrgPolicyRule = vaultHandler('apiCreateOrgPolicyRule');
+const apiUpdateOrgPolicyRule = vaultHandler('apiUpdateOrgPolicyRule');
+const apiDeleteOrgPolicyRule = vaultHandler('apiDeleteOrgPolicyRule');
+const apiReorderOrgPolicyRules = vaultHandler('apiReorderOrgPolicyRules');
+const apiUpdateOrgChainPolicy = vaultHandler('apiUpdateOrgChainPolicy');
+const apiDeleteOrgChainPolicy = vaultHandler('apiDeleteOrgChainPolicy');
+const apiCreateApprovalGroup = vaultHandler('apiCreateApprovalGroup');
+const apiUpdateApprovalGroup = vaultHandler('apiUpdateApprovalGroup');
+const apiDeleteApprovalGroup = vaultHandler('apiDeleteApprovalGroup');
+const apiApplyPolicyTemplate = vaultHandler('apiApplyPolicyTemplate');
+const apiCreateVault = vaultHandler('apiCreateVault');
+const apiUpdateVault = vaultHandler('apiUpdateVault');
+const apiCreateVaultTag = vaultHandler('apiCreateVaultTag');
+const apiUpdateVaultTag = vaultHandler('apiUpdateVaultTag');
+const apiDeleteVaultTag = vaultHandler('apiDeleteVaultTag');
+const apiCreateContact = vaultHandler('apiCreateContact');
+const apiUpdateContact = vaultHandler('apiUpdateContact');
+const apiDeleteContact = vaultHandler('apiDeleteContact');
 
 // Subscription & Entitlements
 const getOrgEntitlements = vaultHandler('subscriptionEntitlements');
@@ -1139,6 +1178,42 @@ export default {
   apiGetVaultProposals,
   apiGetVaultProposal,
   apiGetPortfolioAnalytics,
+  apiGetContacts,
+  apiGetVaultPolicy,
+  apiGetVaultPolicyRules,
+  apiGetOrgPolicy,
+  apiGetOrgPolicyRules,
+  apiGetApprovalGroups,
+  apiGetPolicyTemplates,
+  apiCreateVaultProposal,
+  apiCancelVaultProposal,
+  apiUpdateVaultPolicy,
+  apiCreateVaultPolicyRule,
+  apiUpdateVaultPolicyRule,
+  apiDeleteVaultPolicyRule,
+  apiReorderVaultPolicyRules,
+  apiAddVaultWhitelistAddress,
+  apiRemoveVaultWhitelistAddress,
+  apiUpdateVaultWhitelistMode,
+  apiUpdateOrgPolicy,
+  apiCreateOrgPolicyRule,
+  apiUpdateOrgPolicyRule,
+  apiDeleteOrgPolicyRule,
+  apiReorderOrgPolicyRules,
+  apiUpdateOrgChainPolicy,
+  apiDeleteOrgChainPolicy,
+  apiCreateApprovalGroup,
+  apiUpdateApprovalGroup,
+  apiDeleteApprovalGroup,
+  apiApplyPolicyTemplate,
+  apiCreateVault,
+  apiUpdateVault,
+  apiCreateVaultTag,
+  apiUpdateVaultTag,
+  apiDeleteVaultTag,
+  apiCreateContact,
+  apiUpdateContact,
+  apiDeleteContact,
   // Subscription & Entitlements
   getOrgEntitlements,
   getOrgSubscription,

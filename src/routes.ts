@@ -146,6 +146,25 @@ const apiReadIpLimiter = rateLimit({
   },
 });
 
+// Customer WRITE API — per-key limiter, tighter than reads: creating a proposal
+// builds an unsigned tx and reserves nonces, so cap it at 30/min per key.
+const apiWriteKeyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const keyId = (req as { apiKeyId?: string }).apiKeyId;
+    return keyId
+      ? `apikey:write:${keyId}`
+      : `ip:${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`;
+  },
+  message: {
+    status: 'error',
+    data: { message: 'API write rate limit exceeded (30 req/min).' },
+  },
+});
+
 // Advisory transaction re-simulation (TX_SIMULATION_DESIGN §6, §7.7). Each
 // re-simulate may hit an external/self-hosted RPC, so cap it tightly: 6/min,
 // keyed by vault + session (Bearer token) so one signer's bursts can't starve
@@ -580,13 +599,14 @@ export default (app) => {
   );
 
   // ============================================================
-  // SSP Customer READ API (/v1/api/*) — api-key auth, READ-ONLY.
+  // SSP Customer API (/v1/api/*) — api-key auth.
   // ============================================================
-  // SECURITY: every route below is GET-only and gated by apiKeyAuth(scope).
-  // The org is derived FROM THE KEY (req.apiOrgId), never the URL. There is NO
-  // mutating /v1/api route — no signing, nonce reservation, proposal creation,
-  // vault mutation, or broadcast is reachable from an API key. Rate limited
-  // per-key (token bucket) and per-IP (global safety net).
+  // SECURITY: reads are GET, gated by apiKeyAuth(scope). The one WRITE route
+  // (POST .../proposals, scope `proposals:write`) creates a PENDING proposal
+  // ONLY — it never signs, reserves-then-signs, or broadcasts; execution still
+  // requires the vault's M-of-N device signatures. The org is derived FROM THE
+  // KEY (req.apiOrgId), never the URL. Rate limited per-key (token bucket) and
+  // per-IP (global safety net); writes get a tighter per-key bucket.
   app.get(
     '/v1/api/org',
     apiReadIpLimiter,
@@ -657,6 +677,363 @@ export default (app) => {
     apiReadKeyLimiter,
     (req, res) => {
       enterpriseApi.apiGetPortfolioAnalytics(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/contacts',
+    apiReadIpLimiter,
+    apiKeyAuth('contacts:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetContacts(req, res);
+    },
+  );
+  // READ — policy config (policies:read). Read back what the policies:write
+  // endpoints manage. Org-scoped; exposes no signing material.
+  app.get(
+    '/v1/api/vaults/:vaultId/policy',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetVaultPolicy(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/vaults/:vaultId/policy-rules',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetVaultPolicyRules(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/org/policy',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetOrgPolicy(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/org/policy-rules',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetOrgPolicyRules(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/approval-groups',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetApprovalGroups(req, res);
+    },
+  );
+  app.get(
+    '/v1/api/policy-templates',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:read'),
+    apiReadKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiGetPolicyTemplates(req, res);
+    },
+  );
+  // WRITE — create a PENDING proposal (a mutating /v1/api route). Gated on
+  // `proposals:write`; proposedBy = the key's creator (must be a vault signer);
+  // runs the full policy engine; never signs or broadcasts.
+  app.post(
+    '/v1/api/vaults/:vaultId/proposals',
+    apiReadIpLimiter,
+    apiKeyAuth('proposals:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiCreateVaultProposal(req, res);
+    },
+  );
+  // WRITE — cancel a pending proposal (withdraws only; the inner service checks
+  // creator/admin; no funds move).
+  app.post(
+    '/v1/api/vaults/:vaultId/proposals/:proposalId/cancel',
+    apiReadIpLimiter,
+    apiKeyAuth('proposals:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiCancelVaultProposal(req, res);
+    },
+  );
+  // WRITE — update a vault's spending policy (policies:write). Policy is a
+  // CONTROL, not a fund movement; the key creator must be a vault admin (the
+  // check runs inside the enterprise service). Never signs or broadcasts.
+  app.put(
+    '/v1/api/vaults/:vaultId/policy',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateVaultPolicy(req, res);
+    },
+  );
+  // WRITE — vault policy RULES (policies:write). The programmable policy-as-code
+  // surface. Rules gate/route proposals; they never sign or move funds. Vault-admin
+  // authorization is enforced inside the enterprise service (CC3).
+  app.post(
+    '/v1/api/vaults/:vaultId/policy-rules',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiCreateVaultPolicyRule(req, res);
+    },
+  );
+  // Reorder is a distinct sub-path (POST) — declared before :ruleId so it is
+  // never shadowed by a same-method rule route.
+  app.post(
+    '/v1/api/vaults/:vaultId/policy-rules/reorder',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiReorderVaultPolicyRules(req, res);
+    },
+  );
+  app.put(
+    '/v1/api/vaults/:vaultId/policy-rules/:ruleId',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateVaultPolicyRule(req, res);
+    },
+  );
+  app.delete(
+    '/v1/api/vaults/:vaultId/policy-rules/:ruleId',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiDeleteVaultPolicyRule(req, res);
+    },
+  );
+  // WRITE — vault whitelist (policies:write). Controls WHERE funds may go; never
+  // moves funds. Mode sub-path declared before the add/remove collection route.
+  app.put(
+    '/v1/api/vaults/:vaultId/policy/whitelist/mode',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateVaultWhitelistMode(req, res);
+    },
+  );
+  app.post(
+    '/v1/api/vaults/:vaultId/policy/whitelist',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiAddVaultWhitelistAddress(req, res);
+    },
+  );
+  app.delete(
+    '/v1/api/vaults/:vaultId/policy/whitelist',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiRemoveVaultWhitelistAddress(req, res);
+    },
+  );
+  // WRITE — org-level default policy (policies:write). Org admin only (enforced
+  // in the enterprise service). A control, not a fund movement.
+  app.put(
+    '/v1/api/org/policy',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateOrgPolicy(req, res);
+    },
+  );
+  // WRITE — org-level policy rules (policies:write). Org admin only (enforced in
+  // the enterprise service). Reorder declared before :ruleId.
+  app.post(
+    '/v1/api/org/policy-rules',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiCreateOrgPolicyRule(req, res);
+    },
+  );
+  app.post(
+    '/v1/api/org/policy-rules/reorder',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiReorderOrgPolicyRules(req, res);
+    },
+  );
+  app.put(
+    '/v1/api/org/policy-rules/:ruleId',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateOrgPolicyRule(req, res);
+    },
+  );
+  app.delete(
+    '/v1/api/org/policy-rules/:ruleId',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiDeleteOrgPolicyRule(req, res);
+    },
+  );
+  // WRITE — org per-chain policy override (policies:write). Org admin only.
+  app.put(
+    '/v1/api/org/chain-policy/:chain',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateOrgChainPolicy(req, res);
+    },
+  );
+  app.delete(
+    '/v1/api/org/chain-policy/:chain',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiDeleteOrgChainPolicy(req, res);
+    },
+  );
+  // WRITE — approval groups (policies:write). Named signer quorums referenced by
+  // policy rules. Org admin only (enforced in the enterprise service). Defines
+  // WHO approves; never signs or moves funds.
+  app.post(
+    '/v1/api/approval-groups',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiCreateApprovalGroup(req, res);
+    },
+  );
+  app.put(
+    '/v1/api/approval-groups/:groupId',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateApprovalGroup(req, res);
+    },
+  );
+  app.delete(
+    '/v1/api/approval-groups/:groupId',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiDeleteApprovalGroup(req, res);
+    },
+  );
+  // WRITE — apply a policy template to a vault (policies:write). Materializes the
+  // template's rules/flat fields via the CC3-gated policy writers.
+  app.post(
+    '/v1/api/vaults/:vaultId/apply-template',
+    apiReadIpLimiter,
+    apiKeyAuth('policies:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiApplyPolicyTemplate(req, res);
+    },
+  );
+  // WRITE — vaults + vault tags (vaults:write). Org admin only (enforced in the
+  // enterprise service). Creating/configuring a vault never signs or moves funds.
+  app.post(
+    '/v1/api/vaults',
+    apiReadIpLimiter,
+    apiKeyAuth('vaults:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiCreateVault(req, res);
+    },
+  );
+  app.post(
+    '/v1/api/vault-tags',
+    apiReadIpLimiter,
+    apiKeyAuth('vaults:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiCreateVaultTag(req, res);
+    },
+  );
+  app.put(
+    '/v1/api/vault-tags/:tagId',
+    apiReadIpLimiter,
+    apiKeyAuth('vaults:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateVaultTag(req, res);
+    },
+  );
+  app.delete(
+    '/v1/api/vault-tags/:tagId',
+    apiReadIpLimiter,
+    apiKeyAuth('vaults:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiDeleteVaultTag(req, res);
+    },
+  );
+  // NOTE: declared AFTER the more specific vault sub-paths (policy, policy-rules,
+  // whitelist) so `:vaultId` never shadows them; PUT here updates vault config.
+  app.put(
+    '/v1/api/vaults/:vaultId',
+    apiReadIpLimiter,
+    apiKeyAuth('vaults:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateVault(req, res);
+    },
+  );
+  // WRITE — org address book (contacts:write). Decoupled from policy/whitelist,
+  // so these never affect fund movement.
+  app.post(
+    '/v1/api/contacts',
+    apiReadIpLimiter,
+    apiKeyAuth('contacts:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiCreateContact(req, res);
+    },
+  );
+  app.put(
+    '/v1/api/contacts/:id',
+    apiReadIpLimiter,
+    apiKeyAuth('contacts:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiUpdateContact(req, res);
+    },
+  );
+  app.delete(
+    '/v1/api/contacts/:id',
+    apiReadIpLimiter,
+    apiKeyAuth('contacts:write'),
+    apiWriteKeyLimiter,
+    (req, res) => {
+      enterpriseApi.apiDeleteContact(req, res);
     },
   );
 

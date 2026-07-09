@@ -355,10 +355,14 @@ interface HooksModule {
   apiKeyCreate?: (req: unknown) => Promise<unknown>;
   apiKeyRevoke?: (req: unknown) => Promise<unknown>;
   // Customer READ API key validation (used by the public apiKeyAuth middleware)
-  validateApiKey?: (
-    presentedKey: unknown,
-  ) => Promise<
-    | { ok: true; organizationId: string; scopes: string[]; keyId: string }
+  validateApiKey?: (presentedKey: unknown) => Promise<
+    | {
+        ok: true;
+        organizationId: string;
+        scopes: string[];
+        keyId: string;
+        createdBy: string;
+      }
     | { ok: false }
   >;
   apiKeyTouch?: (req: unknown) => Promise<{ ok: boolean }>;
@@ -382,6 +386,43 @@ interface HooksModule {
   apiGetVaultProposals?: (req: unknown) => Promise<unknown>;
   apiGetVaultProposal?: (req: unknown) => Promise<unknown>;
   apiGetPortfolioAnalytics?: (req: unknown) => Promise<unknown>;
+  apiGetContacts?: (req: unknown) => Promise<unknown>;
+  apiGetVaultPolicy?: (req: unknown) => Promise<unknown>;
+  apiGetVaultPolicyRules?: (req: unknown) => Promise<unknown>;
+  apiGetOrgPolicy?: (req: unknown) => Promise<unknown>;
+  apiGetOrgPolicyRules?: (req: unknown) => Promise<unknown>;
+  apiGetApprovalGroups?: (req: unknown) => Promise<unknown>;
+  apiGetPolicyTemplates?: (req: unknown) => Promise<unknown>;
+  // WRITE scopes — the only mutations reachable from an API key.
+  apiCreateVaultProposal?: (req: unknown) => Promise<unknown>;
+  apiCancelVaultProposal?: (req: unknown) => Promise<unknown>;
+  apiUpdateVaultPolicy?: (req: unknown) => Promise<unknown>;
+  apiCreateVaultPolicyRule?: (req: unknown) => Promise<unknown>;
+  apiUpdateVaultPolicyRule?: (req: unknown) => Promise<unknown>;
+  apiDeleteVaultPolicyRule?: (req: unknown) => Promise<unknown>;
+  apiReorderVaultPolicyRules?: (req: unknown) => Promise<unknown>;
+  apiAddVaultWhitelistAddress?: (req: unknown) => Promise<unknown>;
+  apiRemoveVaultWhitelistAddress?: (req: unknown) => Promise<unknown>;
+  apiUpdateVaultWhitelistMode?: (req: unknown) => Promise<unknown>;
+  apiUpdateOrgPolicy?: (req: unknown) => Promise<unknown>;
+  apiCreateOrgPolicyRule?: (req: unknown) => Promise<unknown>;
+  apiUpdateOrgPolicyRule?: (req: unknown) => Promise<unknown>;
+  apiDeleteOrgPolicyRule?: (req: unknown) => Promise<unknown>;
+  apiReorderOrgPolicyRules?: (req: unknown) => Promise<unknown>;
+  apiUpdateOrgChainPolicy?: (req: unknown) => Promise<unknown>;
+  apiDeleteOrgChainPolicy?: (req: unknown) => Promise<unknown>;
+  apiCreateApprovalGroup?: (req: unknown) => Promise<unknown>;
+  apiUpdateApprovalGroup?: (req: unknown) => Promise<unknown>;
+  apiDeleteApprovalGroup?: (req: unknown) => Promise<unknown>;
+  apiApplyPolicyTemplate?: (req: unknown) => Promise<unknown>;
+  apiCreateVault?: (req: unknown) => Promise<unknown>;
+  apiUpdateVault?: (req: unknown) => Promise<unknown>;
+  apiCreateVaultTag?: (req: unknown) => Promise<unknown>;
+  apiUpdateVaultTag?: (req: unknown) => Promise<unknown>;
+  apiDeleteVaultTag?: (req: unknown) => Promise<unknown>;
+  apiCreateContact?: (req: unknown) => Promise<unknown>;
+  apiUpdateContact?: (req: unknown) => Promise<unknown>;
+  apiDeleteContact?: (req: unknown) => Promise<unknown>;
 }
 
 // No-op implementation
@@ -602,6 +643,186 @@ const noopHooks: HooksModule = {
     errorCode: 'ENTERPRISE_NOT_LOADED',
   }),
   apiGetPortfolioAnalytics: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetContacts: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetVaultPolicy: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetVaultPolicyRules: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetOrgPolicy: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetOrgPolicyRules: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetApprovalGroups: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiGetPolicyTemplates: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiCreateVaultProposal: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiCancelVaultProposal: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateVaultPolicy: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiCreateVaultPolicyRule: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateVaultPolicyRule: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiDeleteVaultPolicyRule: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiReorderVaultPolicyRules: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiAddVaultWhitelistAddress: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiRemoveVaultWhitelistAddress: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateVaultWhitelistMode: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateOrgPolicy: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiCreateOrgPolicyRule: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateOrgPolicyRule: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiDeleteOrgPolicyRule: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiReorderOrgPolicyRules: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateOrgChainPolicy: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiDeleteOrgChainPolicy: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiCreateApprovalGroup: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateApprovalGroup: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiDeleteApprovalGroup: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiApplyPolicyTemplate: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiCreateVault: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateVault: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiCreateVaultTag: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateVaultTag: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiDeleteVaultTag: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiCreateContact: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiUpdateContact: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  apiDeleteContact: async () => ({
     success: false,
     error: 'Enterprise not available',
     errorCode: 'ENTERPRISE_NOT_LOADED',
@@ -1119,6 +1340,114 @@ const apiGetVaultProposal = (req: unknown) =>
 const apiGetPortfolioAnalytics = (req: unknown) =>
   hooksModule.apiGetPortfolioAnalytics?.(req) ??
   Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetContacts = (req: unknown) =>
+  hooksModule.apiGetContacts?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetVaultPolicy = (req: unknown) =>
+  hooksModule.apiGetVaultPolicy?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetVaultPolicyRules = (req: unknown) =>
+  hooksModule.apiGetVaultPolicyRules?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetOrgPolicy = (req: unknown) =>
+  hooksModule.apiGetOrgPolicy?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetOrgPolicyRules = (req: unknown) =>
+  hooksModule.apiGetOrgPolicyRules?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetApprovalGroups = (req: unknown) =>
+  hooksModule.apiGetApprovalGroups?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiGetPolicyTemplates = (req: unknown) =>
+  hooksModule.apiGetPolicyTemplates?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiCreateVaultProposal = (req: unknown) =>
+  hooksModule.apiCreateVaultProposal?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiCancelVaultProposal = (req: unknown) =>
+  hooksModule.apiCancelVaultProposal?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateVaultPolicy = (req: unknown) =>
+  hooksModule.apiUpdateVaultPolicy?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiCreateVaultPolicyRule = (req: unknown) =>
+  hooksModule.apiCreateVaultPolicyRule?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateVaultPolicyRule = (req: unknown) =>
+  hooksModule.apiUpdateVaultPolicyRule?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiDeleteVaultPolicyRule = (req: unknown) =>
+  hooksModule.apiDeleteVaultPolicyRule?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiReorderVaultPolicyRules = (req: unknown) =>
+  hooksModule.apiReorderVaultPolicyRules?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiAddVaultWhitelistAddress = (req: unknown) =>
+  hooksModule.apiAddVaultWhitelistAddress?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiRemoveVaultWhitelistAddress = (req: unknown) =>
+  hooksModule.apiRemoveVaultWhitelistAddress?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateVaultWhitelistMode = (req: unknown) =>
+  hooksModule.apiUpdateVaultWhitelistMode?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateOrgPolicy = (req: unknown) =>
+  hooksModule.apiUpdateOrgPolicy?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiCreateOrgPolicyRule = (req: unknown) =>
+  hooksModule.apiCreateOrgPolicyRule?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateOrgPolicyRule = (req: unknown) =>
+  hooksModule.apiUpdateOrgPolicyRule?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiDeleteOrgPolicyRule = (req: unknown) =>
+  hooksModule.apiDeleteOrgPolicyRule?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiReorderOrgPolicyRules = (req: unknown) =>
+  hooksModule.apiReorderOrgPolicyRules?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateOrgChainPolicy = (req: unknown) =>
+  hooksModule.apiUpdateOrgChainPolicy?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiDeleteOrgChainPolicy = (req: unknown) =>
+  hooksModule.apiDeleteOrgChainPolicy?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiCreateApprovalGroup = (req: unknown) =>
+  hooksModule.apiCreateApprovalGroup?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateApprovalGroup = (req: unknown) =>
+  hooksModule.apiUpdateApprovalGroup?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiDeleteApprovalGroup = (req: unknown) =>
+  hooksModule.apiDeleteApprovalGroup?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiApplyPolicyTemplate = (req: unknown) =>
+  hooksModule.apiApplyPolicyTemplate?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiCreateVault = (req: unknown) =>
+  hooksModule.apiCreateVault?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateVault = (req: unknown) =>
+  hooksModule.apiUpdateVault?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiCreateVaultTag = (req: unknown) =>
+  hooksModule.apiCreateVaultTag?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateVaultTag = (req: unknown) =>
+  hooksModule.apiUpdateVaultTag?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiDeleteVaultTag = (req: unknown) =>
+  hooksModule.apiDeleteVaultTag?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiCreateContact = (req: unknown) =>
+  hooksModule.apiCreateContact?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiUpdateContact = (req: unknown) =>
+  hooksModule.apiUpdateContact?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
+const apiDeleteContact = (req: unknown) =>
+  hooksModule.apiDeleteContact?.(req) ??
+  Promise.resolve({ success: false, error: 'Enterprise not available' });
 
 export default {
   init,
@@ -1207,6 +1536,42 @@ export default {
   apiGetVaultProposals,
   apiGetVaultProposal,
   apiGetPortfolioAnalytics,
+  apiGetContacts,
+  apiGetVaultPolicy,
+  apiGetVaultPolicyRules,
+  apiGetOrgPolicy,
+  apiGetOrgPolicyRules,
+  apiGetApprovalGroups,
+  apiGetPolicyTemplates,
+  apiCreateVaultProposal,
+  apiCancelVaultProposal,
+  apiUpdateVaultPolicy,
+  apiCreateVaultPolicyRule,
+  apiUpdateVaultPolicyRule,
+  apiDeleteVaultPolicyRule,
+  apiReorderVaultPolicyRules,
+  apiAddVaultWhitelistAddress,
+  apiRemoveVaultWhitelistAddress,
+  apiUpdateVaultWhitelistMode,
+  apiUpdateOrgPolicy,
+  apiCreateOrgPolicyRule,
+  apiUpdateOrgPolicyRule,
+  apiDeleteOrgPolicyRule,
+  apiReorderOrgPolicyRules,
+  apiUpdateOrgChainPolicy,
+  apiDeleteOrgChainPolicy,
+  apiCreateApprovalGroup,
+  apiUpdateApprovalGroup,
+  apiDeleteApprovalGroup,
+  apiApplyPolicyTemplate,
+  apiCreateVault,
+  apiUpdateVault,
+  apiCreateVaultTag,
+  apiUpdateVaultTag,
+  apiDeleteVaultTag,
+  apiCreateContact,
+  apiUpdateContact,
+  apiDeleteContact,
   // Dynamic hook lookup (used by vault API handlers)
   getHook,
 };
