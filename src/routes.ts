@@ -1255,6 +1255,46 @@ export default (app) => {
     },
   );
 
+  // Vault signature requests (WalletConnect Phase 2 — vault message signing).
+  // A NON-broadcasting M-of-N signature over a dApp message (personal_sign);
+  // pass-through only, all logic in ssp-relay-enterprise.
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/signature-requests',
+    (req, res) => {
+      enterpriseApi.postVaultSignatureRequest(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/signature-requests',
+    (req, res) => {
+      enterpriseApi.getVaultSignatureRequests(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/signature-requests/deployment-status',
+    (req, res) => {
+      enterpriseApi.getVaultSignatureDeploymentStatus(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/signature-requests/:requestId',
+    (req, res) => {
+      enterpriseApi.getVaultSignatureRequest(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/signature-requests/:requestId/sign',
+    (req, res) => {
+      enterpriseApi.postVaultSignatureRequestSign(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/signature-requests/:requestId/reject',
+    (req, res) => {
+      enterpriseApi.postVaultSignatureRequestReject(req, res);
+    },
+  );
+
   // Vault audit
   app.get(
     '/v1/enterprise/organizations/:id/vaults/:vaultId/audit',

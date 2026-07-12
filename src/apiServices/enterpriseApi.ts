@@ -741,6 +741,17 @@ const postVaultProposalCancel = vaultHandler('vaultProposalCancel');
 const postVaultProposalRetryBroadcast = vaultHandler(
   'vaultProposalRetryBroadcast',
 );
+// Vault signature requests (WalletConnect Phase 2 — vault message signing).
+const postVaultSignatureRequest = vaultHandler('vaultSignatureRequestCreate');
+const getVaultSignatureRequests = vaultHandler('vaultSignatureRequestList');
+const getVaultSignatureRequest = vaultHandler('vaultSignatureRequestGet');
+const getVaultSignatureDeploymentStatus = vaultHandler(
+  'vaultSignatureDeploymentStatus',
+);
+const postVaultSignatureRequestSign = vaultHandler('vaultSignatureRequestSign');
+const postVaultSignatureRequestReject = vaultHandler(
+  'vaultSignatureRequestReject',
+);
 const getVaultAuditLog = vaultHandler('vaultAuditLog');
 const getOrgVaultAuditLog = vaultHandler('orgVaultAuditLog');
 const getVaultWatchedTokens = vaultHandler('vaultWatchedTokensList');
@@ -1051,6 +1062,12 @@ export default {
   postVaultProposalReject,
   postVaultProposalCancel,
   postVaultProposalRetryBroadcast,
+  postVaultSignatureRequest,
+  getVaultSignatureRequests,
+  getVaultSignatureRequest,
+  getVaultSignatureDeploymentStatus,
+  postVaultSignatureRequestSign,
+  postVaultSignatureRequestReject,
   getVaultAuditLog,
   getOrgVaultAuditLog,
   getVaultWatchedTokens,
