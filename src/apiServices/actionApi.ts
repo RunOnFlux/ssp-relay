@@ -276,7 +276,8 @@ async function postAction(req, res) {
       data.action === 'enterprisevaultsign' ||
       data.action === 'enterprisekeynoncesync' ||
       data.action === 'enterprisefluxnodestart' ||
-      data.action === 'recoveryrequest'
+      data.action === 'recoveryrequest' ||
+      data.action === 'chainsyncrequest'
     ) {
       const ioKey = socket.getIOKey();
       ioKey.to(data.wkIdentity).emit(data.action, data);
