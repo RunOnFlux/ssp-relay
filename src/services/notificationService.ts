@@ -54,6 +54,9 @@ async function sendNotificationKey(wkIdentity, data) {
     } else if (data.action === 'enterprisefluxnodestart') {
       title = 'Flux Node Start Request';
       body = 'An enterprise Flux node start requires your signature.';
+    } else if (data.action === 'chainsyncrequest') {
+      title = 'Chain Sync Request';
+      body = 'Your Wallet is requesting to sync additional chains.';
     } else if (data.action === 'recoveryrequest') {
       title = 'Wallet Recovery Request';
       body =
