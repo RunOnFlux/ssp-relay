@@ -17,6 +17,8 @@ async function getSync(id) {
       wkIdentity: 1,
       publicNonces: 1,
       generatedAddress: 1,
+      recoveryXpub: 1,
+      xpubSignature: 1,
     },
   };
   const syncRes = await serviceHelper.findOneInDatabase(

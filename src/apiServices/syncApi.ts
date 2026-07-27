@@ -16,6 +16,8 @@ interface syncData {
   keyIdentity?: string;
   redeemScript?: string;
   witnessScript?: string;
+  recoveryXpub?: string;
+  xpubSignature?: string;
   // For chainType === 'sol', keyXpub/walletXpub are JSON-stringified
   // arrays of 20 base58 Ed25519 leaf pubkeys.
 }
@@ -299,6 +301,22 @@ async function postSync(req, res) {
     }
     if (rawWitnessScript && typeof rawWitnessScript === 'string') {
       data.witnessScript = rawWitnessScript;
+    }
+    // SSP Key's recovery account xpub and its signature. SSP Wallet verifies the
+    // signature itself, so this is carried through rather than interpreted.
+    if (
+      processedBody.recoveryXpub &&
+      typeof processedBody.recoveryXpub === 'string' &&
+      processedBody.recoveryXpub.length <= 200
+    ) {
+      data.recoveryXpub = processedBody.recoveryXpub;
+    }
+    if (
+      processedBody.xpubSignature &&
+      typeof processedBody.xpubSignature === 'string' &&
+      processedBody.xpubSignature.length <= 200
+    ) {
+      data.xpubSignature = processedBody.xpubSignature;
     }
 
     const tokenData = {

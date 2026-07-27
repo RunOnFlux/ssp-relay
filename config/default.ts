@@ -20,6 +20,7 @@ export default {
     v1sync: 'v1sync', // object of chain, walletIdentity (wallet only identity), keyXpub (key xpub) and wkIdentity (entire multisig ssp identity address). 15 min expiration
     v1action: 'v1action', // object of chain, path (derivation path), w-k identity (wallet-key identity), type: tpe of action (only tx now), payload: (txhex for tx action to sign). 15 min expiration
     v1token: 'v1token', // object of w-k identity and keytoken, wallettoken. Persistent. Used for push notifications
+    v1recoverypub: 'v1recoverypub', // object of w-k identity and recoveryXpub (public account xpub) + its detached signature. Persistent.
   },
   keys: {
     cmc: apisecrets.cmcApiKey,

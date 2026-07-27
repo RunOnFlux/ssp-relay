@@ -2,6 +2,7 @@ import config from 'config';
 import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import syncApi from './apiServices/syncApi';
 import actionApi from './apiServices/actionApi';
+import recoveryPubApi from './apiServices/recoveryPubApi';
 import ratesApi from './apiServices/ratesApi';
 import solPaymasterApi from './apiServices/solPaymasterApi';
 import ticketsApi from './apiServices/ticketsApi';
@@ -17,6 +18,7 @@ import log from './lib/log';
 import {
   requireAuth,
   optionalWkIdentityAuth,
+  requireWkIdentityAuth,
 } from './middleware/authMiddleware';
 import { apiKeyAuth } from './middleware/apiKeyAuth';
 import { startNonceCacheCleanup } from './lib/identityAuth';
@@ -235,6 +237,12 @@ export default (app) => {
   app.get('/v1/action{/:id}', (req, res) => {
     actionApi.getAction(req, res);
   });
+  // TRANSITIONAL — remove once adoption allows; see recoveryPubApi.ts.
+  // SSP Key's recovery account xpub. Public data, so the GET is open like the
+  // other reads; the wallet verifies the stored signature itself.
+  app.get('/v1/recoverypub{/:id}', (req, res) => {
+    recoveryPubApi.getRecoveryPub(req, res);
+  });
 
   // post sync data - requires walletIdentity auth (from SSP Key)
   // Note: Using optional auth during transition period
@@ -257,6 +265,14 @@ export default (app) => {
   // Note: Using optional auth during transition period
   app.post('/v1/action', optionalWkIdentityAuth, (req, res) => {
     actionApi.postAction(req, res);
+  });
+
+  // post recovery account xpub (from SSP Key)
+  // TRANSITIONAL — remove once adoption allows; see recoveryPubApi.ts.
+  // Writes are authenticated: the record is keyed by wkIdentity and only the
+  // paired Key may write its own.
+  app.post('/v1/recoverypub', requireWkIdentityAuth, (req, res) => {
+    recoveryPubApi.postRecoveryPub(req, res);
   });
 
   // post nonces - periodic sync of public nonces from wallet/key

@@ -29,6 +29,9 @@ async function doIndexes() {
     await database
       .collection(config.collections.v1token)
       .createIndex({ keyToken: 1 }); // for querying paritcular token
+    await database
+      .collection(config.collections.v1recoverypub)
+      .createIndex({ wkIdentity: 1 }, { unique: true }); // one per identity, no expiry
 
     // Initialize enterprise hooks (loads enterprise module if installed)
     await enterpriseHooks.init({
