@@ -17,6 +17,7 @@ import {
   generateNonce,
   createSignaturePayload,
   cleanupNonceCache,
+  consumeNonce,
 } from '../../src/lib/identityAuth';
 
 // Test fixtures - derived from a known WIF
@@ -576,6 +577,86 @@ describe('Identity Authentication Library', function () {
       cleanupNonceCache();
       cleanupNonceCache();
       cleanupNonceCache();
+    });
+  });
+  describe('nonce lifecycle', function () {
+    // Build a genuinely signed request for TEST_ADDRESS.
+    const signFor = (identity, nonce) => {
+      const payload = createSignaturePayload('action', identity);
+      if (nonce) payload.nonce = nonce;
+      const message = JSON.stringify(payload);
+      const keyPair = utxolib.ECPair.fromWIF(
+        TEST_PRIVATE_KEY_WIF,
+        utxolib.networks.bitcoin,
+      );
+      const signature = bitcoinMessage.sign(
+        message,
+        keyPair.d.toBuffer(32),
+        keyPair.compressed,
+      );
+      return {
+        nonce: payload.nonce,
+        auth: {
+          signature: signature.toString('base64'),
+          message,
+          publicKey: TEST_PUBLIC_KEY,
+        },
+      };
+    };
+
+    it('leaves the nonce usable when a request fails after validation', function () {
+      cleanupNonceCache();
+
+      // A well-formed, correctly signed request — but presented against the
+      // wrong identity, so it fails an identity check that happens AFTER the
+      // payload itself validates.
+      const { nonce, auth } = signFor(TEST_ADDRESS);
+      const rejected = verifySingleSigAuth(
+        auth,
+        '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
+        'mainnet',
+      );
+      expect(rejected.valid).to.equal(false);
+
+      // The client retries the identical signed request against the right
+      // identity. A nonce spent on sight would make this look like a replay.
+      const accepted = verifySingleSigAuth(auth, TEST_ADDRESS, 'mainnet');
+      expect(accepted.valid).to.equal(true);
+      expect(accepted.identity).to.equal(TEST_ADDRESS);
+      expect(nonce).to.be.a('string');
+    });
+
+    it('refuses the same signed request a second time', function () {
+      cleanupNonceCache();
+
+      const { auth } = signFor(TEST_ADDRESS);
+      expect(verifySingleSigAuth(auth, TEST_ADDRESS, 'mainnet').valid).to.equal(
+        true,
+      );
+
+      const replayed = verifySingleSigAuth(auth, TEST_ADDRESS, 'mainnet');
+      expect(replayed.valid).to.equal(false);
+      expect(replayed.error).to.match(/already used/i);
+    });
+
+    it('spends a nonce only through consumeNonce', function () {
+      cleanupNonceCache();
+
+      const nonce = crypto.randomBytes(32).toString('hex');
+      const payload = {
+        timestamp: Date.now(),
+        action: 'join',
+        identity: 'test-identity',
+        nonce,
+      };
+      // Validation on its own never spends it.
+      expect(validateSignaturePayload(payload).valid).to.equal(true);
+      expect(validateSignaturePayload({ ...payload }).valid).to.equal(true);
+
+      consumeNonce(nonce);
+      const after = validateSignaturePayload({ ...payload });
+      expect(after.valid).to.equal(false);
+      expect(after.error).to.match(/already used/i);
     });
   });
 });

@@ -208,20 +208,16 @@ export function validateSignaturePayload(payload: SignaturePayload): {
     };
   }
 
-  // Check nonce uniqueness (replay prevention)
+  // Check nonce uniqueness (replay prevention). The nonce is only CONSUMED
+  // once the whole request has verified — see consumeNonce. Burning it here
+  // would mean a request that fails any later check (identity mismatch, bad
+  // signature, clock skew) poisons its own nonce, so an honest client
+  // retrying the identical signed payload would be told it was a replay.
   if (nonceCache.has(payload.nonce)) {
     return {
       valid: false,
       error: 'Nonce already used (potential replay attack)',
     };
-  }
-
-  // Add nonce to cache
-  nonceCache.set(payload.nonce, now);
-
-  // Trim cache if too large
-  if (nonceCache.size > NONCE_CACHE_SIZE) {
-    cleanupNonceCache();
   }
 
   // Validate action type
@@ -247,6 +243,18 @@ export function validateSignaturePayload(payload: SignaturePayload): {
 /**
  * Clean up expired nonces from the cache.
  */
+/**
+ * Mark a nonce as spent. Called only after a request has fully verified, so
+ * exactly one accepted request may ever carry a given nonce while failed
+ * attempts leave it usable.
+ */
+export function consumeNonce(nonce: string): void {
+  nonceCache.set(nonce, Date.now());
+  if (nonceCache.size > NONCE_CACHE_SIZE) {
+    cleanupNonceCache();
+  }
+}
+
 export function cleanupNonceCache(): void {
   const now = Date.now();
   const expiredThreshold = now - NONCE_CACHE_TTL_MS;
@@ -343,6 +351,10 @@ export function verifySingleSigAuth(
         error: 'Invalid signature',
       };
     }
+
+    // Verified — spend the nonce now, so a replay of this exact request is
+    // refused while a failed attempt above left it usable.
+    consumeNonce(payload.nonce);
 
     return {
       valid: true,
@@ -473,6 +485,10 @@ export function verifyMultisigAuth(
         error: 'Invalid signature',
       };
     }
+
+    // Verified — spend the nonce now, so a replay of this exact request is
+    // refused while a failed attempt above left it usable.
+    consumeNonce(payload.nonce);
 
     return {
       valid: true,

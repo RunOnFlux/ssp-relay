@@ -77,10 +77,32 @@ export function requireAuth(
 
       // Check if auth fields are present
       const hasAuthFields = signature && message && publicKey;
+      // Partial credentials are never something a real client sends: the
+      // helpers that build these attach all three together. Treating a partial
+      // set as "unauthenticated" would let anyone turn a signed request into an
+      // unsigned one just by dropping a field, so it is refused rather than
+      // waved through.
+      const hasPartialAuthFields =
+        !hasAuthFields && Boolean(signature || message || publicKey);
 
       log.info(
         `[AUTH] ${req.method} ${req.path} - identity: ${identity || 'none'}, hasAuth: ${hasAuthFields}`,
       );
+
+      if (hasPartialAuthFields) {
+        log.warn(
+          `[AUTH] INCOMPLETE - Partial credentials on ${req.path} for ${identity || 'unknown identity'}`,
+        );
+        return res
+          .status(401)
+          .json(
+            serviceHelper.createErrorMessage(
+              'Incomplete authentication fields',
+              'AuthenticationError',
+              'AUTH_INCOMPLETE',
+            ),
+          );
+      }
 
       // If auth is not required and no auth fields provided, continue
       if (!required && !hasAuthFields) {
