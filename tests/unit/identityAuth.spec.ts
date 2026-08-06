@@ -282,6 +282,10 @@ describe('Identity Authentication Library', function () {
       const result1 = validateSignaturePayload(payload);
       expect(result1.valid).to.be.true;
 
+      // Nonces are spent only after the whole request verifies (see
+      // consumeNonce) — mark it spent the way a verified request would.
+      consumeNonce(nonce);
+
       // Second use should be rejected
       const result2 = validateSignaturePayload(payload);
       expect(result2.valid).to.be.false;
