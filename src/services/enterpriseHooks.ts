@@ -338,6 +338,19 @@ interface HooksModule {
   enterpriseRemoveEmail?: (
     req: unknown,
   ) => Promise<EnterpriseRemoveEmailResponse>;
+  // Wallet notification preference functions
+  // (update: wkIdentity pre-verified by requireAuth('wkIdentity') middleware;
+  //  get/put wallet-notification-preferences: session token validated in module)
+  enterpriseUpdatePreferences?: (
+    wkIdentity: string,
+    preferences: unknown,
+  ) => Promise<{ success: boolean; message?: string }>;
+  enterpriseGetWalletNotificationPreferences?: (
+    req: unknown,
+  ) => Promise<unknown>;
+  enterpriseUpdateWalletNotificationPreferences?: (
+    req: unknown,
+  ) => Promise<unknown>;
   // Nonce pool status for sync enrichment (used by actionApi/syncApi)
   getNoncePoolStatus?: (
     wkIdentity: string,
@@ -576,6 +589,20 @@ const noopHooks: HooksModule = {
     errorCode: 'ENTERPRISE_NOT_LOADED',
   }),
   enterpriseRemoveEmail: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  enterpriseUpdatePreferences: async () => ({
+    success: false,
+    message: 'Enterprise not available',
+  }),
+  enterpriseGetWalletNotificationPreferences: async () => ({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  }),
+  enterpriseUpdateWalletNotificationPreferences: async () => ({
     success: false,
     error: 'Enterprise not available',
     errorCode: 'ENTERPRISE_NOT_LOADED',
@@ -1255,6 +1282,33 @@ const enterpriseRemoveEmail = (req: unknown) =>
     errorCode: 'ENTERPRISE_NOT_LOADED',
   });
 
+// Wallet notification preference functions
+const enterpriseUpdatePreferences = (
+  wkIdentity: string,
+  preferences: unknown,
+) =>
+  hooksModule.enterpriseUpdatePreferences?.(wkIdentity, preferences) ??
+  Promise.resolve({
+    success: false,
+    message: 'Enterprise not available',
+  });
+
+const enterpriseGetWalletNotificationPreferences = (req: unknown) =>
+  hooksModule.enterpriseGetWalletNotificationPreferences?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
+const enterpriseUpdateWalletNotificationPreferences = (req: unknown) =>
+  hooksModule.enterpriseUpdateWalletNotificationPreferences?.(req) ??
+  Promise.resolve({
+    success: false,
+    error: 'Enterprise not available',
+    errorCode: 'ENTERPRISE_NOT_LOADED',
+  });
+
 // Nonce pool status
 const getNoncePoolStatus = (wkIdentity: string, source?: 'wallet' | 'key') =>
   hooksModule.getNoncePoolStatus?.(wkIdentity, source) ?? Promise.resolve([]);
@@ -1512,6 +1566,10 @@ export default {
   enterpriseUnsubscribe,
   enterpriseUpdateEmail,
   enterpriseRemoveEmail,
+  // Wallet notification preferences
+  enterpriseUpdatePreferences,
+  enterpriseGetWalletNotificationPreferences,
+  enterpriseUpdateWalletNotificationPreferences,
   // Nonce pool status (used by actionApi/syncApi for enrichment)
   getNoncePoolStatus,
   // Nonce request-level handlers

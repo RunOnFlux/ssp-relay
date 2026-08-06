@@ -382,6 +382,26 @@ export default (app) => {
       enterpriseNotificationApi.getStatus(req, res);
     },
   );
+  // Update notification preferences from SSP Wallet (partial update; incl.
+  // the minimum-USD tx email filter). Same wkIdentity signature auth as
+  // subscribe/unsubscribe.
+  app.post(
+    '/v1/enterprise/preferences',
+    requireAuth('wkIdentity'),
+    (req, res) => {
+      enterpriseNotificationApi.postUpdatePreferences(req, res);
+    },
+  );
+
+  // SSP Enterprise - wallet tx notification preferences (session auth, used
+  // by the Enterprise App; distinct from the org-scoped /notification-prefs
+  // proposal-lifecycle routes)
+  app.get('/v1/enterprise/wallet-notification-preferences', (req, res) => {
+    enterpriseNotificationApi.getWalletNotificationPreferences(req, res);
+  });
+  app.put('/v1/enterprise/wallet-notification-preferences', (req, res) => {
+    enterpriseNotificationApi.putWalletNotificationPreferences(req, res);
+  });
 
   // SSP Enterprise - Authentication endpoints
   app.get('/v1/enterprise/auth/challenge', (req, res) => {

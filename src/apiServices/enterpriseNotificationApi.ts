@@ -103,8 +103,114 @@ async function getStatus(req: AuthenticatedRequest, res) {
   }
 }
 
+/**
+ * POST /v1/enterprise/preferences
+ * Update notification preferences for the authenticated wallet (wkIdentity
+ * signature auth via requireAuth middleware — the verified identity is used,
+ * never one from the raw body). Partial update: only posted fields change.
+ */
+async function postUpdatePreferences(req: AuthenticatedRequest, res) {
+  try {
+    // Enterprise module required
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error(
+        'Enterprise module not available. Preference update not possible.',
+      );
+    }
+
+    // Get wkIdentity from authenticated request (signature-verified)
+    const wkIdentity = req.verifiedIdentity;
+    if (!wkIdentity) {
+      throw new Error('Authentication required');
+    }
+
+    // Strip auth fields and pass preferences to the enterprise module for
+    // validation and processing
+    const data = stripAuthFields(req.body) as { preferences?: unknown };
+    const result = await enterpriseHooks.enterpriseUpdatePreferences(
+      wkIdentity,
+      data.preferences,
+    );
+    const response = serviceHelper.createDataMessage(result);
+    res.json(response);
+  } catch (error) {
+    log.error(error);
+    const errMessage = serviceHelper.createErrorMessage(
+      error.message,
+      error.name,
+      error.code,
+    );
+    res.json(errMessage);
+  }
+}
+
+/**
+ * GET /v1/enterprise/wallet-notification-preferences
+ * Get wallet tx notification preferences for the session-authenticated user
+ * (Enterprise App). Session validation handled in the enterprise module.
+ */
+async function getWalletNotificationPreferences(
+  req: AuthenticatedRequest,
+  res,
+) {
+  try {
+    // Enterprise module required
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise module not available.');
+    }
+
+    const result =
+      await enterpriseHooks.enterpriseGetWalletNotificationPreferences(req);
+    const response = serviceHelper.createDataMessage(result);
+    res.json(response);
+  } catch (error) {
+    log.error(error);
+    const errMessage = serviceHelper.createErrorMessage(
+      error.message,
+      error.name,
+      error.code,
+    );
+    res.json(errMessage);
+  }
+}
+
+/**
+ * PUT /v1/enterprise/wallet-notification-preferences
+ * Update wallet tx notification preferences for the session-authenticated
+ * user (Enterprise App). Session validation handled in the enterprise module.
+ */
+async function putWalletNotificationPreferences(
+  req: AuthenticatedRequest,
+  res,
+) {
+  try {
+    // Enterprise module required
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error(
+        'Enterprise module not available. Preference update not possible.',
+      );
+    }
+
+    const result =
+      await enterpriseHooks.enterpriseUpdateWalletNotificationPreferences(req);
+    const response = serviceHelper.createDataMessage(result);
+    res.json(response);
+  } catch (error) {
+    log.error(error);
+    const errMessage = serviceHelper.createErrorMessage(
+      error.message,
+      error.name,
+      error.code,
+    );
+    res.json(errMessage);
+  }
+}
+
 export default {
   postSubscribe,
   postUnsubscribe,
   getStatus,
+  postUpdatePreferences,
+  getWalletNotificationPreferences,
+  putWalletNotificationPreferences,
 };
