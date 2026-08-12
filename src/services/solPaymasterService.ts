@@ -328,10 +328,29 @@ export function validateReimbursement(
   }
 
   // Borsh layout after the 8-byte discriminator: u8 vault_index, then
-  // TransactionMessage = 3×u8 header + Vec<Pubkey> + Vec<CompiledInstruction>
+  // TransactionMessage = 3×u8 header (num_signers, num_writable_signers,
+  // num_writable_non_signers) + Vec<Pubkey> + Vec<CompiledInstruction>
   // + Vec<AddressTableLookup>.
   const data = createIx.data;
-  let off = 8 + 1 + 3;
+  let off = 8 + 1; // discriminator + vault_index
+
+  // SECURITY (signer-borrow prevention): num_signers decides which accounts get
+  // is_signer=true when execute_transaction CPIs them. The vault PDA (index 0)
+  // is the only account the program signs for (its seeds); any additional signer
+  // slot borrows the top-level signature of the outer tx's fee payer — this
+  // paymaster — letting the inner CPI move funds FROM the paymaster
+  // (SystemProgram::transfer) or hijack paymaster-controlled accounts
+  // (nonceAuthorize / SPL setAuthority) even though vault custody is untouched.
+  // Every legitimate SSP proposal sets num_signers === 1 (vault only), so reject
+  // anything else. Mirrors the on-chain require!(num_signers == 1) in
+  // create_transaction; defense-in-depth for this public broadcast path.
+  const numSigners = data.readUInt8(off);
+  if (numSigners !== 1) {
+    throw new Error(
+      `Proposal num_signers must be 1 (only the vault PDA may sign); got ${numSigners} — refusing to sponsor a signer-borrow proposal`,
+    );
+  }
+  off += 3; // skip the 3-byte header
 
   const accountKeysLen = data.readUInt32LE(off);
   off += 4;

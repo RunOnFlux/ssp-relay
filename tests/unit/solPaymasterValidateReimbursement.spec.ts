@@ -279,4 +279,42 @@ describe('Solana Paymaster Service — validateReimbursement', function () {
       /must reimburse paymaster/,
     );
   });
+
+  it('rejects a signer-borrow proposal (num_signers > 1) that would drain the paymaster', function () {
+    // Pre-mainnet audit regression: at execute time is_signer is taken from
+    // the proposal header, and the paymaster is the outer-tx fee payer (a
+    // top-level signer). A proposal marking the paymaster as a second signer
+    // (index 1 < num_signers = 2) could CPI SystemProgram::transfer FROM the
+    // paymaster, borrowing its signature — draining it. The reimbursement to
+    // the paymaster is included so the floor check would pass; the num_signers
+    // guard must reject it first, before any funds move.
+    const attacker = Keypair.generate().publicKey;
+    const message: TransactionMessage = {
+      numSigners: 2, // illegal: only the vault (index 0) may sign
+      numWritableSigners: 2,
+      numWritableNonSigners: 2,
+      accountKeys: [vault, paymaster, attacker, SystemProgram.programId],
+      instructions: [
+        // reimbursement to the paymaster (satisfies the floor if reached)
+        {
+          programIdIndex: 3,
+          accountIndexes: [0, 1],
+          data: encodeSystemTransferData(MIN_LAMPORTS),
+        },
+        // the drain: transfer FROM paymaster (index 1) TO attacker (index 2)
+        {
+          programIdIndex: 3,
+          accountIndexes: [1, 2],
+          data: encodeSystemTransferData(9_000_000_000),
+        },
+      ],
+    };
+    const tx = makeOuterTx({
+      paymaster,
+      ixs: [buildCreateTransactionIx(message)],
+    });
+    expect(() => validateReimbursement(tx, paymaster, MIN_LAMPORTS)).to.throw(
+      /num_signers must be 1/,
+    );
+  });
 });
