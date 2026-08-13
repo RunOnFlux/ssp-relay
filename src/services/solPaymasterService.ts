@@ -12,6 +12,7 @@ import os from 'os';
 import path from 'path';
 import { createHash } from 'crypto';
 import {
+  ComputeBudgetProgram,
   Connection,
   Keypair,
   NONCE_ACCOUNT_LENGTH,
@@ -61,6 +62,9 @@ export type FeeSchedule = typeof FEE_SCHEDULE;
 
 interface SolanaChainConfig {
   rpc: string;
+  // ComputeBudget compute-unit price for paymaster-built txs. Optional so an
+  // operator config predating this field still loads (treated as 0).
+  priorityFeeMicroLamports?: number;
 }
 
 interface PaymasterInfo {
@@ -169,7 +173,7 @@ function getPaymaster(chain: string): PaymasterInfo {
       `Solana paymaster not configured for ${chain} — set ${envVarFor(chain)} or place a keypair at ${keypairPathFor(chain)}`,
     );
   }
-  const connection = new Connection(chainCfg.rpc, 'confirmed');
+  const connection = new Connection(chainCfg.rpc, solanaConnectionConfig());
   const info: PaymasterInfo = {
     pubkey: resolved.keypair.publicKey,
     keypair: resolved.keypair,
@@ -190,6 +194,101 @@ function getPaymasterPubkey(chain: string): string {
 /** Returns the fee schedule (lamports) for wallets to compute reimbursement. */
 function getFeeSchedule(): FeeSchedule {
   return FEE_SCHEDULE;
+}
+
+/**
+ * Connection config for Solana RPC.
+ *
+ * When the endpoint is our branded proxy (node-solana.sspwallet.io), attach
+ * the relay identification header. The Worker rate-limits unauthenticated
+ * callers PER IP — correct for wallets, which connect from each user's device,
+ * but wrong for us: the relay polls every vault from a single egress IP and
+ * would throttle first. The header moves us into the far higher fleet-wide
+ * bucket. A missing/incorrect key is not an error at the Worker, it simply
+ * falls back to the per-IP bucket, so an unset env var degrades rather than
+ * breaks.
+ */
+function solanaConnectionConfig(): {
+  commitment: 'confirmed';
+  httpHeaders?: Record<string, string>;
+} {
+  const key = process.env.SSP_RELAY_PROXY_KEY;
+  return key
+    ? { commitment: 'confirmed', httpHeaders: { 'X-SSP-Relay-Key': key } }
+    : { commitment: 'confirmed' };
+}
+
+/**
+ * Confirm a signature over HTTP only.
+ *
+ * `Connection.confirmTransaction` subscribes over a WebSocket. Our branded RPC
+ * proxy fronts the provider through a Cloudflare Worker, and that WS tunnel is
+ * NOT dependable (verified live: the upgrade returns 500) — so relying on it
+ * would report "Transaction was not confirmed" for transactions that actually
+ * landed, and enterprise would mark successful sends as failed. Polling
+ * getSignatureStatuses keeps confirmation on the same HTTP path as everything
+ * else, which is the path we know works.
+ *
+ * Returns the same `{ value: { err } }` shape the callers already destructure.
+ */
+async function confirmSignatureHttp(
+  connection: Connection,
+  signature: string,
+  timeoutMs = 60_000,
+): Promise<{ value: { err: unknown } }> {
+  const deadline = Date.now() + timeoutMs;
+  let lastErr: unknown = null;
+  while (Date.now() < deadline) {
+    const statuses = await connection.getSignatureStatuses([signature], {
+      searchTransactionHistory: true,
+    });
+    const status = statuses.value[0];
+    if (status) {
+      lastErr = status.err;
+      const level = status.confirmationStatus;
+      if (level === 'confirmed' || level === 'finalized') {
+        return { value: { err: status.err ?? null } };
+      }
+      // 'processed' — landed but not yet confirmed; keep waiting.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error(
+    `Timed out confirming ${signature} after ${timeoutMs}ms (last error: ${JSON.stringify(lastErr)})`,
+  );
+}
+
+/**
+ * ComputeBudget instructions for transactions the paymaster builds AND signs
+ * itself. Returns [] when no priority fee is configured, so devnet txs keep
+ * their exact current shape and size.
+ *
+ * This deliberately does NOT apply to client-supplied transactions
+ * (broadcastWithPaymaster, submitSplitTx): those arrive already signed by the
+ * wallet/key, so injecting an instruction would change the message and
+ * invalidate their signatures. Those flows must carry their own ComputeBudget
+ * instruction, added by whoever builds them.
+ */
+function priorityFeeInstructions(chain: string): TransactionInstruction[] {
+  const slotKey = chainSlot(chain);
+  let price = 0;
+  try {
+    price =
+      config.get<SolanaChainConfig>(`solana.${slotKey}`)
+        .priorityFeeMicroLamports ?? 0;
+  } catch {
+    price = 0;
+  }
+  if (!price || price <= 0) return [];
+  // ALWAYS pair the price with an explicit unit limit. Solana charges the
+  // priority fee on the REQUESTED limit, and the default is 200k CU per
+  // instruction (capped at 1.4M) — so a price alone can cost ~7x more than
+  // intended. Our setup/nonce txs consume well under 50k CU; 200k is generous
+  // headroom and makes the fee deterministic at limit x price / 1e6.
+  return [
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: price }),
+  ];
 }
 
 /**
@@ -250,6 +349,27 @@ const ATA_PROGRAM_ID = new PublicKey(
 
 // Associated Token Account program instructions are NOT Anchor-discriminated;
 // they use a single-byte tag. createIdempotent = tag 1 (create = tag 0).
+/**
+ * Priority-fee ceilings. The paymaster is fee payer, and Solana charges the
+ * priority fee as `requested_cu_limit × price / 1e6` — on the REQUESTED limit,
+ * not consumption, and even when the transaction fails during execution. A
+ * client-supplied ComputeBudget instruction is therefore a direct draw on the
+ * paymaster's balance, so both factors and their product must be capped.
+ *
+ * Our own senders ask for 200k CU at 50k µlamports/CU = 10k lamports, well
+ * inside MAX_PRIORITY_FEE_LAMPORTS; the ceiling leaves room for congestion
+ * pricing without letting one request cost a meaningful fraction of the float.
+ */
+const MAX_COMPUTE_UNIT_LIMIT = 1_400_000; // Solana's own per-tx maximum
+const MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS = 1_000_000;
+const MAX_PRIORITY_FEE_LAMPORTS = 50_000;
+
+const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey(
+  'ComputeBudget111111111111111111111111111111',
+);
+// ComputeBudgetInstruction discriminants: 2 = SetComputeUnitLimit, 3 = SetComputeUnitPrice.
+const COMPUTE_BUDGET_SET_UNIT_LIMIT_TAG = 2;
+const COMPUTE_BUDGET_SET_UNIT_PRICE_TAG = 3;
 const ATA_CREATE_IDEMPOTENT_TAG = 1;
 
 // SystemProgram::AdvanceNonceAccount tag (durable-nonce advance, ix[0] of
@@ -315,6 +435,10 @@ export function validateReimbursement(
       );
     }
   }
+
+  // The loop above only constrains SystemProgram ixs, so ComputeBudget rides
+  // through untouched — and the paymaster pays whatever priority fee it names.
+  enforceComputeBudgetCaps(tx.instructions);
 
   const createIx = tx.instructions.find(
     (ix) =>
@@ -449,15 +573,26 @@ export async function enforceSplAtaFloor(
 }
 
 /**
- * Hard-coded SSP Solana Multisig program ID. Same address on devnet AND
- * mainnet (will be deployed under separate authority on mainnet).
+ * SSP Solana Multisig program IDs, per cluster.
  *
- * Hard-coded (not config) because there's only ever one canonical program
- * per chain — the wallet/key apps embed the same constant.
+ * Mainnet is a SEPARATE program deployed under its own keypair and upgrade
+ * authority — NOT the same address as devnet. This matters beyond routing:
+ * the program ID is a seed input to `deriveAddress`, so using the wrong one
+ * yields the wrong multisig/vault PDAs entirely, and it gates the split-tx
+ * instruction allowlist below.
+ *
+ * Hard-coded (not config) because there's only ever one canonical program per
+ * cluster — the wallet/key apps embed the same constants.
  */
-const SOL_MULTISIG_PROGRAM_ID = new PublicKey(
-  'CisPSFTQoTnEqn5cUi1pgpfPp2xiTVRkK7eD5jBevxdX',
-);
+const SOL_MULTISIG_PROGRAM_IDS: Record<'devnet' | 'mainnet', PublicKey> = {
+  devnet: new PublicKey('CisPSFTQoTnEqn5cUi1pgpfPp2xiTVRkK7eD5jBevxdX'),
+  mainnet: new PublicKey('SSPWVu7dtTDkZYmDx73StqV46PioSmdiNE7igpjHK1r'),
+};
+
+/** Resolve the multisig program ID for a chain id (throws on unknown chains). */
+export function multisigProgramId(chain: string): PublicKey {
+  return SOL_MULTISIG_PROGRAM_IDS[chainSlot(chain)];
+}
 
 /**
  * One-shot pre-setup for a new SSP Solana vault: initializes the multisig
@@ -507,7 +642,7 @@ async function setupSolMultisig(opts: {
 
   const client = new SolanaMultisigClient(
     info.connection,
-    SOL_MULTISIG_PROGRAM_ID,
+    multisigProgramId(opts.chain),
   );
 
   const multisigAddress = client.deriveAddress(members, threshold);
@@ -575,7 +710,10 @@ async function setupSolMultisig(opts: {
   }
 
   // Legacy tx is fine here — 2 ixs, ~6 unique accounts, well under 1232 bytes.
-  const tx = new Transaction().add(...setupIxs);
+  const tx = new Transaction().add(
+    ...priorityFeeInstructions(opts.chain),
+    ...setupIxs,
+  );
   const { blockhash } = await info.connection.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
   tx.feePayer = info.pubkey;
@@ -588,10 +726,7 @@ async function setupSolMultisig(opts: {
   // Check tx didn't just confirm-but-fail on-chain (e.g., concurrent setup
   // race lands first → our duplicate fails). Confirmation alone doesn't
   // imply execution success.
-  const confirmResult = await info.connection.confirmTransaction(
-    signature,
-    'confirmed',
-  );
+  const confirmResult = await confirmSignatureHttp(info.connection, signature);
   if (confirmResult.value.err) {
     throw new Error(
       `Consumer setup tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
@@ -654,10 +789,7 @@ async function broadcastWithPaymaster(
   // surfaces this via `value.err` (non-null = failure). If we don't check it,
   // the enterprise layer marks the proposal as `broadcast` and emails success
   // for a tx that actually didn't move funds.
-  const confirmResult = await info.connection.confirmTransaction(
-    signature,
-    'confirmed',
-  );
+  const confirmResult = await confirmSignatureHttp(info.connection, signature);
   if (confirmResult.value.err) {
     throw new Error(
       `Solana tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
@@ -705,10 +837,7 @@ async function signAndSubmitSetupTx(
   // a concurrent call already initialized the multisig, or if the multisig
   // program rejects the config. Surface the on-chain error instead of
   // returning a "success" signature for a failed tx.
-  const confirmResult = await info.connection.confirmTransaction(
-    signature,
-    'confirmed',
-  );
+  const confirmResult = await confirmSignatureHttp(info.connection, signature);
   if (confirmResult.value.err) {
     throw new Error(
       `Solana setup tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
@@ -744,6 +873,52 @@ interface AllowedShape {
   u32Tag?: number;
 }
 
+/**
+ * Reject ComputeBudget instructions that would let a caller spend the
+ * paymaster's SOL. Applies to every path where the paymaster signs a
+ * client-supplied transaction. Throws with a specific reason; callers surface
+ * it as a rejection.
+ */
+export function enforceComputeBudgetCaps(ixs: TransactionInstruction[]): void {
+  let requestedUnits = 200_000; // Solana's per-instruction default
+  let priceMicroLamports = 0;
+  for (const ix of ixs) {
+    if (!ix.programId.equals(COMPUTE_BUDGET_PROGRAM_ID)) continue;
+    if (ix.data.length < 1) throw new Error('Malformed ComputeBudget ix');
+    const tag = ix.data.readUInt8(0);
+    if (tag === COMPUTE_BUDGET_SET_UNIT_LIMIT_TAG) {
+      if (ix.data.length < 5) throw new Error('Malformed SetComputeUnitLimit');
+      requestedUnits = ix.data.readUInt32LE(1);
+      if (requestedUnits > MAX_COMPUTE_UNIT_LIMIT) {
+        throw new Error(
+          `ComputeBudget unit limit ${requestedUnits} exceeds ${MAX_COMPUTE_UNIT_LIMIT}`,
+        );
+      }
+    } else if (tag === COMPUTE_BUDGET_SET_UNIT_PRICE_TAG) {
+      if (ix.data.length < 9) throw new Error('Malformed SetComputeUnitPrice');
+      const raw = ix.data.readBigUInt64LE(1);
+      priceMicroLamports =
+        raw > BigInt(Number.MAX_SAFE_INTEGER)
+          ? Number.MAX_SAFE_INTEGER
+          : Number(raw);
+      if (priceMicroLamports > MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS) {
+        throw new Error(
+          `ComputeBudget unit price ${priceMicroLamports} exceeds ${MAX_COMPUTE_UNIT_PRICE_MICROLAMPORTS} microlamports/CU`,
+        );
+      }
+    }
+  }
+  // The product is what the paymaster actually pays.
+  const feeLamports = Math.ceil(
+    (requestedUnits * priceMicroLamports) / 1_000_000,
+  );
+  if (feeLamports > MAX_PRIORITY_FEE_LAMPORTS) {
+    throw new Error(
+      `Priority fee ${feeLamports} lamports exceeds the ${MAX_PRIORITY_FEE_LAMPORTS} lamport cap (limit ${requestedUnits} CU x price ${priceMicroLamports})`,
+    );
+  }
+}
+
 function matchesShape(
   ix: TransactionInstruction,
   shape: AllowedShape,
@@ -771,26 +946,44 @@ const SPLIT_NONCE_ADVANCE_SHAPE: AllowedShape = {
   programId: SYSTEM_PROGRAM_ID,
   u32Tag: SYSTEM_ADVANCE_NONCE_TAG,
 };
-const SPLIT_CREATE_SHAPE: AllowedShape = {
-  programId: SOL_MULTISIG_PROGRAM_ID,
-  discriminator: CREATE_TRANSACTION_DISCRIMINATOR,
-};
-const SPLIT_APPROVE_SHAPE: AllowedShape = {
-  programId: SOL_MULTISIG_PROGRAM_ID,
-  discriminator: APPROVE_TRANSACTION_DISCRIMINATOR,
-};
-const SPLIT_EXECUTE_SHAPE: AllowedShape = {
-  programId: SOL_MULTISIG_PROGRAM_ID,
-  discriminator: EXECUTE_TRANSACTION_DISCRIMINATOR,
-};
-const SPLIT_CLOSE_SHAPE: AllowedShape = {
-  programId: SOL_MULTISIG_PROGRAM_ID,
-  discriminator: CLOSE_TRANSACTION_DISCRIMINATOR,
-};
 const SPLIT_ATA_CREATE_SHAPE: AllowedShape = {
   programId: ATA_PROGRAM_ID,
   tag: ATA_CREATE_IDEMPOTENT_TAG,
 };
+// ComputeBudget priority-fee instructions. Mainnet sends need these or they
+// are deprioritised and dropped, and the paymaster cannot add them itself —
+// split txs arrive already signed by the member, so injecting an instruction
+// would invalidate that signature. They carry no accounts and cannot move
+// funds; the only cost is the fee the paymaster (as fee payer) pays, which is
+// bounded by the compute the tx actually uses.
+const SPLIT_CU_PRICE_SHAPE: AllowedShape = {
+  programId: COMPUTE_BUDGET_PROGRAM_ID,
+  tag: COMPUTE_BUDGET_SET_UNIT_PRICE_TAG,
+};
+const SPLIT_CU_LIMIT_SHAPE: AllowedShape = {
+  programId: COMPUTE_BUDGET_PROGRAM_ID,
+  tag: COMPUTE_BUDGET_SET_UNIT_LIMIT_TAG,
+};
+
+/**
+ * Multisig-program shapes are cluster-dependent (devnet and mainnet are
+ * different program IDs), so they're built per call rather than being module
+ * constants. Fails CLOSED: shapes built for the wrong cluster simply match
+ * nothing, so the tx is rejected rather than sponsored.
+ */
+function splitMultisigShapes(programId: PublicKey): {
+  create: AllowedShape;
+  approve: AllowedShape;
+  execute: AllowedShape;
+  close: AllowedShape;
+} {
+  return {
+    create: { programId, discriminator: CREATE_TRANSACTION_DISCRIMINATOR },
+    approve: { programId, discriminator: APPROVE_TRANSACTION_DISCRIMINATOR },
+    execute: { programId, discriminator: EXECUTE_TRANSACTION_DISCRIMINATOR },
+    close: { programId, discriminator: CLOSE_TRANSACTION_DISCRIMINATOR },
+  };
+}
 
 /**
  * Borsh-decode a create_transaction inner message and sum SystemProgram
@@ -871,20 +1064,54 @@ export function validateSplitTxInstructions(
   tx: Transaction,
   kind: SplitTxKind,
   paymasterPubkey: PublicKey,
-  opts?: { expectedSignerTxCount?: number },
+  opts?: { expectedSignerTxCount?: number; chain?: string },
 ): void {
   const ixs = tx.instructions;
   if (ixs.length === 0) {
     throw new Error(`Split ${kind} tx contains no instructions`);
   }
 
+  // Defaults to devnet so existing callers/tests keep their meaning. Wrong-
+  // cluster shapes match nothing, so an unspecified chain fails closed rather
+  // than sponsoring a tx aimed at a different program.
+  const {
+    create: SPLIT_CREATE_SHAPE,
+    approve: SPLIT_APPROVE_SHAPE,
+    execute: SPLIT_EXECUTE_SHAPE,
+    close: SPLIT_CLOSE_SHAPE,
+  } = splitMultisigShapes(multisigProgramId(opts?.chain ?? 'solDevnet'));
+
   const countMatching = (shape: AllowedShape): number =>
     ixs.filter((ix) => matchesShape(ix, shape)).length;
+
+  // Priority fee is paid by the paymaster (fee payer) on the REQUESTED compute
+  // limit, even if the tx fails — cap it before signing anything.
+  enforceComputeBudgetCaps(ixs);
+
+  /**
+   * Durable-nonce transactions REQUIRE AdvanceNonceAccount as the FIRST
+   * top-level instruction — the runtime inspects instruction[0] at tx-load
+   * time and never looks further. Previously nothing else could occupy slot 0,
+   * so counting was sufficient; now that ComputeBudget ixs are allowlisted, a
+   * builder could prepend one and produce a tx we would sign and broadcast that
+   * the runtime treats as an ordinary stale-blockhash transaction — failing
+   * "Blockhash not found" forever, or worse landing non-durably and
+   * desynchronising the nonce pool.
+   */
+  const requireNonceFirst = (kindLabel: string): void => {
+    if (!matchesShape(ixs[0], SPLIT_NONCE_ADVANCE_SHAPE)) {
+      throw new Error(
+        `Split ${kindLabel} tx must have nonceAdvance as instruction[0] for durable-nonce semantics`,
+      );
+    }
+  };
 
   if (kind === 'create') {
     // nonceAdvance + exactly one create_transaction + 1-2 approve_transaction.
     const allowed = [
       SPLIT_NONCE_ADVANCE_SHAPE,
+      SPLIT_CU_PRICE_SHAPE,
+      SPLIT_CU_LIMIT_SHAPE,
       SPLIT_CREATE_SHAPE,
       SPLIT_APPROVE_SHAPE,
     ];
@@ -901,6 +1128,7 @@ export function validateSplitTxInstructions(
         `Split create tx must contain exactly one nonceAdvance ix (got ${nonceCount})`,
       );
     }
+    requireNonceFirst('create');
     const createCount = countMatching(SPLIT_CREATE_SHAPE);
     if (createCount !== 1) {
       throw new Error(
@@ -938,7 +1166,12 @@ export function validateSplitTxInstructions(
     // nonceAdvance + 1-2 approve_transaction ONLY. No inner message → no
     // reimbursement check. nonceAdvance is mandatory (approve txs always ride
     // a pool nonce — §3).
-    const allowed = [SPLIT_NONCE_ADVANCE_SHAPE, SPLIT_APPROVE_SHAPE];
+    const allowed = [
+      SPLIT_NONCE_ADVANCE_SHAPE,
+      SPLIT_CU_PRICE_SHAPE,
+      SPLIT_CU_LIMIT_SHAPE,
+      SPLIT_APPROVE_SHAPE,
+    ];
     for (const ix of ixs) {
       if (!allowed.some((shape) => matchesShape(ix, shape))) {
         throw new Error(
@@ -952,6 +1185,7 @@ export function validateSplitTxInstructions(
         `Split approve tx must contain exactly one nonceAdvance ix (got ${nonceCount})`,
       );
     }
+    requireNonceFirst('approve');
     const approveCount = countMatching(SPLIT_APPROVE_SHAPE);
     if (approveCount < 1 || approveCount > 2) {
       throw new Error(
@@ -971,6 +1205,8 @@ export function validateSplitTxInstructions(
   // accepted (close can land in a follow-up).
   const allowed = [
     SPLIT_ATA_CREATE_SHAPE,
+    SPLIT_CU_PRICE_SHAPE,
+    SPLIT_CU_LIMIT_SHAPE,
     SPLIT_EXECUTE_SHAPE,
     SPLIT_CLOSE_SHAPE,
   ];
@@ -1119,6 +1355,7 @@ async function submitSplitTx(opts: {
 
     validateSplitTxInstructions(tx, opts.kind, info.pubkey, {
       expectedSignerTxCount: opts.expectedSignerTxCount,
+      chain: opts.chain,
     });
 
     tx.partialSign(info.keypair);
@@ -1135,9 +1372,9 @@ async function submitSplitTx(opts: {
       skipPreflight: false,
       maxRetries: 3,
     });
-    const confirmResult = await info.connection.confirmTransaction(
+    const confirmResult = await confirmSignatureHttp(
+      info.connection,
       signature,
-      'confirmed',
     );
     if (confirmResult.value.err) {
       // execute kind: an AlreadyExecuted error means a third party front-ran
@@ -1261,7 +1498,11 @@ async function createPoolNonce(
       authorizedPubkey: info.pubkey,
     });
 
-    const tx = new Transaction().add(createIx, initIx);
+    const tx = new Transaction().add(
+      ...priorityFeeInstructions(chain),
+      createIx,
+      initIx,
+    );
     const { blockhash } = await info.connection.getLatestBlockhash();
     tx.recentBlockhash = blockhash;
     tx.feePayer = info.pubkey;
@@ -1271,9 +1512,9 @@ async function createPoolNonce(
       skipPreflight: false,
       maxRetries: 3,
     });
-    const confirmResult = await info.connection.confirmTransaction(
+    const confirmResult = await confirmSignatureHttp(
+      info.connection,
       signature,
-      'confirmed',
     );
     if (confirmResult.value.err) {
       return {
@@ -1333,7 +1574,7 @@ export async function logPaymasterStatus(): Promise<void> {
       continue;
     }
     const pubkey = resolved.keypair.publicKey;
-    const connection = new Connection(chainCfg.rpc, 'confirmed');
+    const connection = new Connection(chainCfg.rpc, solanaConnectionConfig());
     let balanceSol = '?';
     try {
       const balance = await connection.getBalance(pubkey);

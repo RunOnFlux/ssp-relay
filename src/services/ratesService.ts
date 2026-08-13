@@ -64,6 +64,12 @@ async function fetchCryptoRates() {
       pepe: response.data.data['24478'].quote.USD.price,
       fdusd: response.data.data['26081'].quote.USD.price,
       pol: response.data.data['28321'].quote.USD.price,
+      // Chain-id alias. Wallet chain-level lookups index cryptoRates by CHAIN
+      // ID verbatim (`cryptoRates[activeChain]`), and the Polygon chain id is
+      // `polygon`, not its `POL` symbol — without this every POL balance and
+      // fiat total renders $0.00. Verified missing against the live relay
+      // 2026-08-13. Same reason `bsc`/`base`/`solMainnet` exist as aliases.
+      polygon: response.data.data['28321'].quote.USD.price,
       rndr: response.data.data['5690'].quote.USD.price,
       render: response.data.data['5690'].quote.USD.price,
       okb: response.data.data['3897'].quote.USD.price,
@@ -155,12 +161,18 @@ async function fetchCryptoRates() {
       avax: response.data.data['5805'].quote.USD.price,
       base: response.data.data['1027'].quote.USD.price, // ETH
       kda: response.data.data['5647'].quote.USD.price,
-      // Solana SOL (CMC ID 5426). Exposed under the `sol` symbol only.
-      // `solDevnet` is intentionally NOT mapped to a USD rate — testnet
-      // tokens have no value, and pretending they do inflates enterprise
-      // treasury displays with fake balances. `solMainnet` will be added
-      // here when the mainnet chain config lands.
+      // Solana SOL (CMC ID 5426), under BOTH keys — they serve different
+      // lookups and both are required:
+      //   `sol`        — token/symbol lookups (portfolio token rows, TokenBox)
+      //   `solMainnet` — CHAIN-level lookups, which index by chain id verbatim
+      //                  (`cryptoRates[activeChain]` in Balances/WalletSwitcher/
+      //                  portfolio/send/activity). Same reason `bsc` and `base`
+      //                  exist alongside `bnb`/`eth`. Without the chain-id key
+      //                  every SOL balance and fiat total silently renders 0.
+      // `solDevnet` is intentionally absent — TEST-SOL has no value, and
+      // pricing it would inflate treasury displays with fake balances.
       sol: response.data.data['5426'].quote.USD.price,
+      solMainnet: response.data.data['5426'].quote.USD.price,
     };
     cryptoRates = prices;
   } catch (error) {

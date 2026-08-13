@@ -110,9 +110,9 @@ describe('Solana Paymaster Service — submitSplitTx', function () {
     const sendStub = sinon
       .stub(Connection.prototype, 'sendRawTransaction')
       .resolves('5xSplitExecuteSig');
-    sinon
-      .stub(Connection.prototype, 'confirmTransaction')
-      .resolves({ value: { err: null } } as any);
+    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
+      value: [{ err: null, confirmationStatus: 'confirmed' }],
+    } as any);
 
     const txB64 = buildExecuteTxB64(paymasterPubkey);
     const result = await solPaymasterService.submitSplitTx({
@@ -130,12 +130,17 @@ describe('Solana Paymaster Service — submitSplitTx', function () {
     sinon
       .stub(Connection.prototype, 'sendRawTransaction')
       .resolves('5xFrontRunSig');
-    // The REALISTIC shape: confirmTransaction().value.err for the program's
+    // The REALISTIC shape: the signature status err for the program's
     // AlreadyExecuted is { InstructionError: [ixIndex, { Custom: 6008 }] }.
     // The previous test fed the literal string "AlreadyExecuted", which the
     // structured err NEVER contains — so the detection was dead code.
-    sinon.stub(Connection.prototype, 'confirmTransaction').resolves({
-      value: { err: { InstructionError: [1, { Custom: 6008 }] } },
+    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
+      value: [
+        {
+          err: { InstructionError: [1, { Custom: 6008 }] },
+          confirmationStatus: 'confirmed',
+        },
+      ],
     } as any);
 
     const txB64 = buildExecuteTxB64(paymasterPubkey);
@@ -167,7 +172,10 @@ describe('Solana Paymaster Service — submitSplitTx', function () {
       ],
     });
     sinon.stub(Connection.prototype, 'sendRawTransaction').rejects(sendErr);
-    const confirmStub = sinon.stub(Connection.prototype, 'confirmTransaction');
+    const confirmStub = sinon.stub(
+      Connection.prototype,
+      'getSignatureStatuses',
+    );
 
     const txB64 = buildExecuteTxB64(paymasterPubkey);
     const result = await solPaymasterService.submitSplitTx({
@@ -187,8 +195,13 @@ describe('Solana Paymaster Service — submitSplitTx', function () {
       .stub(Connection.prototype, 'sendRawTransaction')
       .resolves('5xOtherCustomSig');
     // Custom 6001 = TooManyMembers — must NOT be mistaken for AlreadyExecuted.
-    sinon.stub(Connection.prototype, 'confirmTransaction').resolves({
-      value: { err: { InstructionError: [0, { Custom: 6001 }] } },
+    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
+      value: [
+        {
+          err: { InstructionError: [0, { Custom: 6001 }] },
+          confirmationStatus: 'confirmed',
+        },
+      ],
     } as any);
 
     const txB64 = buildExecuteTxB64(paymasterPubkey);
@@ -209,8 +222,13 @@ describe('Solana Paymaster Service — submitSplitTx', function () {
     sinon
       .stub(Connection.prototype, 'sendRawTransaction')
       .resolves('5xApproveSig');
-    sinon.stub(Connection.prototype, 'confirmTransaction').resolves({
-      value: { err: { InstructionError: [1, { Custom: 6008 }] } },
+    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
+      value: [
+        {
+          err: { InstructionError: [1, { Custom: 6008 }] },
+          confirmationStatus: 'confirmed',
+        },
+      ],
     } as any);
 
     const tx = new Transaction();
@@ -244,8 +262,13 @@ describe('Solana Paymaster Service — submitSplitTx', function () {
     sinon
       .stub(Connection.prototype, 'sendRawTransaction')
       .resolves('5xFailedSig');
-    sinon.stub(Connection.prototype, 'confirmTransaction').resolves({
-      value: { err: { InstructionError: [0, 'ConstraintSeeds'] } },
+    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
+      value: [
+        {
+          err: { InstructionError: [0, 'ConstraintSeeds'] },
+          confirmationStatus: 'confirmed',
+        },
+      ],
     } as any);
 
     const txB64 = buildExecuteTxB64(paymasterPubkey);

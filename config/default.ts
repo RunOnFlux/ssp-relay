@@ -58,11 +58,27 @@ export default {
     // → auto-generate, devnet only). Mainnet operators should also override
     // `rpc` here with a paid endpoint (Helius, Triton, etc.) — the public
     // mainnet-beta endpoint is rate-limited and unsuitable for production.
+    //
+    // `priorityFeeMicroLamports` is a ComputeBudget compute-unit price applied
+    // to the transactions the paymaster builds AND signs itself (multisig/nonce
+    // setup, nonce-pool top-ups). On mainnet, base-fee-only transactions are
+    // deprioritised under load and routinely dropped outright — the signature
+    // simply never lands — so a non-zero value is required there. Devnet is
+    // uncontended, hence 0. Our instructions burn ~10k CU, so 50k µlamports/CU
+    // costs ~500 lamports per tx: negligible against the reimbursement floors
+    // in FEE_SCHEDULE, and cheap insurance against a stuck setup.
     devnet: {
       rpc: 'https://api.devnet.solana.com',
+      priorityFeeMicroLamports: 0,
     },
     mainnet: {
-      rpc: 'https://api.mainnet-beta.solana.com',
+      // Branded endpoint: the ssp-backends-proxy Worker holds the provider
+      // credential and fronts it as node-solana.sspwallet.io, so no token
+      // lives in this repo or in any client bundle. Requests carrying
+      // SSP_RELAY_PROXY_KEY land in the Worker's higher relay rate-limit
+      // bucket instead of the per-IP one (we poll every vault from one IP).
+      rpc: 'https://node-solana.sspwallet.io',
+      priorityFeeMicroLamports: 50000,
     },
   },
 };

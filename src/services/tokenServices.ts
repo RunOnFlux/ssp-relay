@@ -9,9 +9,28 @@ interface TokenMetadata {
   logo: string | null;
 }
 
+// Mainnet uses the SSP-branded proxy (the ssp-backends-proxy Worker holds the
+// provider credential); devnet talks to Solana's public RPC directly, which is
+// fine from a server IP. Kept as its own map because token metadata lookups
+// are a separate concern from the paymaster's chain config in config/default.
+/**
+ * Headers for Solana RPC calls made from the relay.
+ *
+ * The branded proxy rate-limits unauthenticated callers PER CLIENT IP. That is
+ * right for wallets (each user connects from their own device) but wrong here:
+ * every token-metadata lookup for the whole fleet originates from the relay's
+ * single egress IP, and a mint costs 2+ calls, so without this header token
+ * imports would 429 almost immediately — a self-inflicted DoS. Same key the
+ * paymaster's connections use (solPaymasterService.solanaConnectionConfig).
+ */
+function solanaRpcHeaders(): Record<string, string> {
+  const key = process.env.SSP_RELAY_PROXY_KEY;
+  return key ? { 'X-SSP-Relay-Key': key } : {};
+}
+
 const SOLANA_RPC: Record<string, string> = {
   solDevnet: 'https://api.devnet.solana.com',
-  solMainnet: 'https://api.mainnet-beta.solana.com',
+  solMainnet: 'https://node-solana.sspwallet.io',
 };
 
 // Returns decimals (from the mint account) plus optional name/symbol/logo
@@ -32,12 +51,16 @@ async function getSolanaTokenMetadata(
         };
       } | null;
     };
-  }>(url, {
-    id: 1,
-    jsonrpc: '2.0',
-    method: 'getAccountInfo',
-    params: [mintAddress, { encoding: 'jsonParsed' }],
-  });
+  }>(
+    url,
+    {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getAccountInfo',
+      params: [mintAddress, { encoding: 'jsonParsed' }],
+    },
+    { headers: solanaRpcHeaders() },
+  );
   const mintInfo = mintResp.data.result?.value?.data?.parsed?.info;
   if (!mintInfo) {
     throw new Error('Mint account not found');
@@ -84,12 +107,16 @@ async function fetchMetaplexMetadata(
     result: {
       value: { data: [string, string] } | null;
     };
-  }>(rpcUrl, {
-    id: 1,
-    jsonrpc: '2.0',
-    method: 'getAccountInfo',
-    params: [metadataPda.toBase58(), { encoding: 'base64' }],
-  });
+  }>(
+    rpcUrl,
+    {
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'getAccountInfo',
+      params: [metadataPda.toBase58(), { encoding: 'base64' }],
+    },
+    { headers: solanaRpcHeaders() },
+  );
 
   const accountData = resp.data.result?.value?.data;
   if (!accountData) return null;

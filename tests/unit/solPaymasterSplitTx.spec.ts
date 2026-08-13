@@ -467,3 +467,285 @@ describe('Solana Paymaster Service — validateSplitTxInstructions (per-kind all
     });
   });
 });
+
+// ============================================================================
+// Per-cluster program-ID binding.
+//
+// Mainnet runs a DIFFERENT multisig program (own keypair + upgrade authority),
+// so the allowlist shapes are cluster-dependent. These guard the mismatch in
+// both directions: a mainnet-program tx must not be sponsored as devnet, and
+// vice versa. The failure mode is "fails closed" — wrong-cluster shapes match
+// nothing, so the tx is rejected rather than sponsored.
+// ============================================================================
+
+const SOL_MULTISIG_PROGRAM_ID_MAINNET = new PublicKey(
+  'SSPWVu7dtTDkZYmDx73StqV46PioSmdiNE7igpjHK1r',
+);
+
+function approveIxFor(programId: PublicKey): TransactionInstruction {
+  const data = Buffer.concat([APPROVE_DISC, Buffer.from([0])]);
+  return new TransactionInstruction({ programId, keys: [], data });
+}
+
+describe('Solana Paymaster Service — per-cluster program-ID binding', function () {
+  const paymaster = Keypair.generate().publicKey;
+  const signer = Keypair.generate().publicKey;
+
+  it('REJECTS a mainnet-program approve when validating as devnet', function () {
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      approveIxFor(SOL_MULTISIG_PROGRAM_ID_MAINNET),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster, {
+        chain: 'solDevnet',
+      }),
+    ).to.throw(/non-allowlisted/);
+  });
+
+  it('ACCEPTS a mainnet-program approve when validating as mainnet', function () {
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      approveIxFor(SOL_MULTISIG_PROGRAM_ID_MAINNET),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster, {
+        chain: 'solMainnet',
+      }),
+    ).to.not.throw();
+  });
+
+  it('REJECTS a devnet-program approve when validating as mainnet', function () {
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      approveIxFor(SOL_MULTISIG_PROGRAM_ID),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster, {
+        chain: 'solMainnet',
+      }),
+    ).to.throw(/non-allowlisted/);
+  });
+
+  it('defaults to devnet when no chain is supplied (back-compat)', function () {
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      approveIxFor(SOL_MULTISIG_PROGRAM_ID),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster),
+    ).to.not.throw();
+  });
+});
+
+// ============================================================================
+// ComputeBudget priority fees.
+//
+// Mainnet sends are dropped without a priority fee, and the paymaster cannot
+// add one itself (split txs arrive already signed by the member, so injecting
+// an instruction would invalidate that signature). The client therefore adds
+// it, and the positive allowlist has to accept it — while still rejecting
+// other foreign programs.
+// ============================================================================
+
+const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey(
+  'ComputeBudget111111111111111111111111111111',
+);
+
+function cuPriceIx(microLamports = 50_000): TransactionInstruction {
+  const data = Buffer.alloc(9);
+  data.writeUInt8(3, 0); // SetComputeUnitPrice
+  data.writeBigUInt64LE(BigInt(microLamports), 1);
+  return new TransactionInstruction({
+    programId: COMPUTE_BUDGET_PROGRAM_ID,
+    keys: [],
+    data,
+  });
+}
+
+function cuLimitIx(units = 200_000): TransactionInstruction {
+  const data = Buffer.alloc(5);
+  data.writeUInt8(2, 0); // SetComputeUnitLimit
+  data.writeUInt32LE(units, 1);
+  return new TransactionInstruction({
+    programId: COMPUTE_BUDGET_PROGRAM_ID,
+    keys: [],
+    data,
+  });
+}
+
+describe('Solana Paymaster Service — ComputeBudget priority fees', function () {
+  const paymaster = Keypair.generate().publicKey;
+  const vault = Keypair.generate().publicKey;
+  const signer = Keypair.generate().publicKey;
+  const FAT = 5_000_000;
+
+  it('ACCEPTS a create tx carrying a compute-unit price', function () {
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      cuPriceIx(),
+      createIx({ vault, paymaster, reimbursement: FAT }),
+      approveIx(),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'create', paymaster),
+    ).to.not.throw();
+  });
+
+  it('ACCEPTS an approve tx carrying price + limit', function () {
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      cuPriceIx(),
+      cuLimitIx(),
+      approveIx(),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster),
+    ).to.not.throw();
+  });
+
+  // The execute kind uses a fresh blockhash, so nonceAdvance is deliberately
+  // NOT in its allowlist — only the priority fee rides along.
+  it('ACCEPTS an execute tx carrying a compute-unit price', function () {
+    const tx = makeTx(paymaster, [cuPriceIx(), executeIx(), closeIx()]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'execute', paymaster),
+    ).to.not.throw();
+  });
+
+  it('still REJECTS an unrelated program even alongside a valid priority fee', function () {
+    const foreign = new TransactionInstruction({
+      programId: Keypair.generate().publicKey,
+      keys: [],
+      data: Buffer.from([1]),
+    });
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      cuPriceIx(),
+      approveIx(),
+      foreign,
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster),
+    ).to.throw(/non-allowlisted/);
+  });
+});
+
+// ============================================================================
+// ComputeBudget fee caps.
+//
+// The paymaster is fee payer, and Solana charges the priority fee as
+// `requested_cu_limit x price / 1e6` — on the REQUESTED limit, not consumption,
+// and EVEN WHEN THE TRANSACTION FAILS. An uncapped client-supplied
+// ComputeBudget instruction is therefore a direct withdrawal from the
+// paymaster: at 1.4M CU x 1e9 microlamports that is ~1.4 SOL per request, and
+// /v1/sol/broadcast accepts unauthenticated callers.
+// ============================================================================
+
+describe('Solana Paymaster Service — ComputeBudget fee caps', function () {
+  const paymaster = Keypair.generate().publicKey;
+  const signer = Keypair.generate().publicKey;
+
+  it('REJECTS an extortionate compute-unit price', function () {
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      cuPriceIx(1_000_000_000),
+      approveIxFor(SOL_MULTISIG_PROGRAM_ID),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster),
+    ).to.throw(/exceeds/);
+  });
+
+  it('REJECTS a modest price paired with a huge unit limit', function () {
+    // 1.4M CU x 100k microlamports = 140,000 lamports — over the cap even
+    // though neither factor alone looks alarming.
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      cuLimitIx(1_400_000),
+      cuPriceIx(100_000),
+      approveIxFor(SOL_MULTISIG_PROGRAM_ID),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster),
+    ).to.throw(/Priority fee .* exceeds/);
+  });
+
+  it('REJECTS a price with NO explicit limit (default 200k CU still applies)', function () {
+    // Without SetComputeUnitLimit Solana bills the default, so an uncapped
+    // price is still a real cost — the cap must not be bypassable by omission.
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      cuPriceIx(500_000),
+      approveIxFor(SOL_MULTISIG_PROGRAM_ID),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster),
+    ).to.throw(/Priority fee .* exceeds/);
+  });
+
+  it('ACCEPTS our own sender shape (200k CU @ 50k microlamports = 10k lamports)', function () {
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      cuLimitIx(200_000),
+      cuPriceIx(50_000),
+      approveIxFor(SOL_MULTISIG_PROGRAM_ID),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster),
+    ).to.not.throw();
+  });
+});
+
+// ============================================================================
+// Durable-nonce ordering.
+//
+// The runtime only treats a tx as durable-nonce when instruction[0] is
+// AdvanceNonceAccount, and it never looks further. Before ComputeBudget was
+// allowlisted nothing else could occupy slot 0; now a builder could prepend a
+// priority-fee ix and produce a tx we would sign and broadcast that the
+// runtime treats as an ordinary stale-blockhash transaction.
+// ============================================================================
+
+describe('Solana Paymaster Service — durable-nonce ordering', function () {
+  const paymaster = Keypair.generate().publicKey;
+  const vault = Keypair.generate().publicKey;
+  const signer = Keypair.generate().publicKey;
+  const FAT = 5_000_000;
+
+  it('REJECTS a create tx whose priority fee displaces nonceAdvance from ix[0]', function () {
+    const tx = makeTx(paymaster, [
+      cuPriceIx(50_000), // wrongly first
+      nonceAdvanceIx(signer),
+      createIx({ vault, paymaster, reimbursement: FAT }),
+      approveIx(),
+    ]);
+    expect(() => validateSplitTxInstructions(tx, 'create', paymaster)).to.throw(
+      /instruction\[0\]/,
+    );
+  });
+
+  it('REJECTS an approve tx with the same displacement', function () {
+    const tx = makeTx(paymaster, [
+      cuPriceIx(50_000),
+      nonceAdvanceIx(signer),
+      approveIx(),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'approve', paymaster),
+    ).to.throw(/instruction\[0\]/);
+  });
+
+  it('ACCEPTS the correct order: nonceAdvance first, then the priority fee', function () {
+    const tx = makeTx(paymaster, [
+      nonceAdvanceIx(signer),
+      cuLimitIx(200_000),
+      cuPriceIx(50_000),
+      createIx({ vault, paymaster, reimbursement: FAT }),
+      approveIx(),
+    ]);
+    expect(() =>
+      validateSplitTxInstructions(tx, 'create', paymaster),
+    ).to.not.throw();
+  });
+});

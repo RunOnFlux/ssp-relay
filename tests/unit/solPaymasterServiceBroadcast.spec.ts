@@ -191,9 +191,9 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
     const sendStub = sinon
       .stub(Connection.prototype, 'sendRawTransaction')
       .resolves('5xPaymasterFakeSig');
-    sinon
-      .stub(Connection.prototype, 'confirmTransaction')
-      .resolves({ value: { err: null } } as any);
+    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
+      value: [{ err: null, confirmationStatus: 'confirmed' }],
+    } as any);
 
     const txB64 = buildPaymasterPayingTx({
       paymaster: paymasterKp.publicKey,
@@ -213,9 +213,9 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
     const sendStub = sinon
       .stub(Connection.prototype, 'sendRawTransaction')
       .resolves('5xPaymasterFakeSig');
-    sinon
-      .stub(Connection.prototype, 'confirmTransaction')
-      .resolves({ value: { err: null } } as any);
+    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
+      value: [{ err: null, confirmationStatus: 'confirmed' }],
+    } as any);
 
     const txB64 = buildPaymasterPayingTx({
       paymaster: paymasterKp.publicKey,
@@ -252,9 +252,9 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
       .stub(Connection.prototype, 'getBalance')
       .resolves(1_000_000_000);
     sinon.stub(Connection.prototype, 'sendRawTransaction').resolves('5xSig');
-    sinon
-      .stub(Connection.prototype, 'confirmTransaction')
-      .resolves({ value: { err: null } } as any);
+    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
+      value: [{ err: null, confirmationStatus: 'confirmed' }],
+    } as any);
 
     const txB64 = buildPaymasterPayingTx({
       paymaster: paymasterKp.publicKey,

@@ -467,6 +467,30 @@ const solDevnet = {
   tokens: tokens.solDevnet(),
 };
 
+const solMainnet = {
+  id: 'solMainnet',
+  libid: 'solana-mainnet',
+  name: 'Solana',
+  symbol: 'SOL',
+  slip: 501, // SLIP-44 Solana. NOTE: `slip === 1` is the app-wide testnet
+  // marker, so this being 501 is what makes solMainnet a mainnet chain
+  // everywhere (fees, rates, tier gating, explorer links).
+  decimals: 9,
+  bip32: {
+    // not specified, use default — leaf converted to Ed25519 seed at signing time
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  scriptType: 'p2sh', // not used for Solana, defaulted
+  chainType: 'sol',
+  backend: 'solana-mainnet',
+  // SEPARATE program from devnet — own keypair + upgrade authority. The
+  // program ID is a PDA seed input, so this must never be swapped with the
+  // devnet one.
+  programId: 'SSPWVu7dtTDkZYmDx73StqV46PioSmdiNE7igpjHK1r',
+  tokens: tokens.solMainnet(),
+};
+
 export default {
   btc,
   flux,
@@ -480,6 +504,7 @@ export default {
   base,
   rvn,
   zec,
+  solMainnet,
   btcTestnet,
   btcSignet,
   fluxTestnet,
