@@ -1557,6 +1557,25 @@ async function getPoolNonceValue(
 // Startup banner: prints paymaster pubkey + balance per chain, or a loud
 // warning if unconfigured / freshly generated.
 export async function logPaymasterStatus(): Promise<void> {
+  // Report whether the branded-proxy relay key is in effect. Without it every
+  // Solana call from this process is charged to the proxy's PER-IP bucket,
+  // keyed on our single egress IP — so the whole fleet shares one small
+  // allowance and token/metadata lookups start 429ing. It is read from
+  // process.env at call time, so a .env loaded by the enterprise submodule
+  // counts; this line is the only reliable way to confirm the running process
+  // actually sees it (a shell `echo $SSP_RELAY_PROXY_KEY` proves nothing about
+  // the pm2 process).
+  const proxyKey = process.env.SSP_RELAY_PROXY_KEY;
+  if (proxyKey) {
+    log.info(
+      `[solPaymaster] branded-proxy relay key: CONFIGURED (${proxyKey.length} chars) — Solana RPC uses the relay rate-limit bucket`,
+    );
+  } else {
+    log.warn(
+      '[solPaymaster] branded-proxy relay key: NOT SET — set SSP_RELAY_PROXY_KEY (must match the Worker secret SSP_RELAY_KEY). Solana RPC falls back to the per-IP bucket shared by this host.',
+    );
+  }
+
   for (const chain of ['solDevnet', 'solMainnet']) {
     const slotKey = chainSlot(chain);
     let chainCfg: SolanaChainConfig;
