@@ -28,16 +28,19 @@ try {
   // Non-fatal.
 }
 
-// Number of proxy hops in front of this service. Default 1 (single nginx /
-// ALB). Override via TRUST_PROXY env (e.g. "2" for nginx behind Cloudflare,
-// or a CIDR range string for finer control). Misconfiguring this collapses
-// every client into the proxy's own IP and breaks per-IP rate limiting.
+// Number of proxy hops in front of this service. Resolved from the TRUST_PROXY
+// env var when set (a number, or an express trust-proxy string like a CIDR),
+// otherwise from config.server.trustProxy (default 2 for the production
+// Cloudflare → FDM/HAProxy → relay chain). Setting this too high collapses
+// every client into the proxy's own IP and lets a client spoof req.ip via a
+// prepended X-Forwarded-For entry — see clientIp.ts for why the rate limiter
+// keys off CF-Connecting-IP instead of relying on this.
 const trustProxyEnv = process.env.TRUST_PROXY;
 const trustProxyValue = trustProxyEnv
   ? /^\d+$/.test(trustProxyEnv)
     ? Number(trustProxyEnv)
     : trustProxyEnv
-  : 1;
+  : config.server.trustProxy;
 app.set('trust proxy', trustProxyValue);
 
 // Request logging

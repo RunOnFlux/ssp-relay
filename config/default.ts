@@ -8,6 +8,14 @@ import emailsecrets from './emailsecrets';
 export default {
   server: {
     port: 9876,
+    // Number of trusted proxy hops in front of the relay, used by Express to
+    // resolve req.ip from X-Forwarded-For. Production sits behind Cloudflare →
+    // FDM/HAProxy → relay, so 2. Overridable at runtime with the TRUST_PROXY
+    // env var (a number, or an express trust-proxy string like a CIDR). Setting
+    // this too high lets a client spoof req.ip via a prepended XFF entry; the
+    // rate limiter no longer depends on it (it keys off CF-Connecting-IP via
+    // clientIpKey), but morgan access logs and any other req.ip reader do.
+    trustProxy: 2,
   },
   database: {
     url: '127.0.0.1',
