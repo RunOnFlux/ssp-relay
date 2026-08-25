@@ -1,5 +1,6 @@
 import config from 'config';
-import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
+import { rateLimit } from 'express-rate-limit';
+import { clientIpKey } from './lib/clientIp';
 import syncApi from './apiServices/syncApi';
 import actionApi from './apiServices/actionApi';
 import recoveryPubApi from './apiServices/recoveryPubApi';
@@ -34,6 +35,7 @@ const billingMutationLimiter = rateLimit({
   max: 10,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator: clientIpKey,
   message: {
     status: 'error',
     data: {
@@ -52,6 +54,7 @@ const billingReadLimiter = rateLimit({
   max: 30,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator: clientIpKey,
   message: {
     status: 'error',
     data: { message: 'Too many preview requests. Please wait a moment.' },
@@ -69,6 +72,7 @@ const webhookTestLimiter = rateLimit({
   max: 3,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator: clientIpKey,
   message: {
     status: 'error',
     data: {
@@ -86,6 +90,7 @@ const pricingLimiter = rateLimit({
   max: 120,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator: clientIpKey,
 });
 
 // Solana paymaster broadcast — each request triggers an on-chain Solana
@@ -99,6 +104,7 @@ const solBroadcastLimiter = rateLimit({
   max: 10,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator: clientIpKey,
   message: {
     status: 'error',
     data: {
@@ -121,11 +127,10 @@ const apiReadKeyLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const keyId = (req as { apiKeyId?: string }).apiKeyId;
-    // ipKeyGenerator normalizes IPv6 to a subnet so v6 clients can't bypass
-    // the fallback bucket by rotating addresses within their /64.
-    return keyId
-      ? `apikey:${keyId}`
-      : `ip:${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`;
+    // clientIpKey resolves the real client IP (CF-Connecting-IP first) and
+    // normalizes IPv6 to a subnet so v6 clients can't bypass the fallback
+    // bucket by rotating addresses within their /64.
+    return keyId ? `apikey:${keyId}` : `ip:${clientIpKey(req)}`;
   },
   message: {
     status: 'error',
@@ -142,6 +147,7 @@ const apiReadIpLimiter = rateLimit({
   max: 300,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator: clientIpKey,
   message: {
     status: 'error',
     data: { message: 'Too many API requests from this IP. Please slow down.' },
@@ -157,9 +163,7 @@ const apiWriteKeyLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const keyId = (req as { apiKeyId?: string }).apiKeyId;
-    return keyId
-      ? `apikey:write:${keyId}`
-      : `ip:${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`;
+    return keyId ? `apikey:write:${keyId}` : `ip:${clientIpKey(req)}`;
   },
   message: {
     status: 'error',
@@ -187,7 +191,7 @@ const simulateLimiter = rateLimit({
         : undefined;
     return session
       ? `sim:${vaultId}:${session}`
-      : `sim:${vaultId}:ip:${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`;
+      : `sim:${vaultId}:ip:${clientIpKey(req)}`;
   },
   message: {
     status: 'error',
@@ -215,7 +219,7 @@ const previewSimulateLimiter = rateLimit({
         : undefined;
     return session
       ? `simprev:${vaultId}:${session}`
-      : `simprev:${vaultId}:ip:${req.ip ? ipKeyGenerator(req.ip) : 'unknown'}`;
+      : `simprev:${vaultId}:ip:${clientIpKey(req)}`;
   },
   message: {
     status: 'error',

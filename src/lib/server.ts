@@ -10,6 +10,7 @@ import config from 'config';
 import routes from '../routes';
 import { errorHandler, notFoundHandler, timeoutHandler } from './errorHandler';
 import serviceHelper from '../services/serviceHelper';
+import { clientIpKey } from './clientIp';
 
 const app = express();
 
@@ -62,6 +63,7 @@ const webhookLimiter = rateLimit({
   max: 200,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator: clientIpKey,
 });
 app.post(
   '/v1/enterprise/stripe/webhook',
@@ -168,12 +170,34 @@ app.use(compression());
 // CORS
 app.use(cors());
 
-// Rate limiting
+// Rate limiting — keyed by the real client IP (clientIpKey prefers Cloudflare's
+// unspoofable CF-Connecting-IP over trust-proxy/XFF resolution; see clientIp.ts).
+//
+// Two allowances share one per-IP bucket:
+// - 120 req/30s baseline for general traffic (wallet sync, rates, tokens).
+// - 600 req/30s when an enterprise session token is presented. The enterprise
+//   app fans out hard (portfolio pages fire ~4 requests per active vault in
+//   parallel) and whole teams — each also running the wallet extension against
+//   this relay — sit behind one office NAT, so 120/30s per IP starves
+//   legitimate use. The raised ceiling is gated on a Bearer header only (cheap,
+//   no DB hit); a junk token grants nothing beyond the higher ceiling for
+//   /v1/enterprise routes, which all verify the session and 401 immediately,
+//   and per-route limiters in routes.ts still cap the expensive endpoints
+//   (billing, broadcast, simulate) far tighter.
+const hasEnterpriseSession = (req: express.Request): boolean =>
+  req.path.startsWith('/v1/enterprise') &&
+  typeof req.headers.authorization === 'string' &&
+  req.headers.authorization.startsWith('Bearer ');
+// Enterprise-session traffic gets its own bucket (`ent:` prefix) so a
+// portfolio-page burst doesn't consume the same IP's baseline budget and
+// starve the wallet extension running alongside it.
 const limiter = rateLimit({
   windowMs: 30 * 1000, // 30 seconds
-  max: 120, // Limit each IP to 120 requests per windowMs
+  max: (req) => (hasEnterpriseSession(req) ? 600 : 120),
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator: (req) =>
+    hasEnterpriseSession(req) ? `ent:${clientIpKey(req)}` : clientIpKey(req),
 });
 app.use(limiter);
 
