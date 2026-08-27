@@ -191,16 +191,31 @@ const hasEnterpriseSession = (req: express.Request): boolean =>
   req.path.startsWith('/v1/enterprise') &&
   typeof req.headers.authorization === 'string' &&
   req.headers.authorization.startsWith('Bearer ');
+// Enterprise nonce pool sync (/v1/nonces status/submit/reconcile) gets its own
+// bucket too: it is driven by the wallet extension AND the mobile key, both
+// without a Bearer token, and a manual "Sync Nonces" runs 3 requests per
+// device. Sharing the 120/30s baseline with all other wallet background
+// traffic meant a busy machine could 429 the nonce submit — which the clients
+// used to swallow silently, leaving the pool empty while reporting success.
+// These endpoints are cheap (bounded Mongo ops, all inputs validated in the
+// enterprise module), so a raised dedicated ceiling is safe.
+const isNonceSync = (req: express.Request): boolean =>
+  req.path.startsWith('/v1/nonces');
 // Enterprise-session traffic gets its own bucket (`ent:` prefix) so a
 // portfolio-page burst doesn't consume the same IP's baseline budget and
 // starve the wallet extension running alongside it.
 const limiter = rateLimit({
   windowMs: 30 * 1000, // 30 seconds
-  max: (req) => (hasEnterpriseSession(req) ? 600 : 120),
+  max: (req) =>
+    hasEnterpriseSession(req) ? 600 : isNonceSync(req) ? 300 : 120,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   keyGenerator: (req) =>
-    hasEnterpriseSession(req) ? `ent:${clientIpKey(req)}` : clientIpKey(req),
+    hasEnterpriseSession(req)
+      ? `ent:${clientIpKey(req)}`
+      : isNonceSync(req)
+        ? `nonce:${clientIpKey(req)}`
+        : clientIpKey(req),
 });
 app.use(limiter);
 
