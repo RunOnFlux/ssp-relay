@@ -719,6 +719,7 @@ const getVaultBalances = vaultHandler('vaultBalances');
 const getVaultTransactions = vaultHandler('vaultTransactions');
 const postVaultSync = vaultHandler('vaultSync');
 const getVaultBalanceHistory = vaultHandler('vaultBalanceHistory');
+const getOrgPortfolio = vaultHandler('vaultOrgPortfolio');
 const postVaultProposal = vaultHandler('vaultProposalCreate');
 const postVaultProposalEstimateFee = vaultHandler('vaultProposalEstimateFee');
 const postVaultProposalPreviewPolicy = vaultHandler(
@@ -1050,6 +1051,7 @@ export default {
   getVaultTransactions,
   postVaultSync,
   getVaultBalanceHistory,
+  getOrgPortfolio,
   postVaultProposal,
   postVaultProposalEstimateFee,
   postVaultProposalPreviewPolicy,

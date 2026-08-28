@@ -1084,6 +1084,12 @@ export default (app) => {
   app.get('/v1/enterprise/organizations/:id/vaults', (req, res) => {
     enterpriseApi.getVaults(req, res);
   });
+  // Aggregated portfolio (all active vaults' balances, recent transactions,
+  // pending proposals, compact balance history) in a single response —
+  // replaces the enterprise app's per-vault 4-request fan-out.
+  app.get('/v1/enterprise/organizations/:id/portfolio', (req, res) => {
+    enterpriseApi.getOrgPortfolio(req, res);
+  });
   app.get('/v1/enterprise/organizations/:id/vault-tags', (req, res) => {
     enterpriseApi.getVaultTags(req, res);
   });
