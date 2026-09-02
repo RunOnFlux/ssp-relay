@@ -48,6 +48,13 @@ export interface VerificationResult {
   identity?: string;
   /** The public key that signed the message (hex) */
   signerPublicKey?: string;
+  /**
+   * The request is a byte-identical resend of one already accepted (same
+   * spent nonce, same signature fingerprint). Only ever set when the caller
+   * opted into identical-replay detection; the request verified fully but
+   * its effects must not be applied a second time.
+   */
+  duplicate?: boolean;
 }
 
 /**

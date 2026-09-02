@@ -215,10 +215,18 @@ export function requireAuth(
             );
         }
 
-        result = verifyMultisigAuth(authData, identity, network);
+        // allowIdenticalReplay: mobile transport layers sometimes resend a
+        // POST whose response was lost, carrying the same signed payload —
+        // such byte-identical duplicates are acknowledged below instead of
+        // being refused as replays.
+        result = verifyMultisigAuth(authData, identity, network, {
+          allowIdenticalReplay: true,
+        });
       } else {
         // Single-sig (walletIdentity, keyIdentity)
-        result = verifySingleSigAuth(authData, identity, network);
+        result = verifySingleSigAuth(authData, identity, network, {
+          allowIdenticalReplay: true,
+        });
       }
 
       if (!result.valid) {
@@ -276,6 +284,38 @@ export function requireAuth(
         // No data hash in signature - log warning but allow during transition period
         log.warn(
           `[AUTH] NO BODY HASH - ${identity} on ${req.path} (legacy client, signature valid but no data binding)`,
+        );
+      }
+
+      // A byte-identical resend of an already-accepted request: acknowledge
+      // it without running the handler again, so the retrying client gets a
+      // success instead of a nonce-replay 401 while the request's effects
+      // still apply exactly once. Requires the body-hash binding (verified
+      // above) — without it an identical signature could be replayed over a
+      // different body, so legacy unhashed requests stay refused as replays.
+      if (result.duplicate) {
+        if (!signedPayload.data) {
+          log.warn(
+            `[AUTH] DUPLICATE REFUSED - ${identity} on ${req.path} (no body hash binding)`,
+          );
+          return res
+            .status(401)
+            .json(
+              serviceHelper.createErrorMessage(
+                'Nonce already used (potential replay attack)',
+                'AuthenticationError',
+                'AUTH_FAILED',
+              ),
+            );
+        }
+        log.info(
+          `[AUTH] DUPLICATE ACKNOWLEDGED - ${identity} on ${req.path} (identical resend of an accepted request)`,
+        );
+        return res.status(200).json(
+          serviceHelper.createDataMessage({
+            message: 'Request already processed',
+            duplicate: true,
+          }),
         );
       }
 

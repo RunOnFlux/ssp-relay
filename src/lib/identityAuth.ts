@@ -24,9 +24,14 @@ const MAX_TIMESTAMP_DRIFT_MS = 10 * 60 * 1000; // 10 minutes
 const NONCE_CACHE_SIZE = 10000;
 const NONCE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-// Nonce cache to prevent replay attacks
-// Map<nonce, timestamp>
-const nonceCache = new Map<string, number>();
+// Nonce cache to prevent replay attacks.
+// Map<nonce, { timestamp, fingerprint }> — the fingerprint identifies the
+// exact signed request that spent the nonce, so an honest client's resend of
+// the identical request can be told apart from a forged reuse of the nonce.
+const nonceCache = new Map<
+  string,
+  { timestamp: number; fingerprint: string }
+>();
 
 // Periodic cleanup interval reference
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
@@ -181,14 +186,36 @@ export function parseWitnessScript(
 }
 
 /**
+ * Compute the fingerprint of a signed request: a hash over the signature and
+ * the signed message. Two requests share a fingerprint only when they are the
+ * same signed payload — used to recognise an honest client (or its transport
+ * layer) resending a request whose response was lost.
+ */
+export function requestFingerprint(authData: AuthFields): string {
+  return crypto
+    .createHash('sha256')
+    .update(`${authData.signature}\n${authData.message}`)
+    .digest('hex');
+}
+
+/**
  * Validate the signature payload (timestamp, nonce, etc.).
  *
  * @param payload - The parsed signature payload
+ * @param fingerprint - Optional fingerprint of the signed request. When given
+ *   and the nonce was already spent by a request with the SAME fingerprint,
+ *   the payload validates with `duplicate: true` instead of failing — the
+ *   caller decides whether an identical resend is acceptable. Without it a
+ *   spent nonce always fails (strict at-most-once, e.g. socket join).
  * @returns Validation result
  */
-export function validateSignaturePayload(payload: SignaturePayload): {
+export function validateSignaturePayload(
+  payload: SignaturePayload,
+  fingerprint?: string,
+): {
   valid: boolean;
   error?: string;
+  duplicate?: boolean;
 } {
   // Validate timestamp (must be within 5 minutes of server time)
   const now = Date.now();
@@ -213,7 +240,16 @@ export function validateSignaturePayload(payload: SignaturePayload): {
   // would mean a request that fails any later check (identity mismatch, bad
   // signature, clock skew) poisons its own nonce, so an honest client
   // retrying the identical signed payload would be told it was a replay.
-  if (nonceCache.has(payload.nonce)) {
+  const spent = nonceCache.get(payload.nonce);
+  if (spent) {
+    // A byte-identical resend of the accepted request (mobile transport
+    // layers re-send a POST when the connection dies before the response
+    // arrives) is flagged rather than failed — but only when the caller
+    // supplied a fingerprint to compare, and it matches the one that spent
+    // the nonce. Any other reuse is a replay.
+    if (fingerprint && spent.fingerprint && spent.fingerprint === fingerprint) {
+      return { valid: true, duplicate: true };
+    }
     return {
       valid: false,
       error: 'Nonce already used (potential replay attack)',
@@ -246,10 +282,12 @@ export function validateSignaturePayload(payload: SignaturePayload): {
 /**
  * Mark a nonce as spent. Called only after a request has fully verified, so
  * exactly one accepted request may ever carry a given nonce while failed
- * attempts leave it usable.
+ * attempts leave it usable. The fingerprint of the spending request is kept
+ * so a byte-identical resend can later be recognised as a duplicate rather
+ * than a replay (see validateSignaturePayload).
  */
-export function consumeNonce(nonce: string): void {
-  nonceCache.set(nonce, Date.now());
+export function consumeNonce(nonce: string, fingerprint = ''): void {
+  nonceCache.set(nonce, { timestamp: Date.now(), fingerprint });
   if (nonceCache.size > NONCE_CACHE_SIZE) {
     cleanupNonceCache();
   }
@@ -260,8 +298,8 @@ export function cleanupNonceCache(): void {
   const expiredThreshold = now - NONCE_CACHE_TTL_MS;
 
   // Use forEach to avoid iterator issues with older ES targets
-  nonceCache.forEach((timestamp, nonce) => {
-    if (timestamp < expiredThreshold) {
+  nonceCache.forEach((entry, nonce) => {
+    if (entry.timestamp < expiredThreshold) {
       nonceCache.delete(nonce);
     }
   });
@@ -291,12 +329,17 @@ export function stopNonceCacheCleanup(): void {
  * @param authData - Authentication fields from the request
  * @param expectedIdentity - The identity being authenticated
  * @param network - Bitcoin network
+ * @param options - allowIdenticalReplay: a byte-identical resend of an
+ *   already-accepted request verifies with `duplicate: true` instead of
+ *   failing on its spent nonce. Callers that must stay strictly at-most-once
+ *   (socket join) leave it off.
  * @returns Verification result
  */
 export function verifySingleSigAuth(
   authData: AuthFields,
   expectedIdentity: string,
   network: BitcoinNetwork = 'mainnet',
+  options: { allowIdenticalReplay?: boolean } = {},
 ): VerificationResult {
   try {
     // Parse the message payload
@@ -311,7 +354,11 @@ export function verifySingleSigAuth(
     }
 
     // Validate the payload
-    const payloadValidation = validateSignaturePayload(payload);
+    const fingerprint = requestFingerprint(authData);
+    const payloadValidation = validateSignaturePayload(
+      payload,
+      options.allowIdenticalReplay ? fingerprint : undefined,
+    );
     if (!payloadValidation.valid) {
       return {
         valid: false,
@@ -353,13 +400,17 @@ export function verifySingleSigAuth(
     }
 
     // Verified — spend the nonce now, so a replay of this exact request is
-    // refused while a failed attempt above left it usable.
-    consumeNonce(payload.nonce);
+    // refused while a failed attempt above left it usable. A recognised
+    // duplicate already spent it (with this very fingerprint).
+    if (!payloadValidation.duplicate) {
+      consumeNonce(payload.nonce, fingerprint);
+    }
 
     return {
       valid: true,
       identity: expectedIdentity,
       signerPublicKey: authData.publicKey,
+      ...(payloadValidation.duplicate && { duplicate: true }),
     };
   } catch (err) {
     log.error(
@@ -381,12 +432,17 @@ export function verifySingleSigAuth(
  * @param authData - Authentication fields from the request
  * @param expectedWkIdentity - The wkIdentity being authenticated
  * @param network - Bitcoin network
+ * @param options - allowIdenticalReplay: a byte-identical resend of an
+ *   already-accepted request verifies with `duplicate: true` instead of
+ *   failing on its spent nonce. Callers that must stay strictly at-most-once
+ *   (socket join) leave it off.
  * @returns Verification result
  */
 export function verifyMultisigAuth(
   authData: AuthFields,
   expectedWkIdentity: string,
   network: BitcoinNetwork = 'mainnet',
+  options: { allowIdenticalReplay?: boolean } = {},
 ): VerificationResult {
   try {
     // Require witness script for multisig
@@ -409,7 +465,11 @@ export function verifyMultisigAuth(
     }
 
     // Validate the payload
-    const payloadValidation = validateSignaturePayload(payload);
+    const fingerprint = requestFingerprint(authData);
+    const payloadValidation = validateSignaturePayload(
+      payload,
+      options.allowIdenticalReplay ? fingerprint : undefined,
+    );
     if (!payloadValidation.valid) {
       return {
         valid: false,
@@ -487,13 +547,17 @@ export function verifyMultisigAuth(
     }
 
     // Verified — spend the nonce now, so a replay of this exact request is
-    // refused while a failed attempt above left it usable.
-    consumeNonce(payload.nonce);
+    // refused while a failed attempt above left it usable. A recognised
+    // duplicate already spent it (with this very fingerprint).
+    if (!payloadValidation.duplicate) {
+      consumeNonce(payload.nonce, fingerprint);
+    }
 
     return {
       valid: true,
       identity: expectedWkIdentity,
       signerPublicKey: authData.publicKey,
+      ...(payloadValidation.duplicate && { duplicate: true }),
     };
   } catch (err) {
     log.error(

@@ -291,6 +291,65 @@ describe('Identity Authentication Library', function () {
       expect(result2.valid).to.be.false;
       expect(result2.error).to.include('replay');
     });
+
+    it('should flag identical resend as duplicate when fingerprint matches', function () {
+      cleanupNonceCache();
+
+      const nonce = crypto.randomBytes(32).toString('hex');
+      const payload = {
+        timestamp: Date.now(),
+        action: 'action' as const,
+        identity: 'test-identity',
+        nonce,
+      };
+      const fingerprint = crypto.randomBytes(32).toString('hex');
+
+      const result1 = validateSignaturePayload(payload, fingerprint);
+      expect(result1.valid).to.be.true;
+      expect(result1.duplicate).to.be.undefined;
+
+      consumeNonce(nonce, fingerprint);
+
+      // Same signed request again — duplicate, not a replay failure
+      const result2 = validateSignaturePayload(payload, fingerprint);
+      expect(result2.valid).to.be.true;
+      expect(result2.duplicate).to.be.true;
+
+      // Different fingerprint on a spent nonce — replay
+      const result3 = validateSignaturePayload(
+        payload,
+        crypto.randomBytes(32).toString('hex'),
+      );
+      expect(result3.valid).to.be.false;
+      expect(result3.error).to.include('replay');
+
+      // No fingerprint supplied (strict caller, e.g. socket join) — replay
+      const result4 = validateSignaturePayload(payload);
+      expect(result4.valid).to.be.false;
+      expect(result4.error).to.include('replay');
+    });
+
+    it('should not treat a spent no-fingerprint nonce as duplicate', function () {
+      cleanupNonceCache();
+
+      const nonce = crypto.randomBytes(32).toString('hex');
+      const payload = {
+        timestamp: Date.now(),
+        action: 'action' as const,
+        identity: 'test-identity',
+        nonce,
+      };
+
+      // Spent without a fingerprint recorded (legacy consumeNonce call)
+      consumeNonce(nonce);
+
+      const result = validateSignaturePayload(
+        payload,
+        crypto.randomBytes(32).toString('hex'),
+      );
+      expect(result.valid).to.be.false;
+      expect(result.error).to.include('replay');
+    });
   });
 
   describe('deriveP2PKHAddress', function () {
@@ -482,6 +541,76 @@ describe('Identity Authentication Library', function () {
       expect(result.valid).to.be.true;
       expect(result.identity).to.equal(wkIdentity);
       expect(result.signerPublicKey).to.equal(TEST_PUBLIC_KEY);
+    });
+
+    it('should handle identical resend per allowIdenticalReplay option', function () {
+      cleanupNonceCache();
+
+      const witnessScript = generateTestWitnessScript();
+      const wkIdentity = deriveP2WSHAddress(witnessScript, 'mainnet');
+      const payload = createSignaturePayload('action', wkIdentity);
+      const message = JSON.stringify(payload);
+
+      const keyPair = utxolib.ECPair.fromWIF(
+        TEST_PRIVATE_KEY_WIF,
+        utxolib.networks.bitcoin,
+      );
+      const privateKeyBuffer = keyPair.d.toBuffer(32);
+      const signature = bitcoinMessage.sign(
+        message,
+        privateKeyBuffer,
+        keyPair.compressed,
+      );
+
+      const authData = {
+        signature: signature.toString('base64'),
+        message,
+        publicKey: TEST_PUBLIC_KEY,
+        witnessScript,
+      };
+
+      // First request verifies normally
+      const first = verifyMultisigAuth(authData, wkIdentity, 'mainnet', {
+        allowIdenticalReplay: true,
+      });
+      expect(first.valid).to.be.true;
+      expect(first.duplicate).to.be.undefined;
+
+      // Identical resend with the opt-in — accepted but flagged duplicate
+      const resend = verifyMultisigAuth(authData, wkIdentity, 'mainnet', {
+        allowIdenticalReplay: true,
+      });
+      expect(resend.valid).to.be.true;
+      expect(resend.duplicate).to.be.true;
+
+      // Identical resend WITHOUT the opt-in (socket join semantics) — replay
+      const strict = verifyMultisigAuth(authData, wkIdentity, 'mainnet');
+      expect(strict.valid).to.be.false;
+      expect(strict.error).to.include('replay');
+
+      // Same nonce under a different signed message — replay even with opt-in
+      const tamperedMessage = JSON.stringify({
+        ...payload,
+        timestamp: payload.timestamp + 1,
+      });
+      const tamperedSignature = bitcoinMessage.sign(
+        tamperedMessage,
+        privateKeyBuffer,
+        keyPair.compressed,
+      );
+      const tampered = verifyMultisigAuth(
+        {
+          signature: tamperedSignature.toString('base64'),
+          message: tamperedMessage,
+          publicKey: TEST_PUBLIC_KEY,
+          witnessScript,
+        },
+        wkIdentity,
+        'mainnet',
+        { allowIdenticalReplay: true },
+      );
+      expect(tampered.valid).to.be.false;
+      expect(tampered.error).to.include('replay');
     });
 
     it('should reject auth without witness script', function () {
