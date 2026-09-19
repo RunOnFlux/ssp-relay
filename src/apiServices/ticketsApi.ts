@@ -80,7 +80,11 @@ async function postTicket(req, res) {
     // Rate limit: max 10 submissions per IP per 24 hours (atomic increment)
     const currentCount = (alreadySubmittedIps.get(ip) || 0) + 1;
     if (currentCount > 10) {
-      throw new Error('Ticket already submitted');
+      // Says what happened. "Ticket already submitted" is what the reporter used to read, and
+      // it tells someone whose ticket was NOT created that it was.
+      throw new Error(
+        'Too many tickets from this connection in the last 24 hours. Please reply to your existing ticket by email instead.',
+      );
     }
     alreadySubmittedIps.set(ip, currentCount);
 
