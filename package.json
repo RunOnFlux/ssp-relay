@@ -40,7 +40,6 @@
     "express": "5.2.1",
     "express-rate-limit": "8.5.2",
     "firebase-admin": "14.0.0",
-    "freshdesk-client": "1.10.0",
     "lru-cache": "11.5.1",
     "mongodb": "7.3.0",
     "morgan": "1.11.0",
