@@ -173,6 +173,11 @@ async function fetchCryptoRates() {
       // pricing it would inflate treasury displays with fake balances.
       sol: response.data.data['5426'].quote.USD.price,
       solMainnet: response.data.data['5426'].quote.USD.price,
+      // XDC Network (CMC ID 2634). The chain id (`xdc`) and lowercased symbol
+      // (`XDC` → `xdc`) coincide, so this single key serves BOTH the
+      // token/symbol lookups and the chain-level `cryptoRates[activeChain]`
+      // lookups (same mechanism as `bsc`/`base`/`solMainnet` above).
+      xdc: response.data.data['2634'].quote.USD.price,
     };
     cryptoRates = prices;
   } catch (error) {
