@@ -42,7 +42,7 @@
     "firebase-admin": "14.0.0",
     "lru-cache": "11.5.1",
     "mongodb": "7.3.0",
-    "morgan": "1.11.0",
+    "morgan": "1.12.0",
     "node-cmd": "5.0.0",
     "nodemailer": "8.0.11",
     "qs": "6.15.2",
