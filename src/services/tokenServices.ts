@@ -86,6 +86,99 @@ async function getSolanaTokenMetadata(
   return { name, symbol, decimals, logo };
 }
 
+// XDC has no alchemy-sdk support, so ERC-20 metadata is fetched via raw
+// JSON-RPC eth_call against the SSP-branded node proxy, same pattern as the
+// Solana map above.
+const XDC_RPC: Record<string, string> = {
+  xdc: 'https://node-xdc.sspwallet.io',
+};
+
+// ERC-20 function selectors: name() / symbol() / decimals()
+const ERC20_NAME_SELECTOR = '0x06fdde03';
+const ERC20_SYMBOL_SELECTOR = '0x95d89b41';
+const ERC20_DECIMALS_SELECTOR = '0x313ce567';
+
+async function ethCall(
+  rpcUrl: string,
+  to: string,
+  data: string,
+): Promise<string | null> {
+  const resp = await axios.post<{ result?: string }>(rpcUrl, {
+    id: 1,
+    jsonrpc: '2.0',
+    method: 'eth_call',
+    params: [{ to, data }, 'latest'],
+  });
+  const result = resp.data.result;
+  if (!result || result === '0x') return null;
+  return result;
+}
+
+// Decodes an eth_call result that is either a standard ABI-encoded dynamic
+// string (offset + length + bytes) or a legacy bytes32 value.
+function decodeAbiString(hex: string | null): string | null {
+  if (!hex) return null;
+  const raw = Buffer.from(hex.slice(2), 'hex');
+  if (raw.length >= 64) {
+    const offset = raw.readUInt32BE(28);
+    if (offset + 32 <= raw.length) {
+      const len = raw.readUInt32BE(offset + 28);
+      if (offset + 32 + len <= raw.length) {
+        const str = raw
+          .subarray(offset + 32, offset + 32 + len)
+          .toString('utf8')
+          .replace(/\0+$/, '')
+          .trim();
+        return str || null;
+      }
+    }
+  }
+  // bytes32 fallback (older tokens return fixed-width strings)
+  const str = raw.toString('utf8').replace(/\0+$/, '').trim();
+  return str || null;
+}
+
+async function getXdcTokenMetadata(
+  contractAddress: string,
+  network: string,
+): Promise<TokenMetadata> {
+  const url = XDC_RPC[network];
+  if (!url) throw new Error(`Unsupported XDC network: ${network}`);
+
+  const decimalsHex = await ethCall(
+    url,
+    contractAddress,
+    ERC20_DECIMALS_SELECTOR,
+  );
+  if (!decimalsHex) {
+    throw new Error('Token contract not found');
+  }
+  const decimals = parseInt(decimalsHex, 16);
+  if (Number.isNaN(decimals)) {
+    throw new Error('Token contract not found');
+  }
+
+  // name/symbol are optional in the ERC-20 spec — non-fatal if absent.
+  let name: string | null = null;
+  let symbol: string | null = null;
+  try {
+    name = decodeAbiString(
+      await ethCall(url, contractAddress, ERC20_NAME_SELECTOR),
+    );
+  } catch {
+    // Non-fatal — token simply has no name.
+  }
+  try {
+    symbol = decodeAbiString(
+      await ethCall(url, contractAddress, ERC20_SYMBOL_SELECTOR),
+    );
+  } catch {
+    // Non-fatal — token simply has no symbol.
+  }
+
+  return { name, symbol, decimals, logo: null };
+}
+
 const METAPLEX_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
 
 async function fetchMetaplexMetadata(
@@ -156,6 +249,10 @@ async function fetchMetaplexMetadata(
 export async function getFromAlchemy(contractAddress: string, network: string) {
   if (network === 'solDevnet' || network === 'solMainnet') {
     return getSolanaTokenMetadata(contractAddress, network);
+  }
+
+  if (network === 'xdc') {
+    return getXdcTokenMetadata(contractAddress, network);
   }
 
   let networkValue: Network;

@@ -753,6 +753,7 @@ const knownTokensByChain: Record<string, KnownToken[]> = {
   base: baseTokens,
   avax: avaxTokens,
   bsc: bscTokens,
+  xdc: [],
   sepolia: [],
   amoy: [],
 };
