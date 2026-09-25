@@ -1090,6 +1090,57 @@ export default (app) => {
   app.get('/v1/enterprise/organizations/:id/portfolio', (req, res) => {
     enterpriseApi.getOrgPortfolio(req, res);
   });
+  // Org-wide proposal activity: pending + recently signed/sent across vaults.
+  app.get('/v1/enterprise/organizations/:id/proposal-activity', (req, res) => {
+    enterpriseApi.getOrgProposalActivity(req, res);
+  });
+  // Recurring payments: schedules that create pending proposals on due dates
+  // (never sign or move funds — signing stays manual M-of-N).
+  app.get('/v1/enterprise/organizations/:id/recurring-payments', (req, res) => {
+    enterpriseApi.getRecurringPayments(req, res);
+  });
+  app.post(
+    '/v1/enterprise/organizations/:id/recurring-payments',
+    (req, res) => {
+      enterpriseApi.postRecurringPayment(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/recurring-payments/:paymentId',
+    (req, res) => {
+      enterpriseApi.getRecurringPayment(req, res);
+    },
+  );
+  app.put(
+    '/v1/enterprise/organizations/:id/recurring-payments/:paymentId',
+    (req, res) => {
+      enterpriseApi.putRecurringPayment(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/recurring-payments/:paymentId/pause',
+    (req, res) => {
+      enterpriseApi.postRecurringPaymentPause(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/recurring-payments/:paymentId/resume',
+    (req, res) => {
+      enterpriseApi.postRecurringPaymentResume(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/recurring-payments/:paymentId/cancel',
+    (req, res) => {
+      enterpriseApi.postRecurringPaymentCancel(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/recurring-payments/:paymentId/run',
+    (req, res) => {
+      enterpriseApi.postRecurringPaymentRun(req, res);
+    },
+  );
   app.get('/v1/enterprise/organizations/:id/vault-tags', (req, res) => {
     enterpriseApi.getVaultTags(req, res);
   });

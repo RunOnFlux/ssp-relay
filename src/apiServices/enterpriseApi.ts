@@ -720,6 +720,15 @@ const getVaultTransactions = vaultHandler('vaultTransactions');
 const postVaultSync = vaultHandler('vaultSync');
 const getVaultBalanceHistory = vaultHandler('vaultBalanceHistory');
 const getOrgPortfolio = vaultHandler('vaultOrgPortfolio');
+const getOrgProposalActivity = vaultHandler('vaultOrgProposalActivity');
+const getRecurringPayments = vaultHandler('recurringPaymentsList');
+const postRecurringPayment = vaultHandler('recurringPaymentCreate');
+const getRecurringPayment = vaultHandler('recurringPaymentGet');
+const putRecurringPayment = vaultHandler('recurringPaymentUpdate');
+const postRecurringPaymentPause = vaultHandler('recurringPaymentPause');
+const postRecurringPaymentResume = vaultHandler('recurringPaymentResume');
+const postRecurringPaymentCancel = vaultHandler('recurringPaymentCancel');
+const postRecurringPaymentRun = vaultHandler('recurringPaymentRunNow');
 const postVaultProposal = vaultHandler('vaultProposalCreate');
 const postVaultProposalEstimateFee = vaultHandler('vaultProposalEstimateFee');
 const postVaultProposalPreviewPolicy = vaultHandler(
@@ -1052,6 +1061,15 @@ export default {
   postVaultSync,
   getVaultBalanceHistory,
   getOrgPortfolio,
+  getOrgProposalActivity,
+  getRecurringPayments,
+  postRecurringPayment,
+  getRecurringPayment,
+  putRecurringPayment,
+  postRecurringPaymentPause,
+  postRecurringPaymentResume,
+  postRecurringPaymentCancel,
+  postRecurringPaymentRun,
   postVaultProposal,
   postVaultProposalEstimateFee,
   postVaultProposalPreviewPolicy,
