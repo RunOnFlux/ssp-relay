@@ -370,6 +370,64 @@ async function obtainAvaxFees() {
   }
 }
 
+// Kaspa fees are sompi per GRAM of mass (not per byte). Network minimum is
+// 100 sompi/gram; kaspa-core refuses anything above 10,000 sompi/gram.
+const KASPA_MIN_FEE_RATE = 100;
+const KASPA_MAX_FEE_RATE = 10000;
+const KASPA_STATIC_FEES = {
+  coin: 'kas',
+  economy: KASPA_MIN_FEE_RATE,
+  normal: KASPA_MIN_FEE_RATE,
+  fast: KASPA_MIN_FEE_RATE,
+  recommended: KASPA_MIN_FEE_RATE,
+};
+
+function clampKaspaFeeRate(rate: unknown): number | null {
+  if (typeof rate !== 'number' || !Number.isFinite(rate)) return null;
+  return Math.min(
+    KASPA_MAX_FEE_RATE,
+    Math.max(KASPA_MIN_FEE_RATE, Math.ceil(rate)),
+  );
+}
+
+/**
+ * Live Kaspa fee estimate from kaspa-rest-server `/info/fee-estimate`
+ * (priority / normal / low buckets), clamped to [100, 10000] sompi/gram.
+ * Falls back to the static network minimum when every host fails, so the
+ * `kas` entry is always present.
+ */
+async function obtainKaspaFees() {
+  const hosts: string[] = config.kaspa?.rest ?? ['https://api.kaspa.org'];
+  for (const host of hosts) {
+    try {
+      const res = await axios.get(`${host}/info/fee-estimate`, {
+        timeout: 10000,
+      });
+      const fast = clampKaspaFeeRate(res.data?.priorityBucket?.feerate);
+      const normal = clampKaspaFeeRate(res.data?.normalBuckets?.[0]?.feerate);
+      const economy = clampKaspaFeeRate(res.data?.lowBuckets?.[0]?.feerate);
+      if (fast === null && normal === null && economy === null) {
+        throw new Error('fee estimate has no usable buckets');
+      }
+      const n = normal ?? fast ?? economy;
+      const f = Math.max(fast ?? n, n);
+      const e = Math.min(economy ?? n, n);
+      return {
+        coin: 'kas',
+        economy: e,
+        normal: n,
+        fast: f,
+        recommended: n,
+      };
+    } catch (error) {
+      log.warn(
+        `[FEES] kaspa fee estimate from ${host} failed: ${error.message}`,
+      );
+    }
+  }
+  return { ...KASPA_STATIC_FEES };
+}
+
 let i = -1;
 
 async function fetchFees() {
@@ -420,6 +478,7 @@ async function fetchFees() {
   if (avaxFee) {
     fees.push(avaxFee);
   }
+  fees.push(await obtainKaspaFees());
   // Static UTXO fees (from ssp-wallet blockchains.ts)
   fees.push({
     coin: 'doge',
@@ -512,4 +571,5 @@ export default {
   obtainBaseFees,
   obtainBscFees,
   obtainAvaxFees,
+  obtainKaspaFees,
 };

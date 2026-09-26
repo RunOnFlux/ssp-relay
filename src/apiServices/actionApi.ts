@@ -129,6 +129,28 @@ async function postAction(req, res) {
           throw new Error('Invalid EVM payload format: must be valid JSON');
         }
       }
+    } else if (blockchain && blockchain.chainType === 'kas') {
+      // Kaspa never carries hex transactions: the `tx` payload is a
+      // kaspa-core SigningBundle serialised as JSON.
+      if (processedBody.action === 'tx') {
+        let parsedPayload: unknown;
+        try {
+          parsedPayload = JSON.parse(processedBody.payload);
+        } catch {
+          throw new Error('Invalid KAS payload format: must be valid JSON');
+        }
+        if (
+          !parsedPayload ||
+          typeof parsedPayload !== 'object' ||
+          Array.isArray(parsedPayload) ||
+          (parsedPayload as { format?: unknown }).format !==
+            'kaspa-core-signing-bundle'
+        ) {
+          throw new Error(
+            'Invalid KAS payload format: must be a kaspa-core-signing-bundle',
+          );
+        }
+      }
     } else if (blockchain && blockchain.chainType === 'utxo') {
       // For UTXO chains, validate payload is hex string
       if (processedBody.action === 'tx') {

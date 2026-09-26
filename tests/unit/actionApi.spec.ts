@@ -6,6 +6,10 @@ import serviceHelper from '../../src/services/serviceHelper';
 import actionApi from '../../src/apiServices/actionApi';
 import sinon from 'sinon';
 import httpMocks from 'node-mocks-http';
+import socket from '../../src/lib/socket';
+import notificationService from '../../src/services/notificationService';
+import enterpriseHooks from '../../src/services/enterpriseHooks';
+import { buildKaspaBundle } from '../helpers/kaspaBundle';
 
 const reqValid = {
   params: {
@@ -244,6 +248,82 @@ describe('Action API', function () {
         payload: '',
         path: '',
       });
+    });
+  });
+
+  describe('Post Action: Kaspa (kas) tx payloads', function () {
+    afterEach(function () {
+      sinon.restore();
+    });
+
+    function kasRequest(payload, action = 'tx') {
+      return httpMocks.createRequest({
+        method: 'POST',
+        url: 'test',
+        body: {
+          chain: 'kas',
+          wkIdentity: 'kaspa-wk-identity',
+          action,
+          payload,
+          path: '0-0',
+        },
+      });
+    }
+
+    function stubDelivery() {
+      const emit = sinon.stub();
+      sinon.stub(socket, 'getIOKey').returns({ to: () => ({ emit }) });
+      sinon.stub(socket, 'getIOWallet').returns({ to: () => ({ emit }) });
+      sinon.stub(notificationService, 'sendNotificationKey').resolves();
+      sinon.stub(enterpriseHooks, 'onAction').resolves();
+      return emit;
+    }
+
+    it('accepts a kaspa-core signing bundle', async function () {
+      const { json } = await buildKaspaBundle();
+      const emit = stubDelivery();
+      const post = sinon
+        .stub(actionService, 'postAction')
+        .callsFake(async (d) => d);
+      const res = httpMocks.createResponse();
+      await actionApi.postAction(kasRequest(json), res);
+      assert.equal(res.statusCode, 200);
+      assert.equal(post.callCount, 1);
+      assert.equal(post.firstCall.args[0].payload, json);
+      assert.equal(emit.callCount, 1);
+      assert.equal(res._getJSONData().status, 'success');
+    });
+
+    it('rejects a hex payload for kas', async function () {
+      stubDelivery();
+      const post = sinon.stub(actionService, 'postAction').resolves({});
+      const res = httpMocks.createResponse();
+      await actionApi.postAction(kasRequest('0200000001abcdef'), res);
+      assert.equal(res.statusCode, 400);
+      assert.equal(post.callCount, 0);
+    });
+
+    it('rejects JSON that is not a kaspa-core-signing-bundle', async function () {
+      stubDelivery();
+      const post = sinon.stub(actionService, 'postAction').resolves({});
+      const res = httpMocks.createResponse();
+      await actionApi.postAction(
+        kasRequest(JSON.stringify({ format: 'psbt', version: 1 })),
+        res,
+      );
+      assert.equal(res.statusCode, 400);
+      assert.equal(post.callCount, 0);
+    });
+
+    it('does not apply bundle validation to non-tx kas actions (txid)', async function () {
+      stubDelivery();
+      const post = sinon
+        .stub(actionService, 'postAction')
+        .callsFake(async (d) => d);
+      const res = httpMocks.createResponse();
+      await actionApi.postAction(kasRequest('ab'.repeat(32), 'txid'), res);
+      assert.equal(res.statusCode, 200);
+      assert.equal(post.callCount, 1);
     });
   });
 });

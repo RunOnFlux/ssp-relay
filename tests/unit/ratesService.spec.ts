@@ -3,6 +3,7 @@
 import { expect } from 'chai';
 import ratesService from '../../src/services/ratesService';
 import sinon from 'sinon';
+import axios from 'axios';
 let r = undefined;
 
 describe('Rate Service', function () {
@@ -72,6 +73,28 @@ describe('Rate Service', function () {
       expect(r.crypto.flux).to.not.be.undefined;
       expect(r.fiat).to.deep.equal({ BTC: 1, ETH: 1 });
       expect(r.crypto).to.deep.equal({ btc: 1, flux: 1 });
+    });
+  });
+
+  describe('Kaspa quote (CMC 20396)', function () {
+    afterEach(function () {
+      sinon.restore();
+    });
+
+    it('requests CMC id 20396 and maps it to the kas chain id', async function () {
+      const quote = (price) => ({ quote: { USD: { price } } });
+      const data = new Proxy(
+        {},
+        {
+          get: (_t, id) => (id === '20396' ? quote(0.0416) : quote(1)),
+        },
+      );
+      const get = sinon.stub(axios, 'get');
+      get.resolves({ data: { data } });
+      await ratesService.fetchCryptoRates();
+      const params = get.firstCall.args[1].params;
+      expect(params.id.split(',')).to.include('20396');
+      expect(ratesService.getRates().crypto.kas).to.equal(0.0416);
     });
   });
 });
