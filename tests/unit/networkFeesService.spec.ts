@@ -3,6 +3,7 @@
 import { expect, assert } from 'chai';
 import networkFeesService from '../../src/services/networkFeesService';
 import sinon from 'sinon';
+import axios from 'axios';
 
 describe('Network Fees Service', function () {
   describe('Obtain Fess: Correctly verifies fees', function () {
@@ -114,6 +115,74 @@ describe('Network Fees Service', function () {
         ltcFee: 2,
         ethFee: 2,
         sepFee: 2,
+      });
+    });
+  });
+
+  describe('Kaspa fees (sompi per gram)', function () {
+    afterEach(function () {
+      sinon.restore();
+    });
+
+    it('maps the REST fee-estimate buckets to economy/normal/fast', async function () {
+      sinon.stub(axios, 'get').resolves({
+        data: {
+          priorityBucket: { feerate: 250.4, estimatedSeconds: 1 },
+          normalBuckets: [{ feerate: 120, estimatedSeconds: 2 }],
+          lowBuckets: [{ feerate: 100, estimatedSeconds: 5 }],
+        },
+      });
+      const r = await networkFeesService.obtainKaspaFees();
+      expect(r).to.deep.equal({
+        coin: 'kas',
+        economy: 100,
+        normal: 120,
+        fast: 251,
+        recommended: 120,
+      });
+    });
+
+    it('clamps an absurd estimate to [100, 10000]', async function () {
+      sinon.stub(axios, 'get').resolves({
+        data: {
+          priorityBucket: { feerate: 999999999 },
+          normalBuckets: [{ feerate: 1 }],
+          lowBuckets: [{ feerate: 0 }],
+        },
+      });
+      const r = await networkFeesService.obtainKaspaFees();
+      assert.equal(r.fast, 10000);
+      assert.equal(r.normal, 100);
+      assert.equal(r.economy, 100);
+    });
+
+    it('tries the fallback host when the first fails', async function () {
+      const get = sinon.stub(axios, 'get');
+      get.onFirstCall().rejects(new Error('ENOTFOUND'));
+      get.onSecondCall().resolves({
+        data: {
+          priorityBucket: { feerate: 150 },
+          normalBuckets: [{ feerate: 110 }],
+          lowBuckets: [{ feerate: 100 }],
+        },
+      });
+      const r = await networkFeesService.obtainKaspaFees();
+      assert.equal(r.normal, 110);
+      assert.equal(get.callCount, 2);
+      expect(get.secondCall.args[0]).to.equal(
+        'https://api.kaspa.org/info/fee-estimate',
+      );
+    });
+
+    it('returns the static network minimum when every host fails', async function () {
+      sinon.stub(axios, 'get').rejects(new Error('down'));
+      const r = await networkFeesService.obtainKaspaFees();
+      expect(r).to.deep.equal({
+        coin: 'kas',
+        economy: 100,
+        normal: 100,
+        fast: 100,
+        recommended: 100,
       });
     });
   });

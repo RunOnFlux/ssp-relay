@@ -289,6 +289,59 @@ async function decodeSOLTransactionForApproval(rawTx, chain) {
   }
 }
 
+/**
+ * Decode an SSP Kaspa `tx` payload for the push-notification body.
+ *
+ * Kaspa payloads are kaspa-core SigningBundle JSON (never hex). The bundle is
+ * opened with `trustBundleEntries` because this is DISPLAY ONLY: the relay
+ * never signs, and every signer re-opens the bundle with its own UTXO lookup.
+ * The receiver is the first output that does not pay back to one of the
+ * spent (vault) scripts; the vault's change is skipped.
+ */
+async function decodeKASTransactionForApproval(rawTx, chain = 'kas') {
+  try {
+    if (typeof rawTx !== 'string') {
+      throw new Error('Invalid transaction format: must be string');
+    }
+    if (rawTx.length > 5000000) {
+      throw new Error('Invalid transaction format: too large');
+    }
+    const K = await import('@runonflux/kaspa-core');
+    const bundle = JSON.parse(rawTx);
+    const opened = K.openSigningBundle(bundle, { trustBundleEntries: true });
+    const { decimals, symbol, libid } = blockchains[chain];
+    const ownScripts = opened.inputs.map((i) =>
+      K.bytesToHex(i.entry.scriptPublicKey.script),
+    );
+    const isOwn = (script: Uint8Array) =>
+      ownScripts.includes(K.bytesToHex(script));
+    const outputs = opened.tx.outputs;
+    const receiverOutput =
+      outputs.find((o) => !isOwn(o.scriptPublicKey.script)) ?? outputs[0];
+    if (!receiverOutput) {
+      throw new Error('Kaspa transaction has no outputs');
+    }
+    const receiver =
+      K.scriptPublicKeyToAddress(receiverOutput.scriptPublicKey, libid) ??
+      'decodingError';
+    const amount = new BigNumber(receiverOutput.value.toString())
+      .dividedBy(new BigNumber(10).pow(decimals))
+      .toFixed();
+    return {
+      receiver,
+      amount,
+      tokenSymbol: symbol,
+    };
+  } catch (error) {
+    log.error(error);
+    return {
+      receiver: 'decodingError',
+      amount: 'decodingError',
+      tokenSymbol: 'decodingError',
+    };
+  }
+}
+
 async function decodeTransactionForApproval(rawTx, chain = 'btc') {
   try {
     if (blockchains[chain].chainType === 'evm') {
@@ -297,6 +350,10 @@ async function decodeTransactionForApproval(rawTx, chain = 'btc') {
     }
     if (blockchains[chain].chainType === 'sol') {
       const decoded = await decodeSOLTransactionForApproval(rawTx, chain);
+      return decoded;
+    }
+    if (blockchains[chain].chainType === 'kas') {
+      const decoded = await decodeKASTransactionForApproval(rawTx, chain);
       return decoded;
     }
     log.info('Decoding transaction for approval');
