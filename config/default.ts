@@ -85,6 +85,14 @@ export default {
     // Launch cap (plan §8.2): sponsored Ops per vault per rolling 24 h.
     // 0 disables the cap.
     maxOpsPerVaultPerDay: 50,
+    // Circuit breaker: once sponsored transactions that FAILED on-chain burned
+    // this much of S's energy in the rolling hour, the relay refuses new
+    // sponsored broadcasts on that chain until the window rolls (per relay
+    // process; logged as an error). A vault's owner can always force a revert
+    // the relay cannot foresee (a self-paid Op racing the sponsored one, code
+    // deployed at a recipient), so this bounds what that costs. ≈ 2 max-size
+    // failures; 0 disables it.
+    maxFailedEnergyPerHour: 2_500_000,
     // Per network: `node` = full-node HTTP API (/wallet/*, /walletsolidity/*),
     // `api` = TronGrid v1. Both are the ssp-backends-proxy Worker, which gets
     // the X-SSP-Relay-Key header like the Solana path.

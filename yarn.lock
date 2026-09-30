@@ -1268,15 +1268,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:2.2.0":
-  version: 2.2.0
-  resolution: "@noble/curves@npm:2.2.0"
-  dependencies:
-    "@noble/hashes": "npm:2.2.0"
-  checksum: 10c0/e545d3bb03ebedd5c04c2cab81342d64f5ce8a4c1019cfe207f3dc69174bc0ad7cfb50effc31bfa8616b8340900f445dd053da7454190428857c4eedd3b51413
-  languageName: node
-  linkType: hard
-
 "@noble/curves@npm:2.4.0":
   version: 2.4.0
   resolution: "@noble/curves@npm:2.4.0"
@@ -1306,13 +1297,6 @@ __metadata:
   version: 1.8.0
   resolution: "@noble/hashes@npm:1.8.0"
   checksum: 10c0/06a0b52c81a6fa7f04d67762e08b2c476a00285858150caeaaff4037356dd5e119f45b2a530f638b77a5eeca013168ec1b655db41bae3236cb2e9d511484fc77
-  languageName: node
-  linkType: hard
-
-"@noble/hashes@npm:2.2.0":
-  version: 2.2.0
-  resolution: "@noble/hashes@npm:2.2.0"
-  checksum: 10c0/cad8630c504d6b9271984f685cd0af9101b40988fc2dfbe17ccdf068a9941f95cc5c9957d89e9ca4b7ca94c15cb35f93510c5d53a09fbcc83ee503b93d0a1034
   languageName: node
   linkType: hard
 
@@ -1509,16 +1493,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@runonflux/tron-multisig@file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0.tgz::locator=ssp-relay%40workspace%3A.":
+"@runonflux/tron-multisig@file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0-923b979e.tgz::locator=ssp-relay%40workspace%3A.":
   version: 0.1.0
-  resolution: "@runonflux/tron-multisig@file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0.tgz#../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0.tgz::hash=07b957&locator=ssp-relay%40workspace%3A."
+  resolution: "@runonflux/tron-multisig@file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0-923b979e.tgz#../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0-923b979e.tgz::hash=56a407&locator=ssp-relay%40workspace%3A."
   dependencies:
     "@noble/curves": "npm:2.4.0"
     "@noble/hashes": "npm:2.4.0"
     "@scure/base": "npm:2.4.0"
   bin:
     tron-multisig: ./dist/bin.js
-  checksum: 10c0/5122ea449c1fa6a9b01605df1366c8486cea3d5ca5f9f3db528a5626765edaa8e87b5beec9d1d470881a53b1df9dd75e8bbf84397736d342c8573b80b68fe972
+  checksum: 10c0/685c2ac499237c44c5fea7fe269d2a065eb0535b3589777df591bcd2ecaf6044886015a9b0502064bcbf8a8d2c253209dc7539dc2d8462b6f625db835ffbd7d7
   languageName: node
   linkType: hard
 
@@ -1552,13 +1536,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/base@npm:2.2.0":
-  version: 2.2.0
-  resolution: "@scure/base@npm:2.2.0"
-  checksum: 10c0/30158ccf5da86b0f06928f1cfe24a29fbea22824adf6f8895222910cade1ad4fe7593958aacf563287e6b4c55746f47395178e7a4763b059c22d6ee8e6f76387
-  languageName: node
-  linkType: hard
-
 "@scure/base@npm:2.4.0":
   version: 2.4.0
   resolution: "@scure/base@npm:2.4.0"
@@ -1584,14 +1561,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/bip32@npm:2.2.0":
-  version: 2.2.0
-  resolution: "@scure/bip32@npm:2.2.0"
+"@scure/bip32@npm:2.4.0":
+  version: 2.4.0
+  resolution: "@scure/bip32@npm:2.4.0"
   dependencies:
-    "@noble/curves": "npm:2.2.0"
-    "@noble/hashes": "npm:2.2.0"
-    "@scure/base": "npm:2.2.0"
-  checksum: 10c0/1c71466ea3383657f58120427974c8e83ab1556b17df41e0b139e9b93998c7513f04bf54858fdc493074f0a2e6b7be07eb94715173f8c36932b7cada8ebed60d
+    "@noble/curves": "npm:2.4.0"
+    "@noble/hashes": "npm:2.4.0"
+    "@scure/base": "npm:2.4.0"
+  checksum: 10c0/37d0fa0512b7bb71673738f5ffbb9f54ea583982c2ffbe8bfa993d0ac72a07d144dbc9407db4edc39a2ad23f3b7277d024a3df43a900e41b5e7fe3105360d582
   languageName: node
   linkType: hard
 
@@ -7384,12 +7361,13 @@ __metadata:
   resolution: "ssp-relay@workspace:."
   dependencies:
     "@eslint/js": "npm:9.39.2"
+    "@noble/curves": "npm:1.9.1"
     "@runonflux/aa-schnorr-multisig-sdk": "npm:1.3.0"
     "@runonflux/kaspa-core": "npm:1.0.0"
     "@runonflux/solana-multisig": "npm:0.12.0"
-    "@runonflux/tron-multisig": "file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0.tgz"
+    "@runonflux/tron-multisig": "file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0-923b979e.tgz"
     "@runonflux/utxo-lib": "npm:1.0.5"
-    "@scure/bip32": "npm:2.2.0"
+    "@scure/bip32": "npm:2.4.0"
     "@solana/spl-token": "npm:0.4.14"
     "@solana/web3.js": "npm:1.98.4"
     "@types/chai": "npm:5.2.3"

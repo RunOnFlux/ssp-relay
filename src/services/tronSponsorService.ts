@@ -16,13 +16,15 @@
  *   structural validation → signatures assemble to the derived vault →
  *   digest dedupe → kill switch / deployment / relayers → fee recipient is
  *   the collector → fee token ∈ {TRX, USDT} → ≤ 16 calls → deadline window →
- *   per-vault daily cap → no same-nonce Op in flight, ≤ 4 in flight per
- *   vault → nonce unused on-chain → sponsor sanity → full
- *   simulation of sponsor.execute from the relayer (ret FAILED detected) →
- *   fee ≥ cost now (no markup) → energy ≤ quote × 1.25, ≤ 1.2M launch cap,
- *   ≤ origin_energy_limit → S has the energy (or a rental delivered it) →
- *   build (fee_limit omitted), sign, record, broadcast, compare txid →
- *   background confirmation from walletsolidity.
+ *   failure circuit breaker (chain) → per-vault lock (one acceptance at a
+ *   time) → per-vault daily cap and on-chain failure limit → no same-nonce
+ *   Op in flight, no earlier Op of the vault still outside a block → nonce
+ *   unused on-chain → sponsor sanity → full simulation of sponsor.execute
+ *   from the relayer (ret FAILED detected) → deadline outlasts the tx
+ *   expiry → fee ≥ cost now (no markup) → energy ≤ quote × 1.25, ≤ 1.2M
+ *   launch cap, ≤ origin_energy_limit → S has the energy (or a rental
+ *   delivered it) → build (fee_limit omitted), sign, record, broadcast,
+ *   compare txid → background confirmation from walletsolidity.
  *
  * All vault math (addresses, digests, ABI, protobuf) is the SDK's.
  * Keys are never logged; only relayer ADDRESSES are.
@@ -31,7 +33,7 @@ import config from 'config';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import type { Collection, Document } from 'mongodb';
 import {
   MAX_CALLS,
@@ -48,7 +50,7 @@ import {
   decodeSelfCall,
   decodeTrc20Transfer,
   deriveVault,
-  encodeExecute,
+  encodeSponsorExecute,
   encodeIsRelayer,
   encodeTrc20BalanceOf,
   encodeTrc20Transfer,
@@ -66,6 +68,7 @@ import {
   signTransaction,
   toHex20,
   trxFee,
+  validateOpForVault,
   txidHex,
   type Call,
   type LocalSigner,
@@ -136,6 +139,15 @@ export const MAX_DEADLINE_WINDOW_S = 31n * 86400n;
 export const MIN_DEADLINE_MARGIN_S = 60n;
 /** Launch cap (plan §8.2): no single sponsored transaction above this. */
 export const MAX_SPONSORED_ENERGY = 1_200_000n;
+
+/**
+ * Energy cap for the sponsor's vault call: the simulated energy of the whole
+ * transaction (a superset of the vault call) + 25%, never above the launch cap.
+ */
+export function broadcastEnergyCap(simulatedEnergy: bigint): bigint {
+  const cap = (simulatedEnergy * 5n + 3n) / 4n;
+  return cap < MAX_SPONSORED_ENERGY ? cap : MAX_SPONSORED_ENERGY;
+}
 /** Simulated energy may exceed the quoted estimate by at most 25 %. */
 export const QUOTE_TOLERANCE_NUM = 5n;
 export const QUOTE_TOLERANCE_DEN = 4n;
@@ -145,10 +157,43 @@ export const TRX_FEE_BUFFER_SUN = 1_000_000n;
 export const MAX_ACTIVE_RESERVATIONS_PER_VAULT = 32;
 /** 64 words × 256 = the first 16,384 nonces. */
 export const MAX_NONCE_WORDS_SCANNED = 64n;
-/** Unconfirmed sponsored Ops per vault (bounds revert exposure, see below). */
-export const MAX_IN_FLIGHT_PER_VAULT = 4;
+/**
+ * Sponsored Ops per vault that may be broadcast but not yet in a block. Every
+ * Op is simulated against the head state, so a second Op admitted before the
+ * first is in a block can collide with it (same funds, same nonce) and revert
+ * on S's energy. 1 = strictly one at a time until the previous one lands.
+ */
+export const MAX_IN_FLIGHT_PER_VAULT = 1;
 /** A 'broadcast' record older than this no longer counts as in flight. */
 const IN_FLIGHT_WINDOW_MS = 5 * 60 * 1000;
+/**
+ * A transaction not in a block this long after it was built can never be
+ * included (it expires 60 s after its reference block): it stops holding the
+ * vault's in-flight slot. The extra minute absorbs relay↔chain clock skew.
+ */
+const PENDING_INCLUSION_WINDOW_MS = 2 * 60 * 1000;
+/**
+ * On-chain failures (receipts, not refusals) per vault per rolling 24 h after
+ * which the vault is no longer sponsored. S pays for every one of them, and
+ * the vault's owner can always force one (e.g. a self-paid Op that spends the
+ * fee balance while the sponsored Op is in flight). 2 still lets one retry
+ * through (an enterprise proposal is retried with the same signatures).
+ */
+export const MAX_ONCHAIN_FAILURES_PER_VAULT_PER_DAY = 2;
+/** Default chain-wide budget: energy S may burn on failed Ops per hour. */
+export const DEFAULT_MAX_FAILED_ENERGY_PER_HOUR = 2_500_000;
+const MAX_PRIOR_FAILURES_KEPT = 20;
+/**
+ * How long energy committed to a broadcast is held against S's available
+ * energy: until the transaction is surely in a block the node has seen.
+ */
+const COMMITTED_ENERGY_WINDOW_MS = 15_000;
+/** Per-vault acceptance lock (a document in the reservations collection). */
+const VAULT_LOCK_NONCE = 'broadcast-lock';
+/** How long a crashed lock holder can block a vault's broadcasts. */
+const VAULT_LOCK_TTL_MS = 3 * 60 * 1000;
+const VAULT_LOCK_POLL_MS = 100;
+const VAULT_LOCK_POLLS = 60;
 const MAX_RELAYERS = 16;
 const MAX_OP_JSON_BYTES = 64 * 1024;
 const SPONSOR_META_TTL_MS = 5 * 60 * 1000;
@@ -338,8 +383,12 @@ export function resolveRelayers(
         signer = null; // out-of-range scalar (≈2^-128); draw again
       }
     }
-    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    // `mode` only applies when the file is created: an existing (empty) file
+    // keeps its permissions, so tighten them before the key goes in.
+    if (fs.existsSync(file)) fs.chmodSync(file, 0o600);
     fs.writeFileSync(file, `${bytesToHex(key!)}\n`, { mode: 0o600 });
+    fs.chmodSync(file, 0o600);
     key!.fill(0);
     return {
       relayers: [{ address: signer.address, signer }],
@@ -384,6 +433,15 @@ function configuredDailyCap(): number {
   return Number.isInteger(n) && n >= 0 ? n : 50;
 }
 
+function configuredMaxFailedEnergyPerHour(): number {
+  const n = config.has('tron.maxFailedEnergyPerHour')
+    ? Number(config.get<number>('tron.maxFailedEnergyPerHour'))
+    : DEFAULT_MAX_FAILED_ENERGY_PER_HOUR;
+  return Number.isSafeInteger(n) && n >= 0
+    ? n
+    : DEFAULT_MAX_FAILED_ENERGY_PER_HOUR;
+}
+
 // ---------------------------------------------------------------------------
 // Runtime (everything a request needs; injectable for tests)
 // ---------------------------------------------------------------------------
@@ -409,6 +467,16 @@ export interface TronRuntime {
   energyPriceSun: bigint;
   defaultMarkup: number;
   maxOpsPerVaultPerDay: number;
+  /**
+   * Circuit breaker: once failed sponsored transactions burned this much of
+   * S's energy in the rolling hour, the chain refuses new broadcasts until
+   * the window rolls. 0 disables it.
+   */
+  maxFailedEnergyPerHour: number;
+  /** On-chain failures seen by this process's pollers (the breaker's window). */
+  failures: { atMs: number; energy: number }[];
+  /** Energy committed to this process's recent broadcasts (see ensureSponsorEnergy). */
+  committedEnergy: { atMs: number; energy: bigint }[];
   rental: EnergyRentalProvider | null;
   killSwitchOn: () => boolean;
   collections: () => Promise<TronCollections>;
@@ -465,6 +533,9 @@ function buildRuntime(chain: TronChain): TronRuntime {
     energyPriceSun: configuredEnergyPriceSun(),
     defaultMarkup: configuredMarkup(),
     maxOpsPerVaultPerDay: configuredDailyCap(),
+    maxFailedEnergyPerHour: configuredMaxFailedEnergyPerHour(),
+    failures: [],
+    committedEnergy: [],
     rental: rentalProviderFromEnv(chain),
     killSwitchOn: () => isKillSwitchOn(),
     collections: defaultCollections,
@@ -577,6 +648,10 @@ export function parseVaultConfig(
 function parseCalls(calls: unknown): readonly Call[] {
   if (!Array.isArray(calls) || calls.length > MAX_CALLS) {
     refuse(`calls must be an array of at most ${MAX_CALLS} calls`);
+  }
+  // Same bound as a broadcast Op: the body parser allows 15 MB.
+  if (JSON.stringify(calls).length > MAX_OP_JSON_BYTES) {
+    refuse('calls are too large');
   }
   try {
     return opFromJson({
@@ -851,11 +926,46 @@ export async function pickAndReserveNonce(
   refuse('could not reserve a nonce for this vault; retry');
 }
 
+/**
+ * The energy-relevant shape of a call list: targets, selectors, recipients
+ * and which amounts are non-zero — but not the amounts themselves, so a
+ * send-max Op rebuilt with `maxSendable` still matches its quote.
+ */
+export function callsShapeKey(calls: readonly Call[]): string {
+  const parts = calls.map((c) => {
+    let transfer: ReturnType<typeof decodeTrc20Transfer> = null;
+    try {
+      transfer = c.data.length > 0 ? decodeTrc20Transfer(c.data) : null;
+    } catch {
+      transfer = null;
+    }
+    const data = transfer
+      ? `trc20:${transfer.to}:${transfer.amount > 0n ? 1 : 0}`
+      : bytesToHex(c.data);
+    return [
+      c.to,
+      c.value > 0n ? 1 : 0,
+      c.tokenId.toString(),
+      c.tokenValue > 0n ? 1 : 0,
+      data,
+    ].join('|');
+  });
+  return createHash('sha256').update(parts.join(';')).digest('hex');
+}
+
+/**
+ * The energy quoted for (vault, nonce), but only if that quote was for the
+ * same calls. Anyone can quote any vault (its signers are public once it has
+ * executed), and a public quote may take over a nonce whose reservation was
+ * evicted: without this binding, an attacker's tiny quote on a victim's
+ * nonce would make the victim's broadcast fail the ×1.25 check.
+ */
 async function quotedEnergyFor(
   rt: TronRuntime,
   vault: string,
   nonce: bigint,
   kind: FeeKind,
+  callsKey: string,
 ): Promise<bigint | null> {
   const { reservations } = await rt.collections();
   const r = await reservations.findOne({
@@ -863,7 +973,8 @@ async function quotedEnergyFor(
     vault,
     nonce: nonce.toString(),
   });
-  const e = r?.energy?.[kind === 'TRX' ? 'trx' : 'usdt'];
+  if (!r || r.callsKey !== callsKey) return null;
+  const e = r.energy?.[kind === 'TRX' ? 'trx' : 'usdt'];
   return typeof e === 'number' && Number.isSafeInteger(e) && e > 0
     ? BigInt(e)
     : null;
@@ -979,6 +1090,9 @@ export async function assertSponsorableCalls(
   const tokens = sponsorableTokens(rt.chain);
   const selfPay = 'pay the network fee yourself to run it';
   for (const [i, c] of calls.entries()) {
+    if ((c.value > 0n || c.tokenValue > 0n) && c.to === vault) {
+      refuse(`call ${i}: a TRX / TRC-10 transfer to the vault itself`);
+    }
     if (c.tokenValue > 0n) {
       if (!(await isSafeValueRecipient(rt, c.to))) {
         refuse(
@@ -988,7 +1102,7 @@ export async function assertSponsorableCalls(
       continue;
     }
     if (c.data.length === 0) {
-      if (c.to !== vault && !(await isSafeValueRecipient(rt, c.to))) {
+      if (c.value > 0n && !(await isSafeValueRecipient(rt, c.to))) {
         refuse(
           `call ${i}: a TRX transfer to a contract can't be sponsored; ${selfPay}`,
         );
@@ -1173,8 +1287,11 @@ export async function quoteWithRuntime(
       usdt: Number(energy.usdt),
     };
     const key = { chain: rt.chain, vault, nonce: nonce.toString() };
+    const callsKey = callsShapeKey(calls);
     if (reservedHere) {
-      await reservations.updateOne(key, { $set: { energy: energyRecord } });
+      await reservations.updateOne(key, {
+        $set: { energy: energyRecord, callsKey },
+      });
     } else {
       await reservations.updateOne(
         key,
@@ -1185,6 +1302,7 @@ export async function quoteWithRuntime(
             deadline: deadline.toString(),
             expiresAt: new Date(Number(deadline) * 1000),
             energy: energyRecord,
+            callsKey,
           },
           $setOnInsert: { createdAt: new Date(nowMs) },
         },
@@ -1240,6 +1358,19 @@ export async function quote(
 // Energy provisioning
 // ---------------------------------------------------------------------------
 
+/**
+ * Energy this process committed to broadcasts that the node's resource figure
+ * may not reflect yet (not in a block, or the block not seen by the node that
+ * answered). Without it, two Ops of DIFFERENT vaults checked at the same time
+ * both see S's full energy; the second then runs OUT_OF_ENERGY and burns what
+ * S has left with no fee paid.
+ */
+function committedEnergy(rt: TronRuntime, nowMs: number): bigint {
+  const cutoff = nowMs - COMMITTED_ENERGY_WINDOW_MS;
+  rt.committedEnergy = rt.committedEnergy.filter((c) => c.atMs > cutoff);
+  return rt.committedEnergy.reduce((sum, c) => sum + c.energy, 0n);
+}
+
 async function ensureSponsorEnergy(
   rt: TronRuntime,
   origin: string,
@@ -1247,16 +1378,22 @@ async function ensureSponsorEnergy(
   digestHex: string,
 ): Promise<void> {
   const res = await rt.client.getAccountResource(origin);
-  if (res.availableEnergy >= need) return;
+  // From each read to its commit there is no await: in this process the
+  // check and the commitment are atomic.
+  let committed = committedEnergy(rt, rt.nowMs());
+  if (res.availableEnergy >= need + committed) {
+    rt.committedEnergy.push({ atMs: rt.nowMs(), energy: need });
+    return;
+  }
   const unavailable =
     'TRON sponsor temporarily unavailable (sponsor energy is low); try again later or pay the network fee yourself';
   if (rt.rental === null) {
     log.warn(
-      `[tronSponsor] ${rt.chain}: S ${origin} has ${res.availableEnergy} energy, needs ${need}; no rental provider, refusing`,
+      `[tronSponsor] ${rt.chain}: S ${origin} has ${res.availableEnergy} energy (${committed} committed to pending broadcasts), needs ${need}; no rental provider, refusing`,
     );
     refuse(unavailable);
   }
-  const shortfall = ((need - res.availableEnergy) * 11n) / 10n;
+  const shortfall = ((need + committed - res.availableEnergy) * 11n) / 10n;
   let quantity = ((shortfall + 999n) / 1000n) * 1000n;
   if (quantity < CATFEE_MIN_QUANTITY) quantity = CATFEE_MIN_QUANTITY;
   if (quantity > CATFEE_MAX_QUANTITY) quantity = CATFEE_MAX_QUANTITY;
@@ -1278,7 +1415,9 @@ async function ensureSponsorEnergy(
     refuse(unavailable);
   }
   const after = await rt.client.getAccountResource(origin);
-  if (after.availableEnergy < need) refuse(unavailable);
+  committed = committedEnergy(rt, rt.nowMs());
+  if (after.availableEnergy < need + committed) refuse(unavailable);
+  rt.committedEnergy.push({ atMs: rt.nowMs(), energy: need });
 }
 
 // ---------------------------------------------------------------------------
@@ -1333,6 +1472,14 @@ export interface SponsoredOpRecord {
   error?: string;
   createdAt: Date;
   confirmedAt?: Date;
+  /** Earlier attempts of this same Op that failed on-chain (S paid). */
+  priorFailures?: {
+    txid: string;
+    at: Date;
+    energyUsed: number;
+    originEnergyUsed: number | null;
+    error: string | null;
+  }[];
 }
 
 export async function acceptAndBroadcast(
@@ -1349,6 +1496,11 @@ export async function acceptAndBroadcast(
   const cfg = parseVaultConfig(req.signers, req.threshold);
   const vault = deriveVault(n, cfg).address;
   const op = parseOp(req.op);
+  try {
+    validateOpForVault(op, vault);
+  } catch (e) {
+    refuse(`invalid op: ${(e as Error).message}`);
+  }
   const sigs = parseSignatures(req.signatures, cfg);
   const digest = opDigest(n.chainId, vault, op);
   const digestHex = `0x${bytesToHex(digest)}`;
@@ -1367,7 +1519,6 @@ export async function acceptAndBroadcast(
   }
 
   requireAvailable(rt);
-  const sponsor = n.sponsor!;
 
   // Fee recipient, fee token, calls, deadline.
   if (op.fee.recipient !== n.feeCollector) {
@@ -1389,23 +1540,237 @@ export async function acceptAndBroadcast(
     refuse('fee amount out of range');
   }
 
+  // Chain-wide circuit breaker (see assertFailureBudget).
+  assertFailureBudget(rt, nowMs);
+
+  // One acceptance at a time per vault: the daily cap, the failure limit and
+  // the in-flight rule below are check-then-insert, and two concurrent
+  // requests would otherwise both pass them. A concurrent duplicate of the
+  // SAME Op waits here and then gets the winner's txid.
+  let token = await tryLockVault(rt, vault);
+  let attempt = 0;
+  while (token === null) {
+    const winner = await ops.findOne({ digest: digestHex });
+    if (winner && winner.status !== 'failed') {
+      return { txid: String(winner.txid), confirmation: null };
+    }
+    if (++attempt > VAULT_LOCK_POLLS) {
+      refuse(
+        'TRON sponsor temporarily unavailable for this vault (another sponsored operation is being processed); retry in a few seconds',
+      );
+    }
+    await lockPause(VAULT_LOCK_POLL_MS);
+    token = await tryLockVault(rt, vault);
+  }
+  const held = token;
+  let released = false;
+  const release = async (): Promise<void> => {
+    if (released) return;
+    released = true;
+    await unlockVault(rt, vault, held).catch((e) =>
+      log.warn(
+        `[tronSponsor] ${rt.chain}: vault lock release failed for ${vault}: ${(e as Error).message}`,
+      ),
+    );
+  };
+  try {
+    return await acceptLocked(rt, {
+      cfg,
+      vault,
+      op,
+      digestHex,
+      signaturesPacked,
+      kind,
+      release,
+    });
+  } finally {
+    if (!released) await release();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-vault lock, failure accounting
+// ---------------------------------------------------------------------------
+
+const lockPause = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Take the vault's acceptance lock: a unique (chain, vault, 'broadcast-lock')
+ * document in the reservations collection, whose TTL index also reaps a lock
+ * a crashed holder left behind. Returns the holder token, or null when busy.
+ */
+async function tryLockVault(
+  rt: TronRuntime,
+  vault: string,
+): Promise<string | null> {
+  const { reservations } = await rt.collections();
+  const now = rt.nowMs();
+  const token = randomBytes(16).toString('hex');
+  const key = { chain: rt.chain, vault, nonce: VAULT_LOCK_NONCE };
+  const fields = {
+    source: 'lock',
+    token,
+    createdAt: new Date(now),
+    expiresAt: new Date(now + VAULT_LOCK_TTL_MS),
+  };
+  try {
+    await reservations.insertOne({ ...key, ...fields });
+    return token;
+  } catch (e) {
+    if (!isDuplicateKeyError(e)) throw e;
+  }
+  // The holder crashed: take over its expired lock (atomically).
+  const stale = await reservations.findOneAndUpdate(
+    { ...key, expiresAt: { $lte: new Date(now) } },
+    { $set: fields },
+  );
+  return stale ? token : null;
+}
+
+async function unlockVault(
+  rt: TronRuntime,
+  vault: string,
+  token: string,
+): Promise<void> {
+  const { reservations } = await rt.collections();
+  await reservations.deleteOne({
+    chain: rt.chain,
+    vault,
+    nonce: VAULT_LOCK_NONCE,
+    token,
+  });
+}
+
+/**
+ * Whether a broadcast transaction is in a block (not necessarily solidified).
+ * Fails closed: an unreachable node counts as "not yet".
+ */
+async function isInBlock(rt: TronRuntime, txid: string): Promise<boolean> {
+  try {
+    return (await rt.client.getTransactionInfo(txid)) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Energy S burned on failed sponsored transactions in the rolling hour. */
+function failedEnergyLastHour(rt: TronRuntime, nowMs: number): number {
+  const cutoff = nowMs - 3_600_000;
+  rt.failures = rt.failures.filter((f) => f.atMs > cutoff);
+  return rt.failures.reduce((sum, f) => sum + f.energy, 0);
+}
+
+/**
+ * The relay cannot prevent every revert: the vault's owner can race a
+ * self-paid Op that spends the fee balance, or deploy code (CREATE2) at a
+ * TRX recipient between the simulation and the block — and a reverting call
+ * target can burn up to origin_energy_limit. This bounds what such attacks
+ * cost per hour; the poller feeds it from real receipts.
+ */
+function assertFailureBudget(rt: TronRuntime, nowMs: number): void {
+  if (rt.maxFailedEnergyPerHour <= 0) return;
+  const burned = failedEnergyLastHour(rt, nowMs);
+  if (burned >= rt.maxFailedEnergyPerHour) {
+    log.error(
+      `[tronSponsor] ${rt.chain}: circuit breaker OPEN — failed sponsored transactions burned ${burned} energy in the last hour (budget ${rt.maxFailedEnergyPerHour}); refusing broadcasts`,
+    );
+    refuse(
+      'TRON sponsor temporarily unavailable (too many sponsored transactions failed on-chain recently); try again later or pay the network fee yourself',
+    );
+  }
+}
+
+/** S's share of a failed receipt (all of it: consume_user_resource_percent 0). */
+function failureEnergy(info: {
+  originEnergyUsage: bigint;
+  energyUsageTotal: bigint;
+}): number {
+  return Number(
+    info.originEnergyUsage > 0n
+      ? info.originEnergyUsage
+      : info.energyUsageTotal,
+  );
+}
+
+function noteOnchainFailure(rt: TronRuntime, energy: number): void {
+  if (Number.isFinite(energy) && energy > 0) {
+    rt.failures.push({ atMs: rt.nowMs(), energy });
+  }
+}
+
+/** Failures that executed on-chain (a receipt, not a refusal or expiry). */
+function onchainFailuresSince(docs: Document[], cutoffMs: number): number {
+  let n = 0;
+  for (const d of docs) {
+    if (d.status === 'failed' && typeof d.energyUsed === 'number') n++;
+    if (Array.isArray(d.priorFailures)) {
+      for (const f of d.priorFailures as { at?: unknown }[]) {
+        const at = new Date(f?.at as string | number | Date).getTime();
+        if (Number.isFinite(at) && at >= cutoffMs) n++;
+      }
+    }
+  }
+  return n;
+}
+
+/** Everything after the per-vault lock (see acceptAndBroadcast). */
+async function acceptLocked(
+  rt: TronRuntime,
+  p: {
+    cfg: VaultConfig;
+    vault: string;
+    op: Op;
+    digestHex: string;
+    signaturesPacked: Uint8Array;
+    kind: FeeKind;
+    /** Releases the vault lock once the record makes this Op visible. */
+    release: () => Promise<void>;
+  },
+): Promise<{ txid: string; confirmation: Promise<void> | null }> {
+  const { cfg, vault, op, digestHex, signaturesPacked, kind } = p;
+  const n = rt.network;
+  const sponsor = n.sponsor!;
+  const { ops } = await rt.collections();
+  const nowMs = rt.nowMs();
+
+  // Re-read under the lock: a concurrent request may have finished this Op.
+  const existing = await ops.findOne({ digest: digestHex });
+  if (existing && existing.status !== 'failed') {
+    return { txid: String(existing.txid), confirmation: null };
+  }
+
   // Launch cap per vault.
+  const dayAgo = new Date(nowMs - 86_400_000);
   if (rt.maxOpsPerVaultPerDay > 0) {
     const recent = await ops.countDocuments({
       chain: rt.chain,
       vault,
-      createdAt: { $gte: new Date(nowMs - 86_400_000) },
+      createdAt: { $gte: dayAgo },
     });
     if (recent >= rt.maxOpsPerVaultPerDay) {
       refuse('daily sponsored-operation limit reached for this vault');
     }
   }
 
+  // A vault whose sponsored Ops keep failing on-chain stops being sponsored.
+  const lastDay = await ops
+    .find({ chain: rt.chain, vault, createdAt: { $gte: dayAgo } })
+    .limit(500)
+    .toArray();
+  const failures = onchainFailuresSince(lastDay, dayAgo.getTime());
+  if (failures >= MAX_ONCHAIN_FAILURES_PER_VAULT_PER_DAY) {
+    refuse(
+      `sponsored operations of this vault failed on-chain ${failures} times in the last 24 h, so sponsorship is paused for it; pay the network fee yourself or try again later`,
+    );
+  }
+
   // In-flight bound. Every Op is simulated against the CURRENT state, so two
   // Ops of one vault broadcast together can each simulate fine and still
   // collide on-chain (same nonce, or together more than the balance); the
   // loser reverts and S pays for the revert. Refuse a second Op with the same
-  // nonce outright, and cap how many unconfirmed Ops a vault may have.
+  // nonce outright, and admit the next Op of a vault only once the previous
+  // one is in a block (its effects are then in the state simulations see).
   const inFlight = await ops
     .find({
       chain: rt.chain,
@@ -1417,9 +1782,15 @@ export async function acceptAndBroadcast(
   if (inFlight.some((r) => String(r.nonce) === op.nonce.toString())) {
     refuse('another Op with this nonce is already being broadcast');
   }
-  if (inFlight.length >= MAX_IN_FLIGHT_PER_VAULT) {
+  let pending = 0;
+  for (const r of inFlight) {
+    const created = new Date(r.createdAt).getTime();
+    if (created < nowMs - PENDING_INCLUSION_WINDOW_MS) continue; // expired
+    if (!(await isInBlock(rt, String(r.txid)))) pending++;
+  }
+  if (pending >= MAX_IN_FLIGHT_PER_VAULT) {
     refuse(
-      'too many unconfirmed sponsored operations for this vault; wait for them to confirm',
+      'too many unconfirmed sponsored operations for this vault; wait a few seconds for the previous one to reach a block',
     );
   }
 
@@ -1449,11 +1820,17 @@ export async function acceptAndBroadcast(
     nowMs: BigInt(nowMs),
   });
   const relayer = await pickRelayer(rt, estBytes);
-  const calldata = encodeExecute({
+  // Simulate with the largest cap we would ever sponsor; the broadcast then
+  // caps the vault call at ~1.25x what the simulation used, so an Op that
+  // diverges on-chain (a recipient that gains code, a racing Op) costs S at
+  // most that, never its whole origin_energy_limit (the TVM forwards ALL
+  // remaining energy on a CALL).
+  const calldata = encodeSponsorExecute({
     signersPacked: packSigners(cfg.signers),
     threshold: cfg.threshold,
     op,
     signaturesPacked,
+    energyCap: MAX_SPONSORED_ENERGY,
   });
   const sim = await rt.client.triggerConstant({
     owner: relayer.address,
@@ -1469,6 +1846,14 @@ export async function acceptAndBroadcast(
   // Build and sign now so the cost uses the exact bandwidth.
   const block = await rt.client.getNowBlock();
   const expiration = block.timestamp + TX_EXPIRATION_MS;
+  // The transaction can be included until `expiration` (chain time): the Op
+  // must still be valid then, or it may revert Expired on S's energy. The
+  // earlier check uses the relay clock, which can lag the chain.
+  if (op.deadline * 1000n < expiration) {
+    refuse(
+      'Op deadline has passed or is too close (it must outlast the transaction expiry)',
+    );
+  }
   let timestamp = BigInt(nowMs);
   if (timestamp >= expiration) timestamp = block.timestamp;
   const raw = buildExecuteTransaction({
@@ -1478,6 +1863,7 @@ export async function acceptAndBroadcast(
     op,
     signaturesPacked,
     feeLimit: 0n, // omitted: the relayer can never burn TRX for energy
+    energyCap: broadcastEnergyCap(energy),
     ref: block.ref,
     expiration,
     timestamp,
@@ -1507,10 +1893,16 @@ export async function acceptAndBroadcast(
   }
 
   // Energy caps: quote × 1.25, launch cap, origin_energy_limit.
-  let quoted = await quotedEnergyFor(rt, vault, op.nonce, kind);
+  let quoted = await quotedEnergyFor(
+    rt,
+    vault,
+    op.nonce,
+    kind,
+    callsShapeKey(op.calls),
+  );
   if (quoted === null) {
     log.warn(
-      `[tronSponsor] ${rt.chain}: no quote on record for ${vault} nonce ${op.nonce}; re-estimating`,
+      `[tronSponsor] ${rt.chain}: no quote on record for ${vault} nonce ${op.nonce} and these calls; re-estimating`,
     );
     const est = await estimateOpEnergy(rt, {
       vault,
@@ -1563,9 +1955,34 @@ export async function acceptAndBroadcast(
     createdAt: new Date(nowMs),
   };
   if (existing && existing.status === 'failed') {
+    // Retrying a failed Op reuses its record (unique digest). Keep the
+    // evidence of an attempt that failed ON-CHAIN (S paid for it): the
+    // per-vault failure limit and the audit trail both need it.
+    const prior = (
+      Array.isArray(existing.priorFailures) ? existing.priorFailures : []
+    ) as Record<string, unknown>[];
+    const priorFailures =
+      typeof existing.energyUsed === 'number'
+        ? [
+            ...prior,
+            {
+              txid: String(existing.txid),
+              at: existing.createdAt,
+              energyUsed: existing.energyUsed,
+              originEnergyUsed: existing.originEnergyUsed ?? null,
+              error: existing.error ?? null,
+            },
+          ].slice(-MAX_PRIOR_FAILURES_KEPT)
+        : prior;
     const claimed = await ops.findOneAndUpdate(
-      { digest: digestHex, status: 'failed' },
-      { $set: record, $unset: { error: '', confirmedAt: '' } },
+      { digest: digestHex, status: 'failed', txid: existing.txid },
+      {
+        $set: {
+          ...record,
+          ...(priorFailures.length > 0 ? { priorFailures } : {}),
+        },
+        $unset: { error: '', confirmedAt: '' },
+      },
     );
     if (!claimed) {
       const winner = await ops.findOne({ digest: digestHex });
@@ -1581,6 +1998,8 @@ export async function acceptAndBroadcast(
       return { txid: String(winner?.txid ?? txid), confirmation: null };
     }
   }
+  // The 'broadcast' record now holds the vault's in-flight slot.
+  await p.release();
 
   try {
     const res = await rt.client.broadcastHex(txHex);
@@ -1640,8 +2059,27 @@ export async function confirmSponsoredTx(
   attempts: number = rt.confirm.attempts,
 ): Promise<void> {
   const { ops } = await rt.collections();
+  // The circuit breaker learns of a failure from the in-block receipt (~3 s)
+  // rather than waiting ~1 min for solidification; the record's status is
+  // still decided by the solidified receipt only.
+  let seenInBlock = false;
+  let failureNoted = false;
   for (let i = 0; i < attempts; i++) {
     await rt.sleep(rt.confirm.intervalMs);
+    if (!seenInBlock) {
+      try {
+        const head = await rt.client.getTransactionInfo(txid);
+        if (head !== null) {
+          seenInBlock = true;
+          if (head.result !== 'SUCCESS') {
+            noteOnchainFailure(rt, failureEnergy(head));
+            failureNoted = true;
+          }
+        }
+      } catch {
+        // the solidified read below decides
+      }
+    }
     let info: Awaited<ReturnType<TronHttpClient['getTransactionInfo']>>;
     try {
       info = await rt.client.getTransactionInfo(txid, { solidified: true });
@@ -1694,6 +2132,7 @@ export async function confirmSponsoredTx(
           },
         },
       );
+      if (!failureNoted) noteOnchainFailure(rt, failureEnergy(info));
       log.warn(
         `[tronSponsor] ${rt.chain} ${txid} failed on-chain: ${info.result}${why}`,
       );

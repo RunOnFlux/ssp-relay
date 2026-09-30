@@ -22,10 +22,19 @@ function isValidChainParam(chain: unknown): chain is 'tron' | 'tronNile' {
 function sendError(res, error: unknown): void {
   const refusal = error instanceof TronSponsorRefusal;
   if (!refusal) log.error(error);
+  // Refusals and the sponsor's own errors (node / broadcast outcomes) are
+  // meant for the caller; a database driver error is not (it names the
+  // database, collections and indexes). It is logged above in full.
+  const internal =
+    !refusal && error instanceof Error && /^Mongo/.test(error.name);
   res.json(
     serviceHelper.createErrorMessage(
-      error instanceof Error ? error.message : 'Unknown error',
-      error instanceof Error ? error.name : 'Error',
+      internal
+        ? 'Internal error'
+        : error instanceof Error
+          ? error.message
+          : 'Unknown error',
+      error instanceof Error && !internal ? error.name : 'Error',
       refusal ? '400' : '500',
     ),
   );

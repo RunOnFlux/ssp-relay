@@ -136,9 +136,13 @@ const tronBroadcastLimiter = rateLimit({
 
 // TRON sponsor quote — no on-chain cost, but each quote runs several node
 // simulations and reserves a vault nonce until its deadline.
+// A 16-call quote costs ~35-40 TRON node reads (simulations, balances, nonce
+// bitmap), all charged to the relay's shared Worker bucket (TRON_RL_RELAY,
+// 900/min). 10/min per IP covers a user re-quoting while editing a send and
+// keeps one client from starving every other user's sponsored traffic.
 const tronQuoteLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 10,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   keyGenerator: clientIpKey,

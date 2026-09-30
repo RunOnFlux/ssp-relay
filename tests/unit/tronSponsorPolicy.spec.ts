@@ -132,6 +132,21 @@ describe('TRON sponsor: sponsorable-call policy', () => {
     );
   });
 
+  it('refuses TRX / TRC-10 to the vault itself (the vault would revert it)', async () => {
+    const { rt } = makeRuntime();
+    const v = testVault();
+    await refused(
+      assertSponsorableCalls(rt, v.vault, [trxTransferCall(v.vault, 1n)]),
+      /to the vault itself/,
+    );
+    await refused(
+      assertSponsorableCalls(rt, v.vault, [
+        trc10TransferCall(v.vault, 1000001n, 1n),
+      ]),
+      /to the vault itself/,
+    );
+  });
+
   it('refuses a malformed self-call', async () => {
     const { rt } = makeRuntime();
     const v = testVault();

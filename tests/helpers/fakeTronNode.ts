@@ -56,7 +56,10 @@ export interface FakeNodeState {
   block: { number: bigint; timestamp: bigint };
   broadcasts: string[];
   broadcastReply: ((hex: string) => Json) | null;
+  /** Solidified receipts (walletsolidity). Anything here is also in a block. */
   txInfo: Map<string, Json>;
+  /** Receipts of transactions in a block but not solidified yet (/wallet). */
+  blockTxInfo: Map<string, Json>;
   requests: { path: string; body: Json }[];
 }
 
@@ -116,6 +119,7 @@ export function createFakeNode(): {
     broadcasts: [],
     broadcastReply: null,
     txInfo: new Map(),
+    blockTxInfo: new Map(),
     requests: [],
   };
 
@@ -241,6 +245,12 @@ export function createFakeNode(): {
       }
       case '/walletsolidity/gettransactioninfobyid':
         reply = state.txInfo.get(String(body.value)) ?? {};
+        break;
+      case '/wallet/gettransactioninfobyid':
+        reply =
+          state.blockTxInfo.get(String(body.value)) ??
+          state.txInfo.get(String(body.value)) ??
+          {};
         break;
       default:
         return { ok: false, status: 404, text: async () => 'not found' };

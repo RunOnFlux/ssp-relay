@@ -12,11 +12,16 @@ import {
   trc20Fee,
   buildOp,
   trxTransferCall,
+  decodeSponsorExecute,
+  encodeExecute,
 } from '@runonflux/tron-multisig';
 import {
   MAX_IN_FLIGHT_PER_VAULT,
   acceptAndBroadcast,
+  callsShapeKey,
   parseRelayerKeys,
+  MAX_SPONSORED_ENERGY,
+  broadcastEnergyCap,
 } from '../../src/services/tronSponsorService';
 import { REVERT_BAD_SIGNATURE } from '../helpers/fakeTronNode';
 import {
@@ -111,7 +116,15 @@ describe('TRON sponsor broadcast — acceptance rule', function () {
       expect(p.ownerAddress).to.equal(RELAYER);
       expect(p.contractAddress).to.equal(SPONSOR);
       expect(p.callValue).to.equal(0n);
-      expect(`0x${bytesToHex(p.data)}`).to.equal(V.executeCalldata);
+      // sponsor.execute(vault args, energyCap): the vault arguments are exactly
+      // the vector's execute calldata; the cap is 1.25x the simulated energy.
+      const sponsored = decodeSponsorExecute(p.data);
+      expect(`0x${bytesToHex(encodeExecute(sponsored))}`).to.equal(
+        V.executeCalldata,
+      );
+      // the fake node simulates sponsor.execute at 100,000 energy
+      expect(sponsored.energyCap).to.equal(broadcastEnergyCap(100_000n));
+      expect(sponsored.energyCap).to.equal(125_000n);
       expect(recoverTransactionSigners(tx)).to.deep.equal([RELAYER]);
       // expiration = reference block + 60 s
       expect(tx.raw.expiration).to.equal(1_789_999_060_000n);
@@ -150,7 +163,10 @@ describe('TRON sponsor broadcast — acceptance rule', function () {
           r.body.contract_address === SPONSOR,
       );
       expect(sim.body.owner_address).to.equal(RELAYER);
-      expect(`0x${sim.body.data}`).to.equal(V.executeCalldata);
+      // simulated at the maximum cap; the vault arguments are the vector's
+      const d = decodeSponsorExecute(Buffer.from(sim.body.data, 'hex'));
+      expect(d.energyCap).to.equal(MAX_SPONSORED_ENERGY);
+      expect(`0x${bytesToHex(encodeExecute(d))}`).to.equal(V.executeCalldata);
     });
 
     it('dedupes by digest: a repeat returns the same txid without re-broadcasting', async function () {
@@ -395,6 +411,7 @@ describe('TRON sponsor broadcast — acceptance rule', function () {
         source: 'relay',
         expiresAt: new Date(NOW_MS + 600_000),
         energy: { trx: 70_000, usdt: 150_000 },
+        callsKey: callsShapeKey(trxCall),
       });
       node.state.execute = { ok: true, energy: 90_000 };
       await refused(
@@ -428,6 +445,7 @@ describe('TRON sponsor broadcast — acceptance rule', function () {
         vault: v.vault,
         nonce: '0',
         energy: { trx: 1_300_000, usdt: 1_300_000 },
+        callsKey: callsShapeKey(trxCall),
       });
       node.state.execute = { ok: true, energy: 1_300_000 };
       await refused(
@@ -615,18 +633,21 @@ describe('TRON sponsor broadcast — acceptance rule', function () {
       );
     });
 
-    it('refuses and records a node that returns a different txid', async function () {
+    it('treats a node that returns a different txid as "outcome unknown" (never as success)', async function () {
       const env = setup();
       env.node.state.broadcastReply = () => ({
         result: true,
         txid: 'ab'.repeat(32),
       });
+      // The SDK refuses a node txid that is not sha256(raw): the relay cannot
+      // know whether its own transaction was accepted, so it keeps the record
+      // in 'broadcast' for the confirmation poller instead of failing it.
       await refused(
         env.rt,
         broadcastRequest(v, makeOp({ calls: trxCall })),
-        /different txid/,
+        /outcome unknown/,
       );
-      expect(env.cols.ops.docs[0].status).to.equal('failed');
+      expect(env.cols.ops.docs[0].status).to.equal('broadcast');
     });
 
     it('marks the record failed when the node refuses the broadcast', async function () {

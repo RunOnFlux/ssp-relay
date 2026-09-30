@@ -60,6 +60,9 @@ export function makeRuntime(overrides: Partial<TronRuntime> = {}) {
     energyPriceSun: 45n,
     defaultMarkup: 1.15,
     maxOpsPerVaultPerDay: 50,
+    maxFailedEnergyPerHour: 2_500_000,
+    failures: [],
+    committedEnergy: [],
     rental: null,
     killSwitchOn: () => true,
     collections: async () =>

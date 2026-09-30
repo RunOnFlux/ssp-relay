@@ -206,6 +206,7 @@ Network fees for TRON are not in `/v1/networkfees`: the quote is the fee.
 | `energyPriceSun` (45) | What SSP currently **pays** per unit of energy (rental or pool price, not the 100 sun burn price). Quotes and the broadcast cost check both use it. Raise it as soon as procurement gets dearer. Env `TRON_ENERGY_PRICE_SUN` overrides it without a code change (read at start, so restart the relay). |
 | `markup` (1.15) | Consumer quote markup. Enterprise passes its own (1.5). |
 | `maxOpsPerVaultPerDay` (50) | Launch cap on sponsored Ops per vault per rolling 24 h. 0 disables it. |
+| `maxFailedEnergyPerHour` (2,500,000) | Circuit breaker. Once sponsored transactions that **failed on-chain** burned this much of S's energy in the rolling hour, the relay refuses new sponsored broadcasts on that chain until the window rolls (per relay process, logged as an error). 0 disables it. |
 | `mainnet` / `nile` `.node` / `.api` | Branded ssp-backends-proxy hosts. Calls carry `X-SSP-Relay-Key` from `SSP_RELAY_PROXY_KEY`, as on Solana. |
 | `mainnet` / `nile` `.factory/.implementation/.sponsor/.feeCollector` | **Overrides for Nile or local testing only.** An override may only fill a value the SDK's pinned `NETWORKS` table has as `null`. An override that differs from a pinned value **stops the relay at startup**. |
 
@@ -232,13 +233,19 @@ The relay derives the vault from `signers`/`threshold`, and the signatures must 
 - the fee recipient is the fee collector, and the fee token is TRX or the network USDT;
 - the Op has at most 16 calls;
 - the deadline is at least 60 s away and at most 31 days away;
-- the per-vault daily cap and in-flight bound hold: no second Op with the same nonce in flight, and at most 4 unconfirmed Ops per vault;
+- the chain's failure circuit breaker (`maxFailedEnergyPerHour`) is closed;
+- acceptance is serialized per vault (a lock document in `tron_nonce_reservations`), so the checks below can't be raced by concurrent requests;
+- the per-vault daily cap holds, and the vault has fewer than 2 sponsored Ops that failed **on-chain** in the last 24 h (retries of the same Op included; they are kept in the record's `priorFailures`);
+- in-flight bound: no second Op with the same nonce in flight, and the vault's previous sponsored Op is already in a block (each Op is simulated against the head state, so two Ops admitted together could collide on funds or nonce and S would pay for the loser; a dropped transaction stops counting 2 minutes after it was built);
 - the nonce is unused on-chain;
 - the sponsor is sane: percent is 0 and `origin_energy_limit > 0`;
 - the **full simulation of `sponsor.execute` from the chosen relayer** succeeds (`ret[0].ret === 'FAILED'` counts as failure even though `result.result` is `true`);
+- the Op deadline outlasts the transaction's expiry (reference block + 60 s, chain time);
 - **fee ≥ today's cost without markup**;
-- simulated energy is at most the quoted estimate × 1.25, at most 1.2M, and at most `origin_energy_limit`;
-- S has that much energy.
+- simulated energy is at most the quoted estimate × 1.25 (the quote on record for this vault and nonce, and only if it was for the same calls, amounts aside; otherwise the relay re-estimates), at most 1.2M, and at most `origin_energy_limit`;
+- S has that much energy on top of what this relay process committed to broadcasts of the last 15 s (so two vaults checked at the same moment can't both count on the same energy and leave one to run OUT_OF_ENERGY).
+
+Failures are fed to the circuit breaker from the **in-block** receipt (≈3 s after broadcast), not only from the solidified one (≈1 min), so a burst of forced reverts trips it quickly.
 
 Duplicates, detected by the Op digest (unique index), return the existing txid instead of broadcasting again. A failed record may be retried.
 
