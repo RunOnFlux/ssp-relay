@@ -6,6 +6,7 @@ import actionApi from './apiServices/actionApi';
 import recoveryPubApi from './apiServices/recoveryPubApi';
 import ratesApi from './apiServices/ratesApi';
 import solPaymasterApi from './apiServices/solPaymasterApi';
+import tronSponsorApi from './apiServices/tronSponsorApi';
 import ticketsApi from './apiServices/ticketsApi';
 import contactApi from './apiServices/contactApi';
 import feeService from './services/networkFeesService';
@@ -110,6 +111,42 @@ const solBroadcastLimiter = rateLimit({
     data: {
       message:
         'Too many Solana broadcast requests. Please wait a minute and try again.',
+    },
+  },
+});
+
+// TRON sponsor broadcast — every accepted request makes SSP's energy account
+// pay for an on-chain transaction (reverts included), so it gets the same
+// 10/min/IP budget as the Solana paymaster plus `optionalWkIdentityAuth` on
+// the route. The service's own acceptance rule is the real guard.
+const tronBroadcastLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  message: {
+    status: 'error',
+    data: {
+      message:
+        'Too many TRON broadcast requests. Please wait a minute and try again.',
+    },
+  },
+});
+
+// TRON sponsor quote — no on-chain cost, but each quote runs several node
+// simulations and reserves a vault nonce until its deadline.
+const tronQuoteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  message: {
+    status: 'error',
+    data: {
+      message:
+        'Too many TRON quote requests. Please wait a minute and try again.',
     },
   },
 });
@@ -334,6 +371,24 @@ export default (app) => {
     optionalWkIdentityAuth,
     (req, res) => {
       solPaymasterApi.postSetup(req, res);
+    },
+  );
+
+  // TRON sponsor — SSP's energy account pays the energy of vault operations;
+  // the vault pays a signed fee in the same transaction (see
+  // tronSponsorService for the acceptance rule).
+  app.get('/v1/tron/sponsor', (req, res) => {
+    tronSponsorApi.getSponsor(req, res);
+  });
+  app.post('/v1/tron/quote', tronQuoteLimiter, (req, res) => {
+    tronSponsorApi.postQuote(req, res);
+  });
+  app.post(
+    '/v1/tron/broadcast',
+    tronBroadcastLimiter,
+    optionalWkIdentityAuth,
+    (req, res) => {
+      tronSponsorApi.postBroadcast(req, res);
     },
   );
 
@@ -1349,6 +1404,12 @@ export default (app) => {
     '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/retry-broadcast',
     (req, res) => {
       enterpriseApi.postVaultProposalRetryBroadcast(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/tron-invalidate',
+    (req, res) => {
+      enterpriseApi.postVaultProposalTronInvalidate(req, res);
     },
   );
 

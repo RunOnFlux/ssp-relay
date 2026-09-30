@@ -1,11 +1,15 @@
 // Known ERC-20 tokens per chain — single source of truth for all SSP clients.
 // Logos are not included — clients resolve logos locally by contract address.
+import { tokens } from './tokens';
 
 interface KnownToken {
   contract: string;
   name: string;
   symbol: string;
   decimals: number;
+  // Still displayed for existing balances, never offered by default (e.g.
+  // USDC on TRON, which Circle no longer supports).
+  legacy?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -746,6 +750,31 @@ const bscTokens: KnownToken[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// TRON (TRC-20). Base58 contracts are CASE-SENSITIVE — compare exactly.
+// ---------------------------------------------------------------------------
+
+const tronTokens: KnownToken[] = tokens
+  .tron()
+  .filter((t) => t.contract !== '')
+  .map((t) => ({
+    contract: t.contract,
+    name: t.name,
+    symbol: t.symbol,
+    decimals: t.decimals,
+    ...('legacy' in t && t.legacy ? { legacy: true } : {}),
+  }));
+
+const tronNileTokens: KnownToken[] = tokens
+  .tronNile()
+  .filter((t) => t.contract !== '')
+  .map(({ contract, name, symbol, decimals }) => ({
+    contract,
+    name,
+    symbol,
+    decimals,
+  }));
+
+// ---------------------------------------------------------------------------
 
 const knownTokensByChain: Record<string, KnownToken[]> = {
   eth: ethTokens,
@@ -755,6 +784,8 @@ const knownTokensByChain: Record<string, KnownToken[]> = {
   bsc: bscTokens,
   sepolia: [],
   amoy: [],
+  tron: tronTokens,
+  tronNile: tronNileTokens,
 };
 
 const VALID_NETWORKS = new Set(Object.keys(knownTokensByChain));

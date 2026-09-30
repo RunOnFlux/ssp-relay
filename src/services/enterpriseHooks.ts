@@ -14,6 +14,14 @@ import {
 } from '../lib/identityAuth';
 import { getKnownTokensForNetwork } from './knownTokens';
 import solPaymasterService from './solPaymasterService';
+import tronSponsorService from './tronSponsorService';
+import type {
+  TronBroadcastRequest,
+  TronChain,
+  TronQuote,
+  TronQuoteRequest,
+  TronSponsorContext,
+} from '../types/tron';
 
 // Rates service interface (from ssp-relay)
 interface RatesService {
@@ -240,6 +248,16 @@ interface HooksModule {
       chain: string,
       nonceAccount: string,
     ) => Promise<{ nonceValue?: string; error?: string }>;
+    // TRON sponsor (TRON_WIRING_BRIEF.md). Enterprise never holds relayer
+    // keys: it quotes (its own nonce + proposal-expiry deadline + markup) and
+    // hands fully signed Ops to the public layer, which applies the sponsor
+    // acceptance rule. tronQuote / tronSponsorBroadcast THROW Error(message)
+    // on refusal.
+    getTronSponsorContext?: (chain: TronChain) => TronSponsorContext;
+    tronQuote?: (req: TronQuoteRequest) => Promise<TronQuote>;
+    tronSponsorBroadcast?: (
+      req: TronBroadcastRequest,
+    ) => Promise<{ txid: string }>;
   }) => void;
   onGetSync?: (req: unknown, id: string) => Promise<void>;
   onGetAction?: (req: unknown, id: string) => Promise<void>;
@@ -1002,6 +1020,21 @@ async function init(deps: {
         ) => {
           return solPaymasterService.getPoolNonceValue(chain, nonceAccount);
         },
+        // TRON sponsor. The context is synchronous and cheap (no RPC): the
+        // SDK network after config overrides + whether sponsoring is on.
+        getTronSponsorContext: (chain: TronChain) =>
+          tronSponsorService.getSponsorContext(chain),
+        // Trusted quote: enterprise may pass its own nonce (per-vault DB
+        // counter, no relay reservation), a deadline up to 31 days (proposal
+        // expiry) and its own markup (1.5 for proposals that execute later).
+        tronQuote: (req: TronQuoteRequest) =>
+          tronSponsorService.quote(req, { trusted: true }),
+        // Full acceptance rule, then broadcast from a relayer. Resolves with
+        // the txid (also for a duplicate of an Op already in flight);
+        // confirmation continues in the background and lands in
+        // tron_sponsor_ops.
+        tronSponsorBroadcast: (req: TronBroadcastRequest) =>
+          tronSponsorService.broadcast(req),
       });
       log.info('[HOOKS] Extension module loaded');
     }

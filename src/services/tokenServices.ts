@@ -1,6 +1,13 @@
 import { Alchemy, Network } from 'alchemy-sdk';
 import config from 'config';
 import axios from 'axios';
+import {
+  decodeStringResult,
+  decodeUint256Result,
+  isValidAddress,
+  selector,
+} from '@runonflux/tron-multisig';
+import { createTronClient } from './tronRpc';
 
 interface TokenMetadata {
   name: string | null;
@@ -153,9 +160,50 @@ async function fetchMetaplexMetadata(
   return { name: name || null, symbol: symbol || null, decimals: null, logo };
 }
 
+const TRC20_NAME = selector('name()');
+const TRC20_SYMBOL = selector('symbol()');
+const TRC20_DECIMALS = selector('decimals()');
+
+/**
+ * TRC-20 metadata straight from the contract through the branded full node
+ * (constant calls, no TronGrid v1 dependency). Name/symbol are optional —
+ * some tokens return bytes32 or nothing — but decimals must decode.
+ */
+async function getTronTokenMetadata(
+  contractAddress: string,
+  network: 'tron' | 'tronNile',
+): Promise<TokenMetadata> {
+  if (!isValidAddress(contractAddress)) {
+    throw new Error('Invalid TRON contract address');
+  }
+  const client = createTronClient(network);
+  const read = (data: Uint8Array) =>
+    client.call({ owner: contractAddress, contract: contractAddress, data });
+  const decimals = Number(decodeUint256Result(await read(TRC20_DECIMALS)));
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) {
+    throw new Error('TRC-20 decimals out of range');
+  }
+  const optionalString = async (data: Uint8Array): Promise<string | null> => {
+    try {
+      const v = decodeStringResult(await read(data)).trim();
+      return v.length > 0 && v.length <= 64 ? v : null;
+    } catch {
+      return null;
+    }
+  };
+  const [name, symbol] = await Promise.all([
+    optionalString(TRC20_NAME),
+    optionalString(TRC20_SYMBOL),
+  ]);
+  return { name, symbol, decimals, logo: null };
+}
+
 export async function getFromAlchemy(contractAddress: string, network: string) {
   if (network === 'solDevnet' || network === 'solMainnet') {
     return getSolanaTokenMetadata(contractAddress, network);
+  }
+  if (network === 'tron' || network === 'tronNile') {
+    return getTronTokenMetadata(contractAddress, network);
   }
 
   let networkValue: Network;

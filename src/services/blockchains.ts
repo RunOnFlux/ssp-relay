@@ -514,6 +514,50 @@ const kas = {
   maxFeePerGram: 10000,
 };
 
+// TRON (TRON_SSP_CONTRACT.md §1). Vaults are CREATE2 contract accounts from
+// @runonflux/tron-multisig; the derivation is plain BIP-48 secp256k1, so the
+// standard xpub version bytes apply. `scriptType` only feeds the BIP-48 path
+// (index 0) — there is no script. Addresses are case-sensitive base58.
+const tron = {
+  id: 'tron',
+  libid: 'tron',
+  name: 'TRON',
+  symbol: 'TRX',
+  decimals: 6, // 1 TRX = 1,000,000 sun — never the `?? 8` fallback
+  slip: 195,
+  scriptType: 'p2sh',
+  bip32: {
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  chainType: 'tron', // never 'evm' and never absent
+  backend: 'trongrid',
+  node: 'node-tron.sspwallet.io', // full node: /wallet/*, /walletsolidity/*
+  api: 'api-tron.sspwallet.io', // TronGrid v1: /v1/*
+  explorer: 'tronscan.org',
+  tokens: tokens.tron(),
+};
+
+const tronNile = {
+  id: 'tronNile',
+  libid: 'tronNile',
+  name: 'TRON Nile',
+  symbol: 'TEST-TRX',
+  decimals: 6,
+  slip: 1, // SLIP-44 universal testnet coin type (the app-wide testnet marker)
+  scriptType: 'p2sh',
+  bip32: {
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  chainType: 'tron',
+  backend: 'trongrid',
+  node: 'node-tronnile.sspwallet.io',
+  api: 'api-tronnile.sspwallet.io',
+  explorer: 'nile.tronscan.org',
+  tokens: tokens.tronNile(),
+};
+
 export default {
   btc,
   flux,
@@ -529,10 +573,12 @@ export default {
   zec,
   solMainnet,
   kas,
+  tron,
   btcTestnet,
   btcSignet,
   fluxTestnet,
   sepolia,
   amoy,
   solDevnet,
+  tronNile,
 };

@@ -97,4 +97,27 @@ describe('Rate Service', function () {
       expect(ratesService.getRates().crypto.kas).to.equal(0.0416);
     });
   });
+
+  describe('TRON quote (CMC 1958)', function () {
+    afterEach(function () {
+      sinon.restore();
+    });
+
+    it('serves TRX under the tron chain id (and WTRX), never tronNile', async function () {
+      const quote = (price) => ({ quote: { USD: { price } } });
+      const data = new Proxy(
+        {},
+        {
+          get: (_t, id) => (id === '1958' ? quote(0.338) : quote(1)),
+        },
+      );
+      sinon.stub(axios, 'get').resolves({ data: { data } });
+      await ratesService.fetchCryptoRates();
+      const crypto = ratesService.getRates().crypto;
+      expect(crypto.trx).to.equal(0.338);
+      expect(crypto.tron).to.equal(0.338);
+      expect(crypto.wtrx).to.equal(0.338);
+      expect(crypto).to.not.have.property('tronNile');
+    });
+  });
 });

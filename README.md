@@ -174,6 +174,76 @@ If no paymaster is configured for a chain (mainnet only — devnet auto-generate
 
 ---
 
+## TRON Sponsor
+
+SSP TRON vaults are CREATE2 contract accounts (`@runonflux/tron-multisig`). By default, SSP pays the **energy** of every vault operation, and the vault pays SSP a fee (TRX, or USDT when the vault has no TRX) inside the same signed Op. Energy is billed to SSP's energy account **S** even when the transaction reverts, so the relay simulates every Op first and refuses anything it would lose money on. The code is `src/services/tronSponsorService.ts`; the acceptance rule is documented at the top of that file.
+
+How it works on-chain:
+- The `SSPSponsor` contract is deployed **by S** with `consume_user_resource_percent = 0`. TRON then bills the energy of the whole call tree (factory deploy, vault clone, token frames) to S's staked, delegated or rented energy.
+- **Relayers** (hot EOAs held by this relay) call `sponsor.execute(...)` with `fee_limit` omitted. They pay bandwidth only and can never burn TRX for energy. If S is short of energy, the transaction fails instead of charging the relayer.
+- Only allow-listed relayers may call the sponsor (`setRelayer`, owner only).
+
+### Endpoints (`{status, data}` envelope)
+
+- `GET /v1/tron/sponsor?chain=tron|tronNile`: returns `{enabled, chain, chainId, factory, implementation, sponsor, feeCollector, ceilings:{trx, usdt}}`.
+- `POST /v1/tron/quote` (30/min/IP): takes `{chain, signers, threshold, calls, feeToken?, deadline?, max?}` and returns `{vault, deployed, nonce, deadline, fee, feeOptions, energy:{estimate}, maxSendable?, sponsorAvailable, unavailableReason?}`.
+  - The relay derives the vault itself; it never accepts one from the client.
+  - It picks the lowest free nonce and reserves it until the deadline (`tron_nonce_reservations`, TTL on `expiresAt`). The deadline defaults to now + 30 min and can be at most 2 h.
+  - The public route refuses `nonce` and `markup`. Only the enterprise hook may set them.
+  - For a send-max, pass `max: {token}` (`TRX` or a TRC-20 address) and put the full balance in that call. `maxSendable` is the balance minus the fee when the fee is paid in the same token, otherwise the full balance.
+  - `sponsorAvailable: false` means the vault can't pay the fee in any accepted token. `unavailableReason` starts with `INSUFFICIENT_FEE_BALANCE`.
+  - Price: `energy × energyPriceSun + bandwidthBytes × 1000`, × markup (1.15). The floor is 2 TRX or 1 USDT. USDT is converted at the relay's TRX/USD rate (`/v1/rates`); with no usable rate, only TRX is offered.
+- `POST /v1/tron/broadcast` (10/min/IP, `optionalWkIdentityAuth`): takes `{chain, signers, threshold, op, signatures}` and returns `{txid}`. Every broadcast is recorded in `tron_sponsor_ops` (no TTL; the dashboard reads it). Confirmation is polled from `walletsolidity/gettransactioninfobyid` in the background, and the record moves `broadcast → confirmed | failed`.
+
+Network fees for TRON are not in `/v1/networkfees`: the quote is the fee.
+
+### Configuration
+
+`config/default.ts` → `tron`:
+
+| Key | Meaning |
+|---|---|
+| `energyPriceSun` (45) | What SSP currently **pays** per unit of energy (rental or pool price, not the 100 sun burn price). Quotes and the broadcast cost check both use it. Raise it as soon as procurement gets dearer. Env `TRON_ENERGY_PRICE_SUN` overrides it without a code change (read at start, so restart the relay). |
+| `markup` (1.15) | Consumer quote markup. Enterprise passes its own (1.5). |
+| `maxOpsPerVaultPerDay` (50) | Launch cap on sponsored Ops per vault per rolling 24 h. 0 disables it. |
+| `mainnet` / `nile` `.node` / `.api` | Branded ssp-backends-proxy hosts. Calls carry `X-SSP-Relay-Key` from `SSP_RELAY_PROXY_KEY`, as on Solana. |
+| `mainnet` / `nile` `.factory/.implementation/.sponsor/.feeCollector` | **Overrides for Nile or local testing only.** An override may only fill a value the SDK's pinned `NETWORKS` table has as `null`. An override that differs from a pinned value **stops the relay at startup**. |
+
+Environment (secrets live **only** here):
+
+| Variable | Meaning |
+|---|---|
+| `TRON_SPONSOR_ENABLED` | Kill switch, **off by default**. Set `true` / `1` to sponsor. While off (or while the contracts aren't deployed, or while no relayer key is set), `enabled:false` and quote/broadcast refuse cleanly. |
+| `SSP_TRON_MAINNET_RELAYER_KEYS` / `SSP_TRON_NILE_RELAYER_KEYS` | Comma-separated 32-byte hex private keys (optional `0x`). Used round-robin; a relayer without bandwidth or TRX is skipped. Fallback: `~/.config/ssp-relay/tron-relayers-{mainnet,nile}.txt`. **Mainnet never auto-generates**; Nile generates one key into that file (mode 0600) on first start. Keys are never logged, only addresses. |
+| `TRON_ENERGY_RENTAL=catfee` | Optional 1 h energy rental for S when it is short (default off, which means refuse). Needs `CATFEE_API_KEY` / `CATFEE_API_SECRET` for mainnet (api.catfee.io) or `CATFEE_NILE_API_KEY` / `CATFEE_NILE_API_SECRET` for Nile (nile.catfee.io). Whitelist the relay IP in CatFee. Circuit breaker: `TRON_ENERGY_RENTAL_MAX_PER_HOUR` (30). |
+
+### Setting up S, the sponsor and the relayers
+
+1. **S (energy account)**: a cold EOA. It signs only the sponsor deployment and `UpdateEnergyLimit`. Keep a few TRX for those.
+2. **Deploy `SSPSponsor` from S** with `consume_user_resource_percent = 0` and `origin_energy_limit = 1,250,000` (the per-transaction blast-radius cap; the relay also refuses anything above 1.2M). Pin its address, the factory, the implementation and the fee collector in the SDK `NETWORKS` table. Until they are pinned, use the `tron.nile` overrides for Nile only.
+3. **Energy for S**: stake TRX for ENERGY on S, or delegate energy to S (JustLend, a rental, or the treasury). Never delegate to the sponsor or vault addresses: contracts can't receive delegations. The relay checks S's available energy (`EnergyLimit − EnergyUsed`) before every broadcast. With `TRON_ENERGY_RENTAL=catfee` it rents at least 65k energy for 1 h; otherwise it refuses with "sponsor temporarily unavailable".
+4. **Relayers**: create 2+ EOAs, activate them, and give them bandwidth. Either delegate BANDWIDTH to them (then they pay 0 TRX) or keep a TRX float, since each transaction burns about 1.1–1.4k bytes. Allow-list each one with `sponsor.setRelayer(relayer, true)` from the sponsor owner. The startup banner prints every relayer's TRX, bandwidth and `allow-listed=` status, and S's energy.
+5. **Fee collector**: an SSP TRON vault that already holds USDT, so USDT fee transfers never pay the new-holder cost.
+6. Set `TRON_SPONSOR_ENABLED=true` and restart. Check `GET /v1/tron/sponsor?chain=tron` → `enabled: true`.
+
+### What the relay refuses (acceptance rule)
+
+The relay derives the vault from `signers`/`threshold`, and the signatures must assemble for it. Then it refuses unless all of these hold:
+- the fee recipient is the fee collector, and the fee token is TRX or the network USDT;
+- the Op has at most 16 calls;
+- the deadline is at least 60 s away and at most 31 days away;
+- the per-vault daily cap and in-flight bound hold: no second Op with the same nonce in flight, and at most 4 unconfirmed Ops per vault;
+- the nonce is unused on-chain;
+- the sponsor is sane: percent is 0 and `origin_energy_limit > 0`;
+- the **full simulation of `sponsor.execute` from the chosen relayer** succeeds (`ret[0].ret === 'FAILED'` counts as failure even though `result.result` is `true`);
+- **fee ≥ today's cost without markup**;
+- simulated energy is at most the quoted estimate × 1.25, at most 1.2M, and at most `origin_energy_limit`;
+- S has that much energy.
+
+Duplicates, detected by the Op digest (unique index), return the existing txid instead of broadcasting again. A failed record may be retried.
+
+---
+
 ## Enterprise Module
 
 SSP Relay includes an optional private enterprise module (`ssp-relay-enterprise`) available as a git submodule for **SSP Enterprise** - a Multi-Party Self-Custody Solution built on the proven SSP Wallet foundation, extending 2-of-2 multisig security to multi-party business coordination.
@@ -191,6 +261,14 @@ Per-vault wire-budget caps (M ≤ 2 dual / M ≤ 4 single) come from
 the bundled-tx smoke test in
 `solana-multisig/sdk/examples/enterprise-bundle-smoke.ts`. See
 `ssp-relay-enterprise/SOLANA_ARCHITECTURE.md` for full lifecycle.
+
+### TRON enterprise integration
+
+Enterprise never holds TRON relayer keys. `enterpriseHooks.ts` injects three callbacks:
+
+- **`getTronSponsorContext(chain)`**: the same object as `GET /v1/tron/sponsor`.
+- **`tronQuote(req)`**: a *trusted* quote. Enterprise may pass its own `nonce` (a per-vault counter with no relay reservation), a `deadline` up to 31 days (the proposal expiry) and its own `markup` (1.5).
+- **`tronSponsorBroadcast({chain, signers, threshold, op, signatures})`**: returns `{txid}` after the full acceptance rule and throws `Error(message)` on refusal. Confirmation continues in the background into `tron_sponsor_ops`.
 
 ---
 

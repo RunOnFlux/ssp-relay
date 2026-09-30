@@ -10,6 +10,7 @@ import socket from '../../src/lib/socket';
 import notificationService from '../../src/services/notificationService';
 import enterpriseHooks from '../../src/services/enterpriseHooks';
 import { buildKaspaBundle } from '../helpers/kaspaBundle';
+import tronVectors from '../fixtures/tron-ssp-vectors.json';
 
 const reqValid = {
   params: {
@@ -322,6 +323,120 @@ describe('Action API', function () {
         .callsFake(async (d) => d);
       const res = httpMocks.createResponse();
       await actionApi.postAction(kasRequest('ab'.repeat(32), 'txid'), res);
+      assert.equal(res.statusCode, 200);
+      assert.equal(post.callCount, 1);
+    });
+  });
+
+  describe('Post Action: TRON (tron / tronNile) tx payloads', function () {
+    const LEAF = tronVectors.consumer.leaves['0-0'];
+    const V = tronVectors.consumerOp;
+
+    function payload(overrides = {}) {
+      return JSON.stringify({
+        format: 'ssp-tron-op',
+        version: 1,
+        network: 'mainnet',
+        vault: LEAF.address,
+        signers: LEAF.signers,
+        threshold: 2,
+        op: V.op,
+        walletSignature: V.walletSignature,
+        ...overrides,
+      });
+    }
+
+    function tronRequest(body, action = 'tx', chain = 'tron') {
+      return httpMocks.createRequest({
+        method: 'POST',
+        url: 'test',
+        body: {
+          chain,
+          wkIdentity: 'tron-wk-identity',
+          action,
+          payload: body,
+          path: '0-0',
+        },
+      });
+    }
+
+    function stubDelivery() {
+      const emit = sinon.stub();
+      sinon.stub(socket, 'getIOKey').returns({ to: () => ({ emit }) });
+      sinon.stub(socket, 'getIOWallet').returns({ to: () => ({ emit }) });
+      sinon.stub(notificationService, 'sendNotificationKey').resolves();
+      sinon.stub(enterpriseHooks, 'onAction').resolves();
+      return emit;
+    }
+
+    afterEach(function () {
+      sinon.restore();
+    });
+
+    it('accepts an ssp-tron-op payload (vectors consumerOp)', async function () {
+      const emit = stubDelivery();
+      const post = sinon
+        .stub(actionService, 'postAction')
+        .callsFake(async (d) => d);
+      const res = httpMocks.createResponse();
+      const json = payload();
+      await actionApi.postAction(tronRequest(json), res);
+      assert.equal(res.statusCode, 200);
+      assert.equal(post.callCount, 1);
+      assert.equal(post.firstCall.args[0].payload, json);
+      assert.equal(emit.callCount, 1);
+    });
+
+    it('accepts a tronNile payload with network nile', async function () {
+      stubDelivery();
+      const post = sinon
+        .stub(actionService, 'postAction')
+        .callsFake(async (d) => d);
+      const res = httpMocks.createResponse();
+      await actionApi.postAction(
+        tronRequest(payload({ network: 'nile' }), 'tx', 'tronNile'),
+        res,
+      );
+      assert.equal(res.statusCode, 200);
+      assert.equal(post.callCount, 1);
+    });
+
+    const rejects = {
+      'a hex payload': '0a02abcd',
+      'another format': payload({ format: 'kaspa-core-signing-bundle' }),
+      'version 2': payload({ version: 2 }),
+      'a network that does not match the chain': payload({ network: 'nile' }),
+      'a non-canonical op (leading zero nonce)': payload({
+        op: { ...V.op, nonce: '07' },
+      }),
+      'an op with 17 calls': payload({
+        op: { ...V.op, calls: new Array(17).fill(V.op.calls[0]) },
+      }),
+      'a lowercased vault address': payload({
+        vault: LEAF.address.toLowerCase(),
+      }),
+      'a missing walletSignature': payload({ walletSignature: undefined }),
+      'a bad threshold': payload({ threshold: 3 }),
+      'a JSON array': '[]',
+    };
+    for (const [what, body] of Object.entries(rejects)) {
+      it(`rejects ${what}`, async function () {
+        stubDelivery();
+        const post = sinon.stub(actionService, 'postAction').resolves({});
+        const res = httpMocks.createResponse();
+        await actionApi.postAction(tronRequest(body), res);
+        assert.equal(res.statusCode, 400);
+        assert.equal(post.callCount, 0);
+      });
+    }
+
+    it('does not validate non-tx TRON actions (txid)', async function () {
+      stubDelivery();
+      const post = sinon
+        .stub(actionService, 'postAction')
+        .callsFake(async (d) => d);
+      const res = httpMocks.createResponse();
+      await actionApi.postAction(tronRequest('ab'.repeat(32), 'txid'), res);
       assert.equal(res.statusCode, 200);
       assert.equal(post.callCount, 1);
     });

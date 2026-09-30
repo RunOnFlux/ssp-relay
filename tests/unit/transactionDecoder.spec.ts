@@ -3,6 +3,15 @@
 import { expect } from 'chai';
 import transactionDecoder from '../../src/services/transactionDecoder';
 import { buildKaspaBundle } from '../helpers/kaspaBundle';
+import {
+  buildOp,
+  fromHex20,
+  opToJson,
+  trc20TransferCall,
+  trxFee,
+  trxTransferCall,
+} from '@runonflux/tron-multisig';
+import tronVectors from '../fixtures/tron-ssp-vectors.json';
 
 const rawTxSepolia = {
   id: '0x8b18236447c918b3b217da857a787a7561313b730374430596eaa6f9c2d0ee16',
@@ -126,6 +135,110 @@ describe('Transaction Decoder', function () {
       expect(response).to.deep.equal({
         amount: 'decodingError',
         receiver: 'decodingError',
+        tokenSymbol: 'decodingError',
+      });
+    });
+  });
+
+  describe('TRON ssp-tron-op payloads', function () {
+    const LEAF = tronVectors.consumer.leaves['0-0'];
+    const V = tronVectors.consumerOp;
+    const RECIPIENT = fromHex20('0x4a444867aba3ad826169f44898662403de1c47bf');
+
+    function payload(op, network = 'mainnet') {
+      return JSON.stringify({
+        format: 'ssp-tron-op',
+        version: 1,
+        network,
+        vault: LEAF.address,
+        signers: LEAF.signers,
+        threshold: 2,
+        op,
+        walletSignature: V.walletSignature,
+      });
+    }
+
+    function opJson(calls) {
+      return opToJson(
+        buildOp({
+          calls,
+          nonce: 1n,
+          deadline: 1790000000n,
+          fee: trxFee(6_300_000n, V.op.fee.recipient),
+        }),
+      );
+    }
+
+    it('decodes the vectors Op: 25 USDT (6 dp) to the recipient, fee not shown', async function () {
+      const r = await transactionDecoder.decodeTransactionForApproval(
+        payload(V.op),
+        'tron',
+      );
+      expect(r).to.deep.equal({
+        receiver: RECIPIENT,
+        amount: '25',
+        tokenSymbol: 'USDT',
+        token: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+      });
+    });
+
+    it('decodes a TRX transfer with 6 decimals (never 8)', async function () {
+      const r = await transactionDecoder.decodeTransactionForApproval(
+        payload(opJson([trxTransferCall(RECIPIENT, 1_500_000n)])),
+        'tron',
+      );
+      expect(r).to.deep.equal({
+        receiver: RECIPIENT,
+        amount: '1.5',
+        tokenSymbol: 'TRX',
+        token: '',
+      });
+    });
+
+    it('summarises a batch as the first recipient (+N more)', async function () {
+      const r = await transactionDecoder.decodeTransactionForApproval(
+        payload(
+          opJson([
+            trc20TransferCall(
+              'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+              RECIPIENT,
+              1_000_000n,
+            ),
+            trxTransferCall(RECIPIENT, 1n),
+            trxTransferCall(RECIPIENT, 2n),
+          ]),
+        ),
+        'tron',
+      );
+      expect(r.receiver).to.equal(`${RECIPIENT} (+2 more)`);
+      expect(r.amount).to.equal('1');
+    });
+
+    it('uses the Nile token list on tronNile', async function () {
+      const r = await transactionDecoder.decodeTransactionForApproval(
+        payload(
+          opJson([
+            trc20TransferCall(
+              'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf',
+              RECIPIENT,
+              2_000_000n,
+            ),
+          ]),
+          'nile',
+        ),
+        'tronNile',
+      );
+      expect(r).to.include({ amount: '2', tokenSymbol: 'USDT' });
+    });
+
+    it('returns decodingError for a payload that is not an ssp-tron-op', async function () {
+      const r = await transactionDecoder.decodeTransactionForApproval(
+        '0200000001abcdef',
+        'tron',
+      );
+      expect(r).to.deep.equal({
+        receiver: 'decodingError',
+        amount: 'decodingError',
         tokenSymbol: 'decodingError',
       });
     });

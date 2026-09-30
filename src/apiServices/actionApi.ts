@@ -7,6 +7,7 @@ import socket from '../lib/socket';
 import blockchains from '../services/blockchains';
 import { stripAuthFields } from '../middleware/authMiddleware';
 import { validateWkSigningRequestPayload } from '../lib/wkSignValidation';
+import { parseTronOpPayload } from '../lib/tronPayload';
 
 interface utxo {
   txid: string;
@@ -150,6 +151,13 @@ async function postAction(req, res) {
             'Invalid KAS payload format: must be a kaspa-core-signing-bundle',
           );
         }
+      }
+    } else if (blockchain && blockchain.chainType === 'tron') {
+      // TRON never carries hex transactions: the `tx` payload is the
+      // `ssp-tron-op` JSON (TRON_SSP_CONTRACT.md §3), with the Op in the
+      // SDK's canonical form. Other actions (txid, txrejected) are untouched.
+      if (processedBody.action === 'tx') {
+        parseTronOpPayload(processedBody.payload, processedBody.chain);
       }
     } else if (blockchain && blockchain.chainType === 'utxo') {
       // For UTXO chains, validate payload is hex string

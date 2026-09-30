@@ -29,6 +29,8 @@ export default {
     v1action: 'v1action', // object of chain, path (derivation path), w-k identity (wallet-key identity), type: tpe of action (only tx now), payload: (txhex for tx action to sign). 15 min expiration
     v1token: 'v1token', // object of w-k identity and keytoken, wallettoken. Persistent. Used for push notifications
     v1recoverypub: 'v1recoverypub', // object of w-k identity and recoveryXpub (public account xpub) + its detached signature. Persistent.
+    tronSponsorOps: 'tron_sponsor_ops', // every sponsored TRON broadcast (audit data, NO TTL). Read directly by the dashboard.
+    tronNonceReservations: 'tron_nonce_reservations', // TRON quote nonce reservations + quoted energy, TTL on expiresAt (= Op deadline)
   },
   keys: {
     cmc: apisecrets.cmcApiKey,
@@ -64,6 +66,49 @@ export default {
     // ssp-backends-proxy Worker (→ api.kas.zelcore.io); api.kaspa.org is the
     // public fallback. Used only for the relay's fee estimate.
     rest: ['https://api-kaspa.sspwallet.io', 'https://api.kaspa.org'],
+  },
+  tron: {
+    // TRON sponsor (tronSponsorService). Relayer keys, the kill switch and
+    // rental credentials are ENV ONLY (see README "TRON sponsor"); nothing
+    // secret lives here.
+    //
+    // energyPriceSun: what SSP currently pays per unit of energy (sun) — the
+    // procurement price of rented/pooled energy, NOT the 100 sun burn price.
+    // Every quote is `energy × energyPriceSun + bandwidthBytes × 1000`, times
+    // `markup`, and every broadcast must pay at least that cost (no markup)
+    // at today's simulation. Raise it the moment procurement gets dearer,
+    // otherwise sponsored sends run at a loss. Env TRON_ENERGY_PRICE_SUN
+    // overrides it without a code change (read at start: restart the relay).
+    energyPriceSun: 45,
+    // Default quote markup for consumer sends (enterprise passes its own).
+    markup: 1.15,
+    // Launch cap (plan §8.2): sponsored Ops per vault per rolling 24 h.
+    // 0 disables the cap.
+    maxOpsPerVaultPerDay: 50,
+    // Per network: `node` = full-node HTTP API (/wallet/*, /walletsolidity/*),
+    // `api` = TronGrid v1. Both are the ssp-backends-proxy Worker, which gets
+    // the X-SSP-Relay-Key header like the Solana path.
+    //
+    // factory / implementation / sponsor / feeCollector are OVERRIDES for
+    // Nile or local-chain testing only. The SDK's pinned NETWORKS table wins:
+    // an override may only fill a value the SDK has as null, and an override
+    // that disagrees with a pinned value stops the relay at startup.
+    mainnet: {
+      node: 'https://node-tron.sspwallet.io',
+      api: 'https://api-tron.sspwallet.io',
+      factory: null,
+      implementation: null,
+      sponsor: null,
+      feeCollector: null,
+    },
+    nile: {
+      node: 'https://node-tronnile.sspwallet.io',
+      api: 'https://api-tronnile.sspwallet.io',
+      factory: null,
+      implementation: null,
+      sponsor: null,
+      feeCollector: null,
+    },
   },
   solana: {
     // Per-chain RPC endpoints. The paymaster keypair itself is resolved at

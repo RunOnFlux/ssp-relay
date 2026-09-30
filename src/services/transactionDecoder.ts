@@ -342,6 +342,88 @@ async function decodeKASTransactionForApproval(rawTx, chain = 'kas') {
   }
 }
 
+/**
+ * Decode an SSP TRON `tx` payload (`ssp-tron-op`) for the push-notification
+ * body. DISPLAY ONLY: the relay never signs, and the key applies the full
+ * decodeOpForDisplay consumer policy itself. The first transfer call is
+ * shown (with "+N more" for batches); the fee is not a recipient. Amounts use
+ * TRX's 6 decimals or the whitelisted token's own; an unknown TRC-20 is shown
+ * in base units. Base58 comparisons are case-sensitive.
+ */
+async function decodeTRONTransactionForApproval(rawTx, chain = 'tron') {
+  try {
+    if (typeof rawTx !== 'string') {
+      throw new Error('Invalid transaction format: must be string');
+    }
+    if (rawTx.length > 500000) {
+      throw new Error('Invalid transaction format: too large');
+    }
+    const { parseTronOpPayload } = await import('../lib/tronPayload');
+    const { decodeTrc20Transfer } = await import('@runonflux/tron-multisig');
+    const { op } = parseTronOpPayload(rawTx, chain);
+    const { decimals, symbol, tokens: chainTokens } = blockchains[chain];
+    const transfers: {
+      receiver: string;
+      amountBase: bigint;
+      token: string;
+    }[] = [];
+    for (const call of op.calls) {
+      if (call.data.length === 0 && call.tokenValue === 0n) {
+        transfers.push({
+          receiver: call.to,
+          amountBase: call.value,
+          token: '',
+        });
+        continue;
+      }
+      const t = decodeTrc20Transfer(call.data);
+      if (t) {
+        transfers.push({
+          receiver: t.to,
+          amountBase: t.amount,
+          token: call.to,
+        });
+      }
+    }
+    const first = transfers[0];
+    if (!first) {
+      throw new Error('TRON op has no transfer call');
+    }
+    let amount: string;
+    let tokenSymbol: string;
+    if (first.token === '') {
+      amount = new BigNumber(first.amountBase.toString())
+        .dividedBy(new BigNumber(10).pow(decimals))
+        .toFixed();
+      tokenSymbol = symbol;
+    } else {
+      const known = (chainTokens ?? []).find(
+        (t) => t.contract === first.token, // base58: exact, case-sensitive
+      );
+      amount = known
+        ? new BigNumber(first.amountBase.toString())
+            .dividedBy(new BigNumber(10).pow(known.decimals))
+            .toFixed()
+        : first.amountBase.toString();
+      tokenSymbol = known ? known.symbol : 'TRC-20 (unverified)';
+    }
+    const more = transfers.length - 1;
+    return {
+      receiver: more > 0 ? `${first.receiver} (+${more} more)` : first.receiver,
+      amount,
+      tokenSymbol,
+      token: first.token,
+    };
+  } catch (error) {
+    log.error(error);
+    return {
+      receiver: 'decodingError',
+      amount: 'decodingError',
+      tokenSymbol: 'decodingError',
+    };
+  }
+}
+
 async function decodeTransactionForApproval(rawTx, chain = 'btc') {
   try {
     if (blockchains[chain].chainType === 'evm') {
@@ -354,6 +436,10 @@ async function decodeTransactionForApproval(rawTx, chain = 'btc') {
     }
     if (blockchains[chain].chainType === 'kas') {
       const decoded = await decodeKASTransactionForApproval(rawTx, chain);
+      return decoded;
+    }
+    if (blockchains[chain].chainType === 'tron') {
+      const decoded = await decodeTRONTransactionForApproval(rawTx, chain);
       return decoded;
     }
     log.info('Decoding transaction for approval');

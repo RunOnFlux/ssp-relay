@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
 import { assert } from 'chai';
+import { getKnownTokensForNetwork } from '../../src/services/knownTokens';
 import blockchains from '../../src/services/blockchains';
 
 describe('Blockchain', function () {
@@ -386,6 +387,88 @@ describe('Blockchain', function () {
       assert.equal(blockchains.kas.bip32.private, 0x0488ade4);
       assert.equal(blockchains.kas.node, 'api-kaspa.sspwallet.io');
       assert.equal(blockchains.kas.explorer, 'explorer.kaspa.org');
+    });
+
+    it('should return valid tron data (TRON_SSP_CONTRACT §1)', async function () {
+      const t = blockchains.tron;
+      assert.equal(t.id, 'tron');
+      assert.equal(t.libid, 'tron');
+      assert.equal(t.name, 'TRON');
+      assert.equal(t.symbol, 'TRX');
+      assert.equal(t.decimals, 6);
+      assert.equal(t.slip, 195);
+      assert.equal(t.scriptType, 'p2sh');
+      assert.equal(t.chainType, 'tron');
+      assert.equal(t.backend, 'trongrid');
+      assert.equal(t.bip32.public, 0x0488b21e);
+      assert.equal(t.bip32.private, 0x0488ade4);
+      assert.equal(t.node, 'node-tron.sspwallet.io');
+      assert.equal(t.api, 'api-tron.sspwallet.io');
+      assert.equal(t.explorer, 'tronscan.org');
+      assert.equal(t.tokens[0].contract, '');
+      assert.equal(t.tokens[0].decimals, 6);
+      const usdt = t.tokens.find((x) => x.symbol === 'USDT');
+      assert.equal(usdt.contract, 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
+      assert.equal(usdt.decimals, 6);
+      const usdc = t.tokens.find((x) => x.symbol === 'USDC');
+      assert.equal(usdc.legacy, true);
+      const symbols = t.tokens.map((x) => x.symbol);
+      assert.deepEqual(symbols, [
+        'TRX',
+        'USDT',
+        'USDD',
+        'TUSD',
+        'USD1',
+        'WTRX',
+        'BTT',
+        'JST',
+        'SUN',
+        'WIN',
+        'NFT',
+        'BTC',
+        'ETH',
+        'USDC',
+      ]);
+    });
+
+    it('should return valid tronNile data', async function () {
+      const t = blockchains.tronNile;
+      assert.equal(t.id, 'tronNile');
+      assert.equal(t.libid, 'tronNile');
+      assert.equal(t.name, 'TRON Nile');
+      assert.equal(t.symbol, 'TEST-TRX');
+      assert.equal(t.decimals, 6);
+      assert.equal(t.slip, 1);
+      assert.equal(t.chainType, 'tron');
+      assert.equal(t.backend, 'trongrid');
+      assert.equal(t.node, 'node-tronnile.sspwallet.io');
+      assert.equal(t.api, 'api-tronnile.sspwallet.io');
+      assert.equal(
+        t.tokens.find((x) => x.symbol === 'USDT').contract,
+        'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf',
+      );
+    });
+
+    it('lists TRC-20 known tokens with exact-case base58 contracts', async function () {
+      const known = getKnownTokensForNetwork('tron');
+      assert.equal(known.length, 13);
+      assert.isTrue(
+        known.every((k) => /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(k.contract)),
+      );
+      assert.deepEqual(
+        known.find((k) => k.symbol === 'USDC'),
+        {
+          contract: 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8',
+          name: 'USD Coin (legacy)',
+          symbol: 'USDC',
+          decimals: 6,
+          legacy: true,
+        },
+      );
+      assert.deepEqual(
+        getKnownTokensForNetwork('tronNile').map((k) => k.contract),
+        ['TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf'],
+      );
     });
   });
 });
