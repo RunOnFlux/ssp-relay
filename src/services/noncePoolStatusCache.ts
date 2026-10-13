@@ -66,6 +66,10 @@ export async function getEnterpriseNoncesNeeded(
     if (entry.pending) return entry.pending;
     if (now - entry.at < ttl) return entry.value;
   }
+  // Intentionally not awaited here: the in-flight promise is cached so that
+  // concurrent reads share one pool query (single-flight), and it is awaited
+  // below. compute() never rejects, so a failed query is never cached.
+  // deepscan-disable-next-line MISSING_AWAIT
   const pending = compute(wkIdentity);
   cache.delete(wkIdentity);
   cache.set(wkIdentity, { at: now, pending });
