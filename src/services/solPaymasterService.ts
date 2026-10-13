@@ -18,15 +18,23 @@ import {
   NONCE_ACCOUNT_LENGTH,
   PublicKey,
   SendTransactionError,
+  SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
   SystemProgram,
   Transaction,
   TransactionInstruction,
+  VersionedTransaction,
 } from '@solana/web3.js';
 import {
   SolanaMultisigClient,
   deriveNonceAccount,
+  deriveVaultAddress,
 } from '@runonflux/solana-multisig';
 import log from '../lib/log';
+import { isSspOwnedHost, sspRelayKeyHeaders } from '../lib/sspHosts';
+import {
+  assertSponsorshipAllowed,
+  recordSponsoredFailure,
+} from './solPaymasterBreaker';
 
 // Reimbursement fees the wallet pays via vault → paymaster transfer inside
 // the multisig proposal. Wallets fetch via GET /v1/sol/paymaster.
@@ -173,7 +181,10 @@ function getPaymaster(chain: string): PaymasterInfo {
       `Solana paymaster not configured for ${chain} — set ${envVarFor(chain)} or place a keypair at ${keypairPathFor(chain)}`,
     );
   }
-  const connection = new Connection(chainCfg.rpc, solanaConnectionConfig());
+  const connection = new Connection(
+    chainCfg.rpc,
+    solanaConnectionConfig(chainCfg.rpc),
+  );
   const info: PaymasterInfo = {
     pubkey: resolved.keypair.publicKey,
     keypair: resolved.keypair,
@@ -208,14 +219,24 @@ function getFeeSchedule(): FeeSchedule {
  * falls back to the per-IP bucket, so an unset env var degrades rather than
  * breaks.
  */
-function solanaConnectionConfig(): {
+export function solanaConnectionConfig(rpcUrl: string): {
   commitment: 'confirmed';
   httpHeaders?: Record<string, string>;
+  fetch?: typeof fetch;
 } {
-  const key = process.env.SSP_RELAY_PROXY_KEY;
-  return key
-    ? { commitment: 'confirmed', httpHeaders: { 'X-SSP-Relay-Key': key } }
-    : { commitment: 'confirmed' };
+  // The relay key identifies us to SSP's OWN proxy only. Never attach it to
+  // a third-party RPC (api.devnet.solana.com, an operator-configured paid
+  // endpoint): DEP-13.
+  const headers = sspRelayKeyHeaders(rpcUrl);
+  if (!Object.keys(headers).length || !isSspOwnedHost(rpcUrl)) {
+    return { commitment: 'confirmed' };
+  }
+  return {
+    commitment: 'confirmed',
+    httpHeaders: headers,
+    // Do not let a redirect carry the key to another host.
+    fetch: (input, init) => fetch(input, { ...init, redirect: 'error' }),
+  };
 }
 
 /**
@@ -381,164 +402,798 @@ const SPL_TOKEN_PROGRAM_ID = new PublicKey(
   'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
 );
 
+// SPL Token-2022 — accepted for the outer ATA create only when the inner
+// TransferChecked uses the same token program (the ATA derivation binds it).
+const SPL_TOKEN_2022_PROGRAM_ID = new PublicKey(
+  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+);
+
+// SPL Memo v2 — the only memo program SSP clients use inside a proposal.
+const MEMO_PROGRAM_ID = new PublicKey(
+  'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
+);
+// Bound on an inner memo. The packet limit caps it anyway; enterprise caps
+// memos at 80 bytes and the wallet's are short user notes.
+const MAX_INNER_MEMO_BYTES = 512;
+
+// SystemProgram Transfer tag (u32 LE) and SPL Token TransferChecked tag.
+const SYSTEM_TRANSFER_TAG = 2;
+const SPL_TRANSFER_CHECKED_TAG = 12;
+
+// Solana's base fee per signature (lamports). Used for the reimbursement
+// floor and the simulation backstop's allowance; the priority fee is bounded
+// separately.
+const LAMPORTS_PER_SIGNATURE = 5_000;
+
+// Solana's default compute-unit limit per instruction when a transaction does
+// not carry SetComputeUnitLimit.
+const DEFAULT_COMPUTE_UNITS_PER_INSTRUCTION = 200_000;
+
+// Upper bounds on a bundled paymaster tx. A consumer 2-of-2 bundle has 2
+// approvals; enterprise bundles carry up to M_eff approvals (≤ 4 under the
+// current wire-budget caps). Generous but finite.
+const MAX_BUNDLE_APPROVALS = 16;
+const MAX_BUNDLE_INSTRUCTIONS = 32;
+const MAX_PROPOSAL_ACCOUNT_KEYS = 64;
+const MAX_PROPOSAL_INSTRUCTIONS = 32;
+const SOLANA_PACKET_LIMIT = 1232;
+
 export interface ReimbursementInspection {
   totalToPaymaster: number;
-  // Set when the inner proposal contains an SPL Transfer (tag 3) or
-  // TransferChecked (tag 12). Caller can query getAccountInfo(destAta) to
-  // decide whether the splFeeBumpLamports floor applies — if the ATA
-  // doesn't exist on-chain, the paymaster will pay ~2.04M lamports in rent
-  // to create it (the create-idempotent ix sits on the outer tx with the
-  // paymaster as payer), and the wallet must reimburse that bump.
+  // Set when the bundle carries an outer ATA createIdempotent paid by the
+  // paymaster. It is bound to the inner proposal's SPL TransferChecked
+  // destination; the caller checks on-chain whether the ATA already exists
+  // (enforceSplAtaFloor) — if not, the paymaster pays ~2.04M lamports of rent
+  // and the reimbursement must cover splFeeBumpLamports on top of the floor.
   splDestAta?: PublicKey;
+  // The most the paymaster can be charged in network fees for this exact
+  // transaction: signatures × 5000 + the (capped) priority fee. A landed
+  // transaction is charged this even when it fails, so the reimbursement
+  // floor is never below it.
+  maxNetworkFeeLamports?: number;
+}
+
+export interface BundleInspection extends ReimbursementInspection {
+  multisig: PublicKey;
+  transactionPda: PublicKey;
+  transactionIndex: bigint;
+  vaultPda: PublicKey;
+  nonceAccount: PublicKey;
+  approvals: number;
+}
+
+interface ParsedInnerInstruction {
+  programIdIndex: number;
+  accountIndexes: number[];
+  data: Buffer;
+}
+
+export interface ParsedCreateTransaction {
+  vaultIndex: number;
+  numSigners: number;
+  numWritableSigners: number;
+  numWritableNonSigners: number;
+  accountKeys: PublicKey[];
+  instructions: ParsedInnerInstruction[];
 }
 
 /**
- * Walks the outer tx for a `create_transaction` ix, borsh-decodes the
- * inline proposal message, and confirms it has a SystemProgram.transfer
- * to `paymasterPubkey` totaling at least `minLamports`. Throws otherwise.
- *
- * Also enforces that the OUTER tx contains no rogue SystemProgram.transfer
- * ixs that drain the paymaster. The paymaster signs the outer tx so any
- * top-level transfer FROM paymaster would be implicitly authorized — a
- * user could otherwise submit a tx like `[create_transaction(legit
- * reimbursement), SystemProgram.transfer(paymaster → attacker)]` that
- * passes inner-message validation but drains paymaster funds. Legitimate
- * proposal bundles only contain nonceAdvance + multisig-program ixs at
- * the outer level — never raw SystemProgram.transfer.
- *
- * Returns inspection metadata (totalToPaymaster + any SPL destAta found
- * in the inner proposal) so callers can run additional async checks like
- * `enforceSplAtaFloor`.
+ * Strictly borsh-decode `create_transaction` instruction data: 8-byte
+ * discriminator, u8 vault_index, TransactionMessage { u8 num_signers,
+ * u8 num_writable_signers, u8 num_writable_non_signers, Vec<Pubkey>,
+ * Vec<CompiledInstruction>, Vec<AddressTableLookup> }. Every read is
+ * bounds-checked; address table lookups (rejected on-chain) and trailing
+ * bytes are refused.
  */
-export function validateReimbursement(
-  tx: Transaction,
-  paymasterPubkey: PublicKey,
-  minLamports: number,
-): ReimbursementInspection {
-  // SystemProgram outer-ix allowlist. Legitimate proposal bundles only need
-  // one SystemProgram ix at the outer level: AdvanceNonceAccount (tag 4).
-  // Anything else risks draining the paymaster since the paymaster signs
-  // the entire outer tx — e.g. Transfer (tag 2) or TransferWithSeed (tag 11)
-  // would let a malicious caller move paymaster SOL anywhere. Reject all
-  // SystemProgram tags except AdvanceNonceAccount.
-  for (const ix of tx.instructions) {
-    if (!ix.programId.equals(SYSTEM_PROGRAM_ID)) continue;
-    if (ix.data.length < 4) {
-      throw new Error(
-        'Outer tx contains a malformed SystemProgram ix (data < 4 bytes)',
-      );
+export function parseCreateTransactionData(
+  data: Buffer,
+): ParsedCreateTransaction {
+  let off = 8; // discriminator (checked by the caller)
+  const need = (n: number): void => {
+    if (!Number.isInteger(n) || n < 0 || off + n > data.length) {
+      throw new Error('Malformed create_transaction data (truncated)');
     }
-    const tag = ix.data.readUInt32LE(0);
-    if (tag !== SYSTEM_ADVANCE_NONCE_TAG) {
-      throw new Error(
-        `Outer tx contains a non-allowlisted SystemProgram ix (tag ${tag}) — paymaster only signs proposal bundles that use SystemProgram for AdvanceNonceAccount only`,
-      );
-    }
-  }
-
-  // The loop above only constrains SystemProgram ixs, so ComputeBudget rides
-  // through untouched — and the paymaster pays whatever priority fee it names.
-  enforceComputeBudgetCaps(tx.instructions);
-
-  const createIx = tx.instructions.find(
-    (ix) =>
-      ix.data.length >= 8 &&
-      ix.data.subarray(0, 8).equals(CREATE_TRANSACTION_DISCRIMINATOR),
-  );
-  if (!createIx) {
-    throw new Error(
-      'Tx does not contain a create_transaction instruction — paymaster only signs SSP multisig txs',
-    );
-  }
-
-  // Borsh layout after the 8-byte discriminator: u8 vault_index, then
-  // TransactionMessage = 3×u8 header (num_signers, num_writable_signers,
-  // num_writable_non_signers) + Vec<Pubkey> + Vec<CompiledInstruction>
-  // + Vec<AddressTableLookup>.
-  const data = createIx.data;
-  let off = 8 + 1; // discriminator + vault_index
-
-  // SECURITY (signer-borrow prevention): num_signers decides which accounts get
-  // is_signer=true when execute_transaction CPIs them. The vault PDA (index 0)
-  // is the only account the program signs for (its seeds); any additional signer
-  // slot borrows the top-level signature of the outer tx's fee payer — this
-  // paymaster — letting the inner CPI move funds FROM the paymaster
-  // (SystemProgram::transfer) or hijack paymaster-controlled accounts
-  // (nonceAuthorize / SPL setAuthority) even though vault custody is untouched.
-  // Every legitimate SSP proposal sets num_signers === 1 (vault only), so reject
-  // anything else. Mirrors the on-chain require!(num_signers == 1) in
-  // create_transaction; defense-in-depth for this public broadcast path.
+  };
+  need(1 + 3 + 4);
+  const vaultIndex = data.readUInt8(off);
+  off += 1;
   const numSigners = data.readUInt8(off);
-  if (numSigners !== 1) {
-    throw new Error(
-      `Proposal num_signers must be 1 (only the vault PDA may sign); got ${numSigners} — refusing to sponsor a signer-borrow proposal`,
-    );
-  }
-  off += 3; // skip the 3-byte header
-
-  const accountKeysLen = data.readUInt32LE(off);
+  const numWritableSigners = data.readUInt8(off + 1);
+  const numWritableNonSigners = data.readUInt8(off + 2);
+  off += 3;
+  const keysLen = data.readUInt32LE(off);
   off += 4;
+  if (keysLen < 1 || keysLen > MAX_PROPOSAL_ACCOUNT_KEYS) {
+    throw new Error(`Proposal has an invalid account key count (${keysLen})`);
+  }
+  need(32 * keysLen);
   const accountKeys: PublicKey[] = [];
-  for (let i = 0; i < accountKeysLen; i++) {
+  for (let i = 0; i < keysLen; i++) {
     accountKeys.push(new PublicKey(data.subarray(off, off + 32)));
     off += 32;
   }
-
+  need(4);
   const ixCount = data.readUInt32LE(off);
   off += 4;
-
-  let totalToPaymaster = 0;
-  let splDestAta: PublicKey | undefined;
-  for (let i = 0; i < ixCount; i++) {
-    const programIdIdx = data.readUInt8(off);
-    off += 1;
-    const accountIdxLen = data.readUInt32LE(off);
-    off += 4;
-    const accountIdxs = data.subarray(off, off + accountIdxLen);
-    off += accountIdxLen;
-    const ixDataLen = data.readUInt32LE(off);
-    off += 4;
-    const ixData = data.subarray(off, off + ixDataLen);
-    off += ixDataLen;
-
-    const ixProgram = accountKeys[programIdIdx];
-    if (!ixProgram) continue;
-
-    if (ixProgram.equals(SYSTEM_PROGRAM_ID)) {
-      if (ixData.length < 12 || ixData.readUInt32LE(0) !== 2) continue; // not Transfer
-      if (accountIdxs.length < 2) continue;
-      const toPubkey = accountKeys[accountIdxs[1]];
-      if (!toPubkey || !toPubkey.equals(paymasterPubkey)) continue;
-
-      const lamportsBig = ixData.readBigUInt64LE(4);
-      const lamports =
-        lamportsBig > BigInt(Number.MAX_SAFE_INTEGER)
-          ? Number.MAX_SAFE_INTEGER
-          : Number(lamportsBig);
-      totalToPaymaster += lamports;
-      continue;
-    }
-
-    if (ixProgram.equals(SPL_TOKEN_PROGRAM_ID)) {
-      // SPL Transfer (tag 3) or TransferChecked (tag 12).
-      // accountIdxs layout: [source_ata, dest_ata, authority, ...].
-      if (ixData.length < 1) continue;
-      const tag = ixData.readUInt8(0);
-      if (tag !== 3 && tag !== 12) continue;
-      if (accountIdxs.length < 2) continue;
-      const destAta = accountKeys[accountIdxs[1]];
-      if (destAta) splDestAta = destAta;
-      continue;
-    }
+  if (ixCount > MAX_PROPOSAL_INSTRUCTIONS) {
+    throw new Error(`Proposal has too many instructions (${ixCount})`);
   }
+  const instructions: ParsedInnerInstruction[] = [];
+  for (let i = 0; i < ixCount; i++) {
+    need(1 + 4);
+    const programIdIndex = data.readUInt8(off);
+    off += 1;
+    const accLen = data.readUInt32LE(off);
+    off += 4;
+    if (accLen > MAX_PROPOSAL_ACCOUNT_KEYS) {
+      throw new Error('Proposal instruction references too many accounts');
+    }
+    need(accLen);
+    const accountIndexes = Array.from(data.subarray(off, off + accLen));
+    off += accLen;
+    need(4);
+    const dataLen = data.readUInt32LE(off);
+    off += 4;
+    if (dataLen > SOLANA_PACKET_LIMIT) {
+      throw new Error('Proposal instruction data too large');
+    }
+    need(dataLen);
+    const ixData = Buffer.from(data.subarray(off, off + dataLen));
+    off += dataLen;
+    if (
+      programIdIndex >= keysLen ||
+      accountIndexes.some((idx) => idx >= keysLen)
+    ) {
+      throw new Error('Proposal instruction index out of bounds');
+    }
+    instructions.push({ programIdIndex, accountIndexes, data: ixData });
+  }
+  need(4);
+  const altCount = data.readUInt32LE(off);
+  off += 4;
+  if (altCount !== 0) {
+    throw new Error('Proposal must not use address table lookups');
+  }
+  if (off !== data.length) {
+    throw new Error('Malformed create_transaction data (trailing bytes)');
+  }
+  return {
+    vaultIndex,
+    numSigners,
+    numWritableSigners,
+    numWritableNonSigners,
+    accountKeys,
+    instructions,
+  };
+}
 
-  if (totalToPaymaster < minLamports) {
+function readMultisigIndexArg(ix: TransactionInstruction, label: string) {
+  // discriminator (8) + u64 transaction_index (8), nothing else.
+  if (ix.data.length !== 16) {
+    throw new Error(`Malformed ${label} instruction data`);
+  }
+  return ix.data.readBigUInt64LE(8);
+}
+
+function transactionPdaFor(
+  multisig: PublicKey,
+  index: bigint,
+  programId: PublicKey,
+): PublicKey {
+  const indexLe = Buffer.alloc(8);
+  indexLe.writeBigUInt64LE(index);
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('transaction'), multisig.toBuffer(), indexLe],
+    programId,
+  )[0];
+}
+
+function expectKeys(
+  ix: TransactionInstruction,
+  label: string,
+  exact?: number,
+  min?: number,
+): void {
+  if (exact !== undefined && ix.keys.length !== exact) {
     throw new Error(
-      `Tx must reimburse paymaster at least ${minLamports} lamports inside the proposal (got ${totalToPaymaster})`,
+      `${label} instruction must have ${exact} accounts (got ${ix.keys.length})`,
+    );
+  }
+  if (min !== undefined && ix.keys.length < min) {
+    throw new Error(
+      `${label} instruction must have at least ${min} accounts (got ${ix.keys.length})`,
+    );
+  }
+}
+
+/**
+ * POSITIVE allowlist for a bundled SSP multisig transaction that the paymaster
+ * signs as fee payer (consumer `/v1/sol/broadcast` and the enterprise bundled
+ * broadcast). The paymaster's top-level signature is visible to EVERY outer
+ * instruction, so every outer instruction must be one we fully understand and
+ * every account the paymaster appears in must be a slot where it can only pay
+ * rent that is refunded or reimbursed inside the same transaction:
+ *
+ *   ix[0]   SystemProgram AdvanceNonceAccount — the multisig's own durable
+ *           nonce (deriveNonceAccount(multisig)), authority = paymaster
+ *   any     ComputeBudget SetComputeUnitLimit / SetComputeUnitPrice
+ *           (each at most once, no accounts, capped)
+ *   ≤1      ATA createIdempotent, payer = paymaster, creating exactly the
+ *           canonical ATA that the proposal's SPL TransferChecked pays into
+ *   1       create_transaction  (multisig program of THIS chain; payer =
+ *           paymaster; num_signers == 1; account_keys[0] == vault PDA)
+ *   1..16   approve_transaction (same multisig + proposal; distinct members)
+ *   1       execute_transaction (same multisig + proposal; remaining accounts
+ *           == the proposal's account_keys)
+ *   1       close_transaction   (same multisig + proposal; rent back to the
+ *           paymaster)
+ *
+ * in the order create < approvals < execute < close (ATA before execute).
+ *
+ * The proposal's own (inner) instructions are allowlisted too — vault
+ * transfers, vault-ATA TransferChecked and memos only (see
+ * inspectProposalInstructions) — because the paymaster pays for a landed
+ * bundle even when it fails, and an arbitrary inner program could fail at
+ * will after passing simulation. The message must require exactly the
+ * signatures of the paymaster and the approving members (the creator among
+ * them), so no extra signer slot inflates the fee.
+ *
+ * The proposal's vault → paymaster SystemProgram transfers must total at
+ * least max(`minLamports`, signatures × 5000 + priority fee); because execute
+ * + close are in the same tx, that reimbursement and the proposal-rent refund
+ * happen atomically with the paymaster's outlay. Throws on anything else.
+ */
+export async function validateBundledPaymasterTx(
+  tx: Transaction,
+  paymasterPubkey: PublicKey,
+  chain: string,
+  minLamports: number,
+): Promise<BundleInspection> {
+  const programId = multisigProgramId(chain);
+  const ixs = tx.instructions;
+
+  if (!tx.feePayer || !tx.feePayer.equals(paymasterPubkey)) {
+    throw new Error('Bundle fee payer must be the paymaster');
+  }
+  if (ixs.length < 5 || ixs.length > MAX_BUNDLE_INSTRUCTIONS) {
+    throw new Error(
+      `Bundle has an unexpected instruction count (${ixs.length}) — paymaster only signs SSP multisig bundles`,
     );
   }
 
-  return { totalToPaymaster, splDestAta };
+  const shapes = splitMultisigShapes(programId);
+  let createIdx = -1;
+  let executeIdx = -1;
+  let closeIdx = -1;
+  let ataIdx = -1;
+  const approveIdxs: number[] = [];
+  let cuLimitCount = 0;
+  let cuPriceCount = 0;
+
+  ixs.forEach((ix, i) => {
+    if (ix.programId.equals(SYSTEM_PROGRAM_ID)) {
+      if (
+        i !== 0 ||
+        ix.data.length !== 4 ||
+        ix.data.readUInt32LE(0) !== SYSTEM_ADVANCE_NONCE_TAG
+      ) {
+        throw new Error(
+          'Outer tx contains a non-allowlisted SystemProgram ix — only AdvanceNonceAccount at instruction[0] is allowed',
+        );
+      }
+      return;
+    }
+    if (ix.programId.equals(COMPUTE_BUDGET_PROGRAM_ID)) {
+      const tag = ix.data.length ? ix.data.readUInt8(0) : -1;
+      if (ix.keys.length !== 0) {
+        throw new Error('ComputeBudget instruction must not take accounts');
+      }
+      if (tag === COMPUTE_BUDGET_SET_UNIT_LIMIT_TAG && ix.data.length === 5) {
+        cuLimitCount++;
+      } else if (
+        tag === COMPUTE_BUDGET_SET_UNIT_PRICE_TAG &&
+        ix.data.length === 9
+      ) {
+        cuPriceCount++;
+      } else {
+        throw new Error('Non-allowlisted ComputeBudget instruction');
+      }
+      return;
+    }
+    if (ix.programId.equals(ATA_PROGRAM_ID)) {
+      if (ix.data.length !== 1 || ix.data[0] !== ATA_CREATE_IDEMPOTENT_TAG) {
+        throw new Error(
+          'Only ATA createIdempotent is allowed from the ATA program',
+        );
+      }
+      if (ataIdx !== -1) {
+        throw new Error('Bundle may contain at most one ATA createIdempotent');
+      }
+      ataIdx = i;
+      return;
+    }
+    if (ix.programId.equals(programId)) {
+      if (matchesShape(ix, shapes.create)) {
+        if (createIdx !== -1) {
+          throw new Error('Bundle must contain exactly one create_transaction');
+        }
+        createIdx = i;
+      } else if (matchesShape(ix, shapes.approve)) {
+        approveIdxs.push(i);
+      } else if (matchesShape(ix, shapes.execute)) {
+        if (executeIdx !== -1) {
+          throw new Error(
+            'Bundle must contain exactly one execute_transaction',
+          );
+        }
+        executeIdx = i;
+      } else if (matchesShape(ix, shapes.close)) {
+        if (closeIdx !== -1) {
+          throw new Error('Bundle must contain exactly one close_transaction');
+        }
+        closeIdx = i;
+      } else {
+        throw new Error(
+          'Bundle contains a non-allowlisted multisig program instruction',
+        );
+      }
+      return;
+    }
+    throw new Error(
+      `Outer tx contains an instruction from a non-allowlisted program (${ix.programId.toBase58()}) — paymaster only signs SSP multisig bundles`,
+    );
+  });
+
+  if (cuLimitCount > 1 || cuPriceCount > 1) {
+    throw new Error('Duplicate ComputeBudget instruction');
+  }
+  const priorityFeeLamports = enforceComputeBudgetCaps(ixs);
+
+  if (createIdx === -1) {
+    throw new Error(
+      `Tx does not contain a create_transaction instruction for the ${chain} SSP multisig program — paymaster only signs SSP multisig txs`,
+    );
+  }
+  if (executeIdx === -1 || closeIdx === -1) {
+    throw new Error(
+      'Bundle must execute and close the proposal in the same transaction (the reimbursement and the rent refund must happen atomically)',
+    );
+  }
+  if (approveIdxs.length < 1 || approveIdxs.length > MAX_BUNDLE_APPROVALS) {
+    throw new Error(
+      `Bundle has an invalid approve_transaction count (${approveIdxs.length})`,
+    );
+  }
+  if (
+    !approveIdxs.every((i) => i > createIdx && i < executeIdx) ||
+    !(createIdx < executeIdx && executeIdx < closeIdx) ||
+    (ataIdx !== -1 && ataIdx > executeIdx)
+  ) {
+    throw new Error(
+      'Bundle instructions are out of order (create < approvals < execute < close)',
+    );
+  }
+
+  // ---- create_transaction: accounts + proposal message ----
+  const createIx = ixs[createIdx];
+  expectKeys(createIx, 'create_transaction', 5);
+  const multisig = createIx.keys[0].pubkey;
+  const transactionPda = createIx.keys[1].pubkey;
+  const creator = createIx.keys[2].pubkey;
+  const createPayer = createIx.keys[3].pubkey;
+  if (!createIx.keys[4].pubkey.equals(SYSTEM_PROGRAM_ID)) {
+    throw new Error('create_transaction system_program account mismatch');
+  }
+  if (!createPayer.equals(paymasterPubkey)) {
+    throw new Error(
+      'create_transaction payer must be the paymaster (its rent is refunded by the bundled close)',
+    );
+  }
+  if (creator.equals(paymasterPubkey)) {
+    throw new Error('The paymaster cannot be the proposal creator');
+  }
+
+  const message = parseCreateTransactionData(createIx.data);
+  // SECURITY (signer-borrow prevention): num_signers decides which accounts
+  // get is_signer=true when execute_transaction CPIs them. Only the vault PDA
+  // (account_keys[0], signed via its seeds) may sign; any other signer slot
+  // would borrow the paymaster's top-level signature. Mirrors the on-chain
+  // require!(num_signers == 1) and account_keys[0] == vault checks.
+  if (message.numSigners !== 1) {
+    throw new Error(
+      `Proposal num_signers must be 1 (only the vault PDA may sign); got ${message.numSigners} — refusing to sponsor a signer-borrow proposal`,
+    );
+  }
+  const [vaultPda] = deriveVaultAddress(
+    multisig,
+    message.vaultIndex,
+    programId,
+  );
+  if (!message.accountKeys[0].equals(vaultPda)) {
+    throw new Error('Proposal account_keys[0] must be the vault PDA');
+  }
+  if (message.accountKeys[0].equals(paymasterPubkey)) {
+    throw new Error('The paymaster cannot be the proposal signer');
+  }
+
+  const { totalToPaymaster, splTransfers } = inspectProposalInstructions(
+    message,
+    vaultPda,
+    paymasterPubkey,
+  );
+
+  // ---- approve / execute / close: bound to the same proposal ----
+  let transactionIndex: bigint | undefined;
+  const bindIndex = (ix: TransactionInstruction, label: string): void => {
+    const idx = readMultisigIndexArg(ix, label);
+    if (transactionIndex === undefined) transactionIndex = idx;
+    if (idx !== transactionIndex) {
+      throw new Error(`${label} targets a different transaction index`);
+    }
+    if (!ix.keys[0].pubkey.equals(multisig)) {
+      throw new Error(`${label} targets a different multisig`);
+    }
+    if (!ix.keys[1].pubkey.equals(transactionPda)) {
+      throw new Error(`${label} targets a different proposal`);
+    }
+  };
+  const members = new Set<string>();
+  for (const i of approveIdxs) {
+    const ix = ixs[i];
+    expectKeys(ix, 'approve_transaction', 3);
+    bindIndex(ix, 'approve_transaction');
+    const member = ix.keys[2].pubkey;
+    if (member.equals(paymasterPubkey)) {
+      throw new Error('The paymaster cannot approve a proposal');
+    }
+    if (members.has(member.toBase58())) {
+      throw new Error('Duplicate approve_transaction for the same member');
+    }
+    members.add(member.toBase58());
+  }
+  const executeIx = ixs[executeIdx];
+  expectKeys(executeIx, 'execute_transaction', undefined, 3);
+  bindIndex(executeIx, 'execute_transaction');
+  const remaining = executeIx.keys.slice(3);
+  if (remaining.length < message.accountKeys.length) {
+    throw new Error(
+      'execute_transaction is missing proposal accounts in remaining_accounts',
+    );
+  }
+  message.accountKeys.forEach((key, i) => {
+    if (!remaining[i].pubkey.equals(key)) {
+      throw new Error(
+        'execute_transaction remaining_accounts do not match the proposal',
+      );
+    }
+  });
+  const closeIx = ixs[closeIdx];
+  expectKeys(closeIx, 'close_transaction', 3);
+  bindIndex(closeIx, 'close_transaction');
+  if (!closeIx.keys[2].pubkey.equals(paymasterPubkey)) {
+    throw new Error(
+      'close_transaction must refund the proposal rent to the paymaster',
+    );
+  }
+  if (
+    transactionIndex === undefined ||
+    !transactionPdaFor(multisig, transactionIndex, programId).equals(
+      transactionPda,
+    )
+  ) {
+    throw new Error(
+      'Proposal account is not the PDA for the bound transaction index',
+    );
+  }
+
+  // ---- ix[0]: durable nonce of THIS multisig, authority = paymaster ----
+  const nonceIx = ixs[0];
+  expectKeys(nonceIx, 'AdvanceNonceAccount', 3);
+  const nonceAccount = await deriveNonceAccount(multisig);
+  if (!nonceIx.keys[0].pubkey.equals(nonceAccount)) {
+    throw new Error(
+      "AdvanceNonceAccount must advance the multisig's own durable nonce",
+    );
+  }
+  if (!nonceIx.keys[1].pubkey.equals(SYSVAR_RECENT_BLOCKHASHES_PUBKEY)) {
+    throw new Error('AdvanceNonceAccount recent_blockhashes account mismatch');
+  }
+  if (!nonceIx.keys[2].pubkey.equals(paymasterPubkey)) {
+    throw new Error('AdvanceNonceAccount authority must be the paymaster');
+  }
+
+  // ---- signer slots: exactly paymaster + creator + approvers ----
+  // Every signature costs the fee payer 5000 lamports whether or not the
+  // transaction succeeds, so no slot may exist beyond the ones the bundle
+  // needs. The creator must also approve (both SSP builders do this), and the
+  // executor must be one of those signers or the paymaster (enterprise).
+  if (!members.has(creator.toBase58())) {
+    throw new Error(
+      'create_transaction creator must also approve the proposal in the bundle',
+    );
+  }
+  const expectedSigners = new Set<string>([
+    paymasterPubkey.toBase58(),
+    ...members,
+  ]);
+  const executor = executeIx.keys[2].pubkey;
+  if (!expectedSigners.has(executor.toBase58())) {
+    throw new Error(
+      'execute_transaction executor must be the paymaster or an approving member',
+    );
+  }
+  const compiled = tx.compileMessage();
+  const numRequiredSignatures = compiled.header.numRequiredSignatures;
+  if (numRequiredSignatures !== expectedSigners.size) {
+    throw new Error(
+      `Bundle requires ${numRequiredSignatures} signatures; expected exactly ${expectedSigners.size} (paymaster + approving members) — refusing extra signer slots`,
+    );
+  }
+  for (const key of compiled.accountKeys.slice(0, numRequiredSignatures)) {
+    if (!expectedSigners.has(key.toBase58())) {
+      throw new Error(
+        `Bundle has an unexpected signer ${key.toBase58()} — refusing extra signer slots`,
+      );
+    }
+  }
+
+  // ---- reimbursement floor ≥ the most this tx can cost the paymaster ----
+  // A landed transaction pays signatures × 5000 + the priority fee even when
+  // it fails; on success the reimbursement must at least cover that (the ATA
+  // rent, when the paymaster creates one, is added by enforceSplAtaFloor).
+  const maxNetworkFeeLamports =
+    LAMPORTS_PER_SIGNATURE * numRequiredSignatures + priorityFeeLamports;
+  const floor = Math.max(minLamports, maxNetworkFeeLamports);
+  if (totalToPaymaster < floor) {
+    throw new Error(
+      `Tx must reimburse paymaster at least ${floor} lamports inside the proposal (got ${totalToPaymaster})`,
+    );
+  }
+
+  // ---- optional ATA create: only the proposal's own SPL destination ----
+  let splDestAta: PublicKey | undefined;
+  if (ataIdx !== -1) {
+    const ataIx = ixs[ataIdx];
+    expectKeys(ataIx, 'ATA createIdempotent', 6);
+    const [payer, ata, owner, mint, systemProgram, tokenProgram] =
+      ataIx.keys.map((k) => k.pubkey);
+    if (!payer.equals(paymasterPubkey)) {
+      throw new Error('ATA createIdempotent payer must be the paymaster');
+    }
+    if (!systemProgram.equals(SYSTEM_PROGRAM_ID)) {
+      throw new Error('ATA createIdempotent system_program account mismatch');
+    }
+    if (
+      !tokenProgram.equals(SPL_TOKEN_PROGRAM_ID) &&
+      !tokenProgram.equals(SPL_TOKEN_2022_PROGRAM_ID)
+    ) {
+      throw new Error('ATA createIdempotent token program is not allowlisted');
+    }
+    const [canonicalAta] = PublicKey.findProgramAddressSync(
+      [owner.toBuffer(), tokenProgram.toBuffer(), mint.toBuffer()],
+      ATA_PROGRAM_ID,
+    );
+    if (!canonicalAta.equals(ata)) {
+      throw new Error(
+        'ATA createIdempotent account is not the canonical ATA for owner+mint',
+      );
+    }
+    const bound = splTransfers.some(
+      (t) =>
+        t.dest.equals(ata) &&
+        t.mint.equals(mint) &&
+        t.program.equals(tokenProgram),
+    );
+    if (!bound) {
+      throw new Error(
+        "ATA createIdempotent must create the proposal's SPL TransferChecked destination",
+      );
+    }
+    splDestAta = ata;
+  }
+
+  return {
+    totalToPaymaster,
+    splDestAta,
+    maxNetworkFeeLamports,
+    multisig,
+    transactionPda,
+    transactionIndex,
+    vaultPda,
+    nonceAccount,
+    approvals: approveIdxs.length,
+  };
+}
+
+/** Whether account `i` of a proposal message is writable (Solana layout). */
+function innerIsWritable(msg: ParsedCreateTransaction, i: number): boolean {
+  return (
+    i < msg.numWritableSigners ||
+    (i >= msg.numSigners && i < msg.numSigners + msg.numWritableNonSigners)
+  );
+}
+
+const STRICT_UTF8 = new TextDecoder('utf-8', { fatal: true });
+
+/**
+ * POSITIVE allowlist for the proposal's INNER instructions (what
+ * execute_transaction runs as the vault). The paymaster pays for a landed
+ * bundle even when it fails on-chain, so the proposal may only do what the
+ * SSP builders produce, which cannot be made to fail at will by an arbitrary
+ * program:
+ *
+ *   SystemProgram Transfer      from the vault PDA (index 0) to a writable account
+ *   SPL TransferChecked         [source, mint, dest, authority] exactly, with
+ *     (Token or Token-2022)     authority = vault PDA, source = the vault's own
+ *                               canonical ATA for that mint, source + dest writable
+ *   SPL Memo v2                 no accounts, non-empty valid UTF-8, bounded
+ *
+ * Anything else is refused. Returns the vault → paymaster total and the SPL
+ * transfers (for the ATA-create binding).
+ */
+export function inspectProposalInstructions(
+  message: ParsedCreateTransaction,
+  vaultPda: PublicKey,
+  paymasterPubkey: PublicKey,
+): {
+  totalToPaymaster: number;
+  splTransfers: Array<{ program: PublicKey; mint: PublicKey; dest: PublicKey }>;
+} {
+  if (message.numWritableSigners !== 1) {
+    throw new Error('Proposal must mark the vault PDA as a writable signer');
+  }
+  let totalToPaymaster = 0;
+  const splTransfers: Array<{
+    program: PublicKey;
+    mint: PublicKey;
+    dest: PublicKey;
+  }> = [];
+  for (const inner of message.instructions) {
+    const prog = message.accountKeys[inner.programIdIndex];
+    if (prog.equals(SYSTEM_PROGRAM_ID)) {
+      if (
+        inner.data.length !== 12 ||
+        inner.data.readUInt32LE(0) !== SYSTEM_TRANSFER_TAG ||
+        inner.accountIndexes.length !== 2 ||
+        inner.accountIndexes[0] !== 0
+      ) {
+        throw new Error(
+          'Proposal SystemProgram instruction must be a Transfer from the vault PDA',
+        );
+      }
+      const toIdx = inner.accountIndexes[1];
+      if (!innerIsWritable(message, toIdx)) {
+        throw new Error('Proposal transfer destination must be writable');
+      }
+      if (message.accountKeys[toIdx].equals(paymasterPubkey)) {
+        const lamportsBig = inner.data.readBigUInt64LE(4);
+        totalToPaymaster +=
+          lamportsBig > BigInt(Number.MAX_SAFE_INTEGER)
+            ? Number.MAX_SAFE_INTEGER
+            : Number(lamportsBig);
+      }
+      continue;
+    }
+    if (
+      prog.equals(SPL_TOKEN_PROGRAM_ID) ||
+      prog.equals(SPL_TOKEN_2022_PROGRAM_ID)
+    ) {
+      if (
+        inner.data.length !== 10 ||
+        inner.data[0] !== SPL_TRANSFER_CHECKED_TAG ||
+        inner.accountIndexes.length !== 4
+      ) {
+        throw new Error(
+          'Proposal SPL Token instruction must be a plain TransferChecked [source, mint, dest, authority]',
+        );
+      }
+      const [srcIdx, mintIdx, destIdx, authIdx] = inner.accountIndexes;
+      if (authIdx !== 0) {
+        throw new Error(
+          'Proposal TransferChecked authority must be the vault PDA',
+        );
+      }
+      const mint = message.accountKeys[mintIdx];
+      const [vaultAta] = PublicKey.findProgramAddressSync(
+        [vaultPda.toBuffer(), prog.toBuffer(), mint.toBuffer()],
+        ATA_PROGRAM_ID,
+      );
+      if (!message.accountKeys[srcIdx].equals(vaultAta)) {
+        throw new Error(
+          "Proposal TransferChecked source must be the vault's own token account for the mint",
+        );
+      }
+      if (
+        !innerIsWritable(message, srcIdx) ||
+        !innerIsWritable(message, destIdx)
+      ) {
+        throw new Error(
+          'Proposal TransferChecked source and destination must be writable',
+        );
+      }
+      splTransfers.push({
+        program: prog,
+        mint,
+        dest: message.accountKeys[destIdx],
+      });
+      continue;
+    }
+    if (prog.equals(MEMO_PROGRAM_ID)) {
+      if (inner.accountIndexes.length !== 0) {
+        throw new Error('Proposal memo must not reference accounts');
+      }
+      if (inner.data.length === 0 || inner.data.length > MAX_INNER_MEMO_BYTES) {
+        throw new Error('Proposal memo has an invalid length');
+      }
+      try {
+        STRICT_UTF8.decode(inner.data);
+      } catch {
+        throw new Error('Proposal memo is not valid UTF-8');
+      }
+      continue;
+    }
+    throw new Error(
+      `Proposal contains an instruction from a non-allowlisted program (${prog.toBase58()}) — paymaster only sponsors transfers and memos`,
+    );
+  }
+  return { totalToPaymaster, splTransfers };
+}
+
+/**
+ * Simulation backstop for paymaster-signed bundles: simulate the exact signed
+ * wire transaction and refuse if the paymaster would end up poorer than
+ * `pre-balance − (signature fees + priority-fee cap)`. In the bundled flow the
+ * proposal's reimbursement executes, and the proposal rent is refunded, in the
+ * same transaction, so an honest bundle never costs the paymaster more than its
+ * fee (an ATA it creates is covered by the reimbursement floor). Anything that
+ * slips past the allowlist and moves paymaster lamports is caught here.
+ *
+ * A concurrent transaction can move the paymaster's balance between the
+ * balance read and the simulation, so a failed check is re-run once before
+ * refusing (fails closed).
+ */
+export async function assertPaymasterSimulationSafe(
+  connection: Connection,
+  wire: Buffer,
+  paymasterPubkey: PublicKey,
+  numRequiredSignatures: number,
+): Promise<void> {
+  const allowedLoss =
+    LAMPORTS_PER_SIGNATURE * Math.max(1, numRequiredSignatures) +
+    MAX_PRIORITY_FEE_LAMPORTS;
+  let lastDetail = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const pre = await connection.getBalance(paymasterPubkey, 'confirmed');
+    const sim = await connection.simulateTransaction(
+      VersionedTransaction.deserialize(wire),
+      {
+        sigVerify: false,
+        replaceRecentBlockhash: false,
+        commitment: 'confirmed',
+        accounts: {
+          encoding: 'base64',
+          addresses: [paymasterPubkey.toBase58()],
+        },
+      },
+    );
+    if (sim.value.err) {
+      throw new Error(
+        `Paymaster simulation failed: ${JSON.stringify(sim.value.err)}`,
+      );
+    }
+    const account = sim.value.accounts?.[0];
+    if (!account || typeof account.lamports !== 'number') {
+      throw new Error(
+        'Paymaster simulation did not return the paymaster account — refusing to sign',
+      );
+    }
+    const post = account.lamports;
+    if (post >= pre - allowedLoss) return;
+    lastDetail = `pre=${pre} post=${post} allowedLoss=${allowedLoss}`;
+  }
+  throw new Error(
+    `Paymaster would lose more than its network fee in this transaction (${lastDetail}) — refusing to sign`,
+  );
 }
 
 /**
@@ -550,8 +1205,8 @@ export function validateReimbursement(
  * time so a malicious wallet can't claim "ATA exists" and stick the
  * paymaster with ~2.04M lamports of unreimbursed rent.
  *
- * Floor model: base reimbursement minimum + splFeeBumpLamports when the
- * recipient ATA is missing. We don't try to detect first-vs-subsequent
+ * Floor model: max(base reimbursement minimum, the transaction's maximum
+ * network fee) + splFeeBumpLamports when the recipient ATA is missing. We don't try to detect first-vs-subsequent
  * here — the wallet over-pays firstSendLamports voluntarily; the floor
  * just guards against under-payment of the ATA rent component.
  */
@@ -563,8 +1218,12 @@ export async function enforceSplAtaFloor(
   if (!inspection.splDestAta) return;
   const ataInfo = await connection.getAccountInfo(inspection.splDestAta);
   if (ataInfo !== null) return; // ATA exists — idempotent create is a no-op
+  // The paymaster pays the ATA rent on top of the transaction's own fee.
   const requiredMin =
-    feeSchedule.minReimbursementLamports + feeSchedule.splFeeBumpLamports;
+    Math.max(
+      feeSchedule.minReimbursementLamports,
+      inspection.maxNetworkFeeLamports ?? 0,
+    ) + feeSchedule.splFeeBumpLamports;
   if (inspection.totalToPaymaster < requiredMin) {
     throw new Error(
       `SPL transfer to non-existent ATA ${inspection.splDestAta.toBase58()} requires at least ${requiredMin} lamports of paymaster reimbursement to cover ATA rent (got ${inspection.totalToPaymaster})`,
@@ -759,9 +1418,15 @@ async function setupSolMultisig(opts: {
 async function broadcastWithPaymaster(
   chain: string,
   serializedTxBase64: string,
+  opts: { clientKey?: string } = {},
 ): Promise<string> {
   const info = getPaymaster(chain);
   const txBytes = Buffer.from(serializedTxBase64, 'base64');
+  if (txBytes.length > SOLANA_PACKET_LIMIT) {
+    throw new Error(
+      `Tx exceeds the ${SOLANA_PACKET_LIMIT}-byte packet limit (${txBytes.length} bytes)`,
+    );
+  }
   const tx = Transaction.from(txBytes);
 
   if (!tx.feePayer || !tx.feePayer.equals(info.pubkey)) {
@@ -770,16 +1435,36 @@ async function broadcastWithPaymaster(
     );
   }
 
-  const inspection = validateReimbursement(
+  // C-1: positive allowlist bound to this chain's multisig program, the
+  // proposal PDA and the multisig's own nonce — then the ATA rent floor.
+  const inspection = await validateBundledPaymasterTx(
     tx,
     info.pubkey,
+    chain,
     FEE_SCHEDULE.minReimbursementLamports,
   );
   await enforceSplAtaFloor(inspection, info.connection, FEE_SCHEDULE);
 
-  tx.partialSign(info.keypair);
+  // A landed bundle is charged even when it fails; stop sponsoring a vault
+  // (or client) whose bundles keep failing on-chain.
+  const breakerKeys = {
+    multisig: inspection.multisig.toBase58(),
+    client: opts.clientKey,
+  };
+  assertSponsorshipAllowed(breakerKeys);
 
-  const signature = await info.connection.sendRawTransaction(tx.serialize(), {
+  tx.partialSign(info.keypair);
+  const wire = tx.serialize();
+
+  // Backstop: the paymaster must not lose more than its fee.
+  await assertPaymasterSimulationSafe(
+    info.connection,
+    wire,
+    info.pubkey,
+    tx.compileMessage().header.numRequiredSignatures,
+  );
+
+  const signature = await info.connection.sendRawTransaction(wire, {
     skipPreflight: false,
     maxRetries: 3,
   });
@@ -791,6 +1476,8 @@ async function broadcastWithPaymaster(
   // for a tx that actually didn't move funds.
   const confirmResult = await confirmSignatureHttp(info.connection, signature);
   if (confirmResult.value.err) {
+    // The paymaster paid this transaction's fee without the reimbursement.
+    recordSponsoredFailure(breakerKeys);
     throw new Error(
       `Solana tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
     );
@@ -878,9 +1565,19 @@ interface AllowedShape {
  * paymaster's SOL. Applies to every path where the paymaster signs a
  * client-supplied transaction. Throws with a specific reason; callers surface
  * it as a rejection.
+ *
+ * Returns the priority fee (lamports) the transaction can cost its fee payer.
+ * Without an explicit SetComputeUnitLimit Solana bills the price on its
+ * default limit of 200k CU per instruction (capped at 1.4M), so that is the
+ * limit assumed here; counting every instruction is an upper bound.
  */
-export function enforceComputeBudgetCaps(ixs: TransactionInstruction[]): void {
-  let requestedUnits = 200_000; // Solana's per-instruction default
+export function enforceComputeBudgetCaps(
+  ixs: TransactionInstruction[],
+): number {
+  let requestedUnits = Math.min(
+    DEFAULT_COMPUTE_UNITS_PER_INSTRUCTION * ixs.length,
+    MAX_COMPUTE_UNIT_LIMIT,
+  );
   let priceMicroLamports = 0;
   for (const ix of ixs) {
     if (!ix.programId.equals(COMPUTE_BUDGET_PROGRAM_ID)) continue;
@@ -917,6 +1614,7 @@ export function enforceComputeBudgetCaps(ixs: TransactionInstruction[]): void {
       `Priority fee ${feeLamports} lamports exceeds the ${MAX_PRIORITY_FEE_LAMPORTS} lamport cap (limit ${requestedUnits} CU x price ${priceMicroLamports})`,
     );
   }
+  return feeLamports;
 }
 
 function matchesShape(
@@ -1593,7 +2291,10 @@ export async function logPaymasterStatus(): Promise<void> {
       continue;
     }
     const pubkey = resolved.keypair.publicKey;
-    const connection = new Connection(chainCfg.rpc, solanaConnectionConfig());
+    const connection = new Connection(
+      chainCfg.rpc,
+      solanaConnectionConfig(chainCfg.rpc),
+    );
     let balanceSol = '?';
     try {
       const balance = await connection.getBalance(pubkey);

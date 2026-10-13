@@ -19,6 +19,9 @@ async function getSync(id) {
       generatedAddress: 1,
       recoveryXpub: 1,
       xpubSignature: 1,
+      // CS-1: the Key's identity-key signature over
+      // SSP_CHAIN_SYNC:<chain>:<walletXpub>:<keyXpub>, verified by the wallet.
+      keyXpubSignature: 1,
     },
   };
   const syncRes = await serviceHelper.findOneInDatabase(
@@ -31,6 +34,37 @@ async function getSync(id) {
     return syncRes;
   }
   throw new Error(`Sync ${id} not found`);
+}
+
+/**
+ * The owner metadata of the stored sync record for a walletIdentity (or null
+ * when there is none): which wkIdentity wrote it, until when it is live, and
+ * whether that write was signed. Never returned to clients.
+ */
+async function getSyncOwner(walletIdentity: string): Promise<{
+  wkIdentity?: string;
+  expireAt?: Date;
+  createdAt?: Date;
+  authenticated?: boolean;
+} | null> {
+  const db = await serviceHelper.databaseConnection();
+  const database = db.db(config.database.database);
+  const syncCollection = config.collections.v1sync;
+  const res = await serviceHelper.findOneInDatabase(
+    database,
+    syncCollection,
+    { walletIdentity },
+    {
+      projection: {
+        _id: 0,
+        wkIdentity: 1,
+        expireAt: 1,
+        createdAt: 1,
+        authenticated: 1,
+      },
+    },
+  );
+  return res || null;
 }
 
 // data is an object of chain, walletIdentity, keyXpub, wkIdentity
@@ -193,6 +227,7 @@ async function deleteToken(sync) {
 }
 export default {
   getSync,
+  getSyncOwner,
   getTokens,
   postSync,
   postToken,

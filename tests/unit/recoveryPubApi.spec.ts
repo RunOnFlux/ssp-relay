@@ -221,7 +221,12 @@ describe('Recovery Pub API', function () {
       );
       const post = routes.match(/app\.post\(\s*'\/v1\/recoverypub',\s*(\w+)/);
       expect(post, 'POST /v1/recoverypub is registered').to.not.equal(null);
-      expect(post![1]).to.equal('requireWkIdentityAuth');
+      expect(post![1]).to.equal('requireRecoveryPubAuth');
+      // …which is wkIdentity auth bound to the payload action SSP Key signs
+      // this write with ('sync').
+      expect(routes).to.match(
+        /const requireRecoveryPubAuth = requireAuth\('wkIdentity', \{\s*actions: \['sync'\],\s*\}\);/,
+      );
 
       // The read route stays open: the record is public data and the wallet
       // that needs it cannot sign yet at recovery time.

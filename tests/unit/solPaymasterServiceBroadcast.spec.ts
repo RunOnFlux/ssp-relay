@@ -35,112 +35,135 @@ const configGetStub = sinon.stub(config, 'get').callsFake((path: string) => {
 // Late-import so the module reads the stubbed config when first loaded.
 
 import solPaymasterService from '../../src/services/solPaymasterService';
+import {
+  resetPaymasterBreaker,
+  MAX_FAILURES_PER_MULTISIG,
+  MAX_FAILURES_PER_CLIENT,
+} from '../../src/services/solPaymasterBreaker';
 
 after(function () {
   configGetStub.restore();
   delete process.env.SSP_SOLANA_DEVNET_PAYMASTER_KEY;
 });
 
-// Build a synthetic create_transaction ix that mirrors what the SSP Solana
-// Multisig SDK produces. The relay's validateReimbursement walks this ix
-// data to confirm a vault → paymaster transfer of >= minLamports is present.
-const PROGRAM_ID = new PublicKey(
-  'CisPSFTQoTnEqn5cUi1pgpfPp2xiTVRkK7eD5jBevxdX',
-);
+import { buildBundle, assemble } from './helpers/solBundle';
 
-import { createHash } from 'crypto';
-const CREATE_TRANSACTION_DISCRIMINATOR = createHash('sha256')
-  .update('global:create_transaction')
-  .digest()
-  .subarray(0, 8);
-
-function encodeSystemTransferData(lamports: number): Buffer {
-  const buf = Buffer.alloc(12);
-  buf.writeUInt32LE(2, 0);
-  buf.writeBigUInt64LE(BigInt(lamports), 4);
-  return buf;
-}
-
-function buildCreateTransactionIxWithReimbursement(
-  paymaster: PublicKey,
-  vault: PublicKey,
-  reimbursementLamports: number,
-) {
-  // Encode minimal proposal message: 1 ix = SystemProgram.transfer(vault → paymaster)
-  const chunks: Buffer[] = [];
-  chunks.push(Buffer.from([1, 1, 1])); // numSigners, numWritableSigners, numWritableNonSigners
-  // account_keys
-  const akLen = Buffer.alloc(4);
-  akLen.writeUInt32LE(3, 0);
-  chunks.push(
-    akLen,
-    vault.toBuffer(),
-    SystemProgram.programId.toBuffer(),
-    paymaster.toBuffer(),
-  );
-  // instructions: 1
-  const ixLen = Buffer.alloc(4);
-  ixLen.writeUInt32LE(1, 0);
-  chunks.push(ixLen);
-  chunks.push(Buffer.from([1])); // programIdIndex (SystemProgram)
-  const aiLen = Buffer.alloc(4);
-  aiLen.writeUInt32LE(2, 0);
-  chunks.push(aiLen, Buffer.from([0, 2])); // [vault, paymaster]
-  const dLen = Buffer.alloc(4);
-  dLen.writeUInt32LE(12, 0);
-  chunks.push(dLen, encodeSystemTransferData(reimbursementLamports));
-  // address_table_lookups: empty
-  const altLen = Buffer.alloc(4);
-  altLen.writeUInt32LE(0, 0);
-  chunks.push(altLen);
-
-  const data = Buffer.concat([
-    CREATE_TRANSACTION_DISCRIMINATOR,
-    Buffer.from([0]), // vault_index
-    ...chunks,
-  ]);
-  return new (
-    require('@solana/web3.js') as typeof import('@solana/web3.js')
-  ).TransactionInstruction({
-    programId: PROGRAM_ID,
-    keys: [],
-    data,
-  });
-}
-
-// Mimics the real wire shape: tx has feePayer = paymaster + create_transaction
-// ix with reimbursement embedded. The member signer has already partial-signed.
-function buildPaymasterPayingTx(opts: {
+// A real SSP bundle (wallet shape), signed by the wallet and Key leaves the
+// way SSP Wallet + SSP Key do before the Key posts it to /v1/sol/broadcast.
+async function buildSignedBundle(opts: {
   paymaster: PublicKey;
-  signerKp: Keypair;
+  spl?: boolean;
   reimbursementLamports?: number;
-}): string {
-  const reimbursement = opts.reimbursementLamports ?? 7_500_000;
-  const tx = new Transaction();
-  tx.recentBlockhash = 'EETubP5AKHgjPAhzPAFcb8BAY6hDtV5oqBe5LBdnDS6E';
-  tx.feePayer = opts.paymaster;
-  // Outer SystemProgram allowlist permits AdvanceNonceAccount only — use a
-  // nonceAdvance ix to add `signerKp` as a signer (it's the authorized
-  // pubkey on a fake nonce account). A plain Transfer would be rejected
-  // by validateReimbursement's outer-ix allowlist.
-  const fakeNonceAccount = Keypair.generate().publicKey;
-  tx.add(
-    SystemProgram.nonceAdvance({
-      noncePubkey: fakeNonceAccount,
-      authorizedPubkey: opts.signerKp.publicKey,
-    }),
-  );
-  tx.add(
-    buildCreateTransactionIxWithReimbursement(
-      opts.paymaster,
-      opts.signerKp.publicKey, // use the signer pubkey as a stand-in for vault
-      reimbursement,
-    ),
-  );
-  tx.partialSign(opts.signerKp);
+  wallet?: Keypair;
+  key?: Keypair;
+}): Promise<string> {
+  const { ixs, ctx } = await buildBundle({
+    paymaster: opts.paymaster,
+    spl: opts.spl,
+    reimbursementLamports: opts.reimbursementLamports,
+    wallet: opts.wallet,
+    key: opts.key,
+  });
+  const tx = assemble(ixs, opts.paymaster);
+  tx.partialSign(ctx.wallet, ctx.key);
   return tx
     .serialize({ requireAllSignatures: false, verifySignatures: false })
     .toString('base64');
+}
+
+// The pre-fix shape: nonceAdvance + a create_transaction carrying a
+// reimbursement claim, nothing that executes it.
+function legacyShapeTx(paymaster: PublicKey): string {
+  const PROGRAM_ID = new PublicKey(
+    'CisPSFTQoTnEqn5cUi1pgpfPp2xiTVRkK7eD5jBevxdX',
+  );
+  const { createHash } = require('crypto');
+  const disc = createHash('sha256')
+    .update('global:create_transaction')
+    .digest()
+    .subarray(0, 8);
+  const vault = Keypair.generate().publicKey;
+  const t = Buffer.alloc(12);
+  t.writeUInt32LE(2, 0);
+  t.writeBigUInt64LE(7_500_000n, 4);
+  const u32 = (n) => {
+    const b = Buffer.alloc(4);
+    b.writeUInt32LE(n);
+    return b;
+  };
+  const data = Buffer.concat([
+    disc,
+    Buffer.from([0, 1, 1, 1]),
+    u32(3),
+    vault.toBuffer(),
+    SystemProgram.programId.toBuffer(),
+    paymaster.toBuffer(),
+    u32(1),
+    Buffer.from([1]),
+    u32(2),
+    Buffer.from([0, 2]),
+    u32(12),
+    t,
+    u32(0),
+  ]);
+  const tx = new Transaction();
+  tx.recentBlockhash = 'EETubP5AKHgjPAhzPAFcb8BAY6hDtV5oqBe5LBdnDS6E';
+  tx.feePayer = paymaster;
+  tx.add(
+    SystemProgram.nonceAdvance({
+      noncePubkey: Keypair.generate().publicKey,
+      authorizedPubkey: memberKp.publicKey,
+    }),
+  );
+  tx.add(
+    new (require('@solana/web3.js').TransactionInstruction)({
+      programId: PROGRAM_ID,
+      keys: [],
+      data,
+    }),
+  );
+  tx.partialSign(memberKp);
+  return tx
+    .serialize({ requireAllSignatures: false, verifySignatures: false })
+    .toString('base64');
+}
+
+function stubSimulation(postDelta: number, pre = 1_000_000_000) {
+  const balance = sinon.stub(Connection.prototype, 'getBalance').resolves(pre);
+  const simulate = sinon
+    .stub(Connection.prototype, 'simulateTransaction')
+    .resolves({
+      context: { slot: 1 },
+      value: {
+        err: null,
+        logs: [],
+        accounts: [
+          { lamports: pre + postDelta, owner: '', data: [], executable: false },
+        ],
+      },
+    } as any);
+  return { balance, simulate };
+}
+
+function stubSendAndConfirm(sig = '5xPaymasterFakeSig') {
+  const send = sinon
+    .stub(Connection.prototype, 'sendRawTransaction')
+    .resolves(sig);
+  sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
+    value: [{ err: null, confirmationStatus: 'confirmed' }],
+  } as any);
+  return send;
+}
+
+async function expectThrow(fn, pattern) {
+  let threw: Error | null = null;
+  try {
+    await fn();
+  } catch (e) {
+    threw = e as Error;
+  }
+  expect(threw, 'expected a rejection').to.not.equal(null);
+  expect(threw!.message).to.match(pattern);
 }
 
 function reinstallConfigStub() {
@@ -161,6 +184,7 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
     // afterEach, which would also clear the top-level config stub. Re-stub
     // before every test so getPaymaster() can resolve devnet config.
     reinstallConfigStub();
+    resetPaymasterBreaker();
   });
 
   afterEach(function () {
@@ -168,37 +192,21 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
   });
 
   it('throws when feePayer does not match the configured paymaster', async function () {
-    sinon.stub(Connection.prototype, 'getBalance').resolves(1_000_000_000);
-
+    stubSimulation(95_000);
     const wrongPaymaster = Keypair.generate();
-    const txB64 = buildPaymasterPayingTx({
+    const txB64 = await buildSignedBundle({
       paymaster: wrongPaymaster.publicKey,
-      signerKp: memberKp,
     });
-
-    let threw: Error | null = null;
-    try {
-      await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64);
-    } catch (e) {
-      threw = e as Error;
-    }
-    expect(threw).to.not.be.null;
-    expect(threw!.message).to.match(/feePayer/);
+    await expectThrow(
+      () => solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
+      /feePayer/,
+    );
   });
 
   it('returns the broadcast signature when the tx is valid', async function () {
-    sinon.stub(Connection.prototype, 'getBalance').resolves(1_000_000_000); // well above threshold — no top-up
-    const sendStub = sinon
-      .stub(Connection.prototype, 'sendRawTransaction')
-      .resolves('5xPaymasterFakeSig');
-    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
-      value: [{ err: null, confirmationStatus: 'confirmed' }],
-    } as any);
-
-    const txB64 = buildPaymasterPayingTx({
-      paymaster: paymasterKp.publicKey,
-      signerKp: memberKp,
-    });
+    const { simulate } = stubSimulation(95_000);
+    const sendStub = stubSendAndConfirm();
+    const txB64 = await buildSignedBundle({ paymaster: paymasterKp.publicKey });
 
     const sig = await solPaymasterService.broadcastWithPaymaster(
       'solDevnet',
@@ -206,68 +214,242 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
     );
     expect(sig).to.equal('5xPaymasterFakeSig');
     expect(sendStub.calledOnce).to.equal(true);
+    expect(simulate.calledOnce).to.equal(true);
+    // the simulation asked for the paymaster account only
+    const cfg = simulate.firstCall.args[1];
+    expect(cfg.accounts.addresses).to.deep.equal([
+      paymasterKp.publicKey.toBase58(),
+    ]);
+    expect(cfg.replaceRecentBlockhash).to.equal(false);
   });
 
   it('partial-signs the tx with the paymaster keypair before sending', async function () {
-    sinon.stub(Connection.prototype, 'getBalance').resolves(1_000_000_000);
-    const sendStub = sinon
-      .stub(Connection.prototype, 'sendRawTransaction')
-      .resolves('5xPaymasterFakeSig');
-    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
-      value: [{ err: null, confirmationStatus: 'confirmed' }],
-    } as any);
-
-    const txB64 = buildPaymasterPayingTx({
-      paymaster: paymasterKp.publicKey,
-      signerKp: memberKp,
-    });
+    stubSimulation(95_000);
+    const sendStub = stubSendAndConfirm();
+    const txB64 = await buildSignedBundle({ paymaster: paymasterKp.publicKey });
 
     await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64);
 
     // Recover the wire bytes that were sent to RPC and verify the paymaster's
-    // signature slot is now populated (member slot remains unsigned — that
-    // would have been filled by the wallet/key before submission).
+    // signature slot is now populated and the members' signatures survived.
     const sentBytes = sendStub.firstCall.args[0];
     const sentTx = Transaction.from(sentBytes as Buffer);
-    const paySig = sentTx.signatures.find(
-      (s) => s.publicKey.toBase58() === paymasterKp.publicKey.toBase58(),
-    );
-    expect(paySig).to.not.be.undefined;
-    expect(paySig!.signature).to.not.be.null;
-    // Member signer's signature was already attached by the wallet/key
-    // before the relay saw the tx; the relay must preserve it.
-    const memberSig = sentTx.signatures.find(
-      (s) => s.publicKey.toBase58() === memberKp.publicKey.toBase58(),
-    );
-    expect(memberSig).to.not.be.undefined;
-    expect(memberSig!.signature).to.not.be.null;
+    for (const s of sentTx.signatures) {
+      expect(s.signature, s.publicKey.toBase58()).to.not.equal(null);
+    }
+    expect(
+      sentTx.signatures.some(
+        (s) => s.publicKey.toBase58() === paymasterKp.publicKey.toBase58(),
+      ),
+    ).to.equal(true);
+    expect(sentTx.verifySignatures()).to.equal(true);
   });
 
-  it('does not query signer balances (leaf top-up was removed)', async function () {
-    // After the program upgrade decoupled creator/payer, the paymaster pays
-    // proposal rent directly via the `payer` field and gets it back on
-    // close_transaction — leaves never need SOL, so the broadcast service
-    // no longer queries non-paymaster signer balances or does any top-up.
-    const balanceStub = sinon
-      .stub(Connection.prototype, 'getBalance')
-      .resolves(1_000_000_000);
-    sinon.stub(Connection.prototype, 'sendRawTransaction').resolves('5xSig');
-    sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
-      value: [{ err: null, confirmationStatus: 'confirmed' }],
-    } as any);
+  it('refuses (and never sends) when the simulation shows the paymaster losing more than its fee', async function () {
+    const { simulate } = stubSimulation(-1_000_000);
+    const sendStub = stubSendAndConfirm();
+    const txB64 = await buildSignedBundle({ paymaster: paymasterKp.publicKey });
+    await expectThrow(
+      () => solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
+      /lose more than its network fee/,
+    );
+    expect(sendStub.called).to.equal(false);
+    // re-checked once to rule out a concurrent balance change
+    expect(simulate.callCount).to.equal(2);
+  });
 
-    const txB64 = buildPaymasterPayingTx({
+  it('accepts a loss within the signature fee + priority fee cap', async function () {
+    stubSimulation(-(3 * 5_000 + 50_000));
+    stubSendAndConfirm();
+    const txB64 = await buildSignedBundle({ paymaster: paymasterKp.publicKey });
+    const sig = await solPaymasterService.broadcastWithPaymaster(
+      'solDevnet',
+      txB64,
+    );
+    expect(sig).to.equal('5xPaymasterFakeSig');
+  });
+
+  it('refuses when the simulation fails or omits the paymaster account', async function () {
+    sinon.stub(Connection.prototype, 'getBalance').resolves(1_000_000_000);
+    const simulate = sinon
+      .stub(Connection.prototype, 'simulateTransaction')
+      .resolves({
+        context: { slot: 1 },
+        value: { err: { InstructionError: [3, { Custom: 1 }] }, logs: [] },
+      } as any);
+    const sendStub = stubSendAndConfirm();
+    const txB64 = await buildSignedBundle({ paymaster: paymasterKp.publicKey });
+    await expectThrow(
+      () => solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
+      /simulation failed/,
+    );
+    simulate.resolves({
+      context: { slot: 1 },
+      value: { err: null, logs: [], accounts: [null] },
+    } as any);
+    await expectThrow(
+      () => solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
+      /did not return the paymaster account/,
+    );
+    expect(sendStub.called).to.equal(false);
+  });
+
+  it('rejects the pre-fix shape (create_transaction claim with no execute/close)', async function () {
+    stubSimulation(95_000);
+    const sendStub = stubSendAndConfirm();
+    await expectThrow(
+      () =>
+        solPaymasterService.broadcastWithPaymaster(
+          'solDevnet',
+          legacyShapeTx(paymasterKp.publicKey),
+        ),
+      /instruction count|SSP multisig/,
+    );
+    expect(sendStub.called).to.equal(false);
+  });
+
+  it('enforces the ATA rent floor when the bound recipient ATA does not exist', async function () {
+    stubSimulation(95_000);
+    const sendStub = stubSendAndConfirm();
+    sinon.stub(Connection.prototype, 'getAccountInfo').resolves(null);
+    const txB64 = await buildSignedBundle({
       paymaster: paymasterKp.publicKey,
-      signerKp: memberKp,
+      spl: true,
+      reimbursementLamports: 100_000, // below min + splFeeBump
     });
+    await expectThrow(
+      () => solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
+      /requires at least/,
+    );
+    expect(sendStub.called).to.equal(false);
+  });
+
+  it('only reads the paymaster balance (no signer balance lookups or extra txs)', async function () {
+    const { balance } = stubSimulation(95_000);
+    stubSendAndConfirm('5xSig');
+    const txB64 = await buildSignedBundle({ paymaster: paymasterKp.publicKey });
 
     const addSpy = sinon.spy(Transaction.prototype, 'add');
     await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64);
 
-    // No balance lookup — leaves are never funded by the paymaster anymore.
-    expect(balanceStub.called).to.equal(false);
+    for (const call of balance.getCalls()) {
+      expect(call.args[0].toBase58()).to.equal(
+        paymasterKp.publicKey.toBase58(),
+      );
+    }
     // No internal Transaction.add() — the broadcast service doesn't build
     // its own auxiliary txs.
     expect(addSpy.called).to.equal(false);
+  });
+  describe('failure breaker (bundles that land but fail on-chain)', function () {
+    function stubLandedFailure() {
+      const send = sinon
+        .stub(Connection.prototype, 'sendRawTransaction')
+        .resolves('5xFailedSig');
+      const statuses = sinon
+        .stub(Connection.prototype, 'getSignatureStatuses')
+        .resolves({
+          value: [
+            {
+              err: { InstructionError: [4, { Custom: 1 }] },
+              confirmationStatus: 'confirmed',
+            },
+          ],
+        } as any);
+      return { send, statuses };
+    }
+
+    it('stops sponsoring a multisig after repeated landed failures, before signing', async function () {
+      const { simulate } = stubSimulation(95_000);
+      const { send } = stubLandedFailure();
+      const wallet = Keypair.generate();
+      const key = Keypair.generate();
+      for (let i = 0; i < MAX_FAILURES_PER_MULTISIG; i++) {
+        const txB64 = await buildSignedBundle({
+          paymaster: paymasterKp.publicKey,
+          wallet,
+          key,
+        });
+        await expectThrow(
+          () => solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
+          /landed but failed on-chain/,
+        );
+      }
+      expect(send.callCount).to.equal(MAX_FAILURES_PER_MULTISIG);
+      const simsBefore = simulate.callCount;
+      const next = await buildSignedBundle({
+        paymaster: paymasterKp.publicKey,
+        wallet,
+        key,
+      });
+      await expectThrow(
+        () => solPaymasterService.broadcastWithPaymaster('solDevnet', next),
+        /sponsorship refused.*multisig/,
+      );
+      expect(send.callCount).to.equal(MAX_FAILURES_PER_MULTISIG);
+      expect(simulate.callCount).to.equal(simsBefore);
+      // another vault is unaffected
+      const other = await buildSignedBundle({
+        paymaster: paymasterKp.publicKey,
+      });
+      await expectThrow(
+        () => solPaymasterService.broadcastWithPaymaster('solDevnet', other),
+        /landed but failed on-chain/,
+      );
+    });
+
+    it('stops sponsoring a client (IP key) after repeated landed failures across vaults', async function () {
+      stubSimulation(95_000);
+      const { send } = stubLandedFailure();
+      for (let i = 0; i < MAX_FAILURES_PER_CLIENT; i++) {
+        const txB64 = await buildSignedBundle({
+          paymaster: paymasterKp.publicKey,
+        });
+        await expectThrow(
+          () =>
+            solPaymasterService.broadcastWithPaymaster('solDevnet', txB64, {
+              clientKey: '203.0.113.7',
+            }),
+          /landed but failed on-chain/,
+        );
+      }
+      const fresh = await buildSignedBundle({
+        paymaster: paymasterKp.publicKey,
+      });
+      await expectThrow(
+        () =>
+          solPaymasterService.broadcastWithPaymaster('solDevnet', fresh, {
+            clientKey: '203.0.113.7',
+          }),
+        /sponsorship refused.*client/,
+      );
+      expect(send.callCount).to.equal(MAX_FAILURES_PER_CLIENT);
+      // a different client is still served (and reaches the chain)
+      await expectThrow(
+        () =>
+          solPaymasterService.broadcastWithPaymaster('solDevnet', fresh, {
+            clientKey: '198.51.100.1',
+          }),
+        /landed but failed on-chain/,
+      );
+      expect(send.callCount).to.equal(MAX_FAILURES_PER_CLIENT + 1);
+    });
+
+    it('does not count successful sponsored bundles', async function () {
+      stubSimulation(95_000);
+      stubSendAndConfirm();
+      const wallet = Keypair.generate();
+      const key = Keypair.generate();
+      for (let i = 0; i < MAX_FAILURES_PER_MULTISIG + 2; i++) {
+        const txB64 = await buildSignedBundle({
+          paymaster: paymasterKp.publicKey,
+          wallet,
+          key,
+        });
+        expect(
+          await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
+        ).to.equal('5xPaymasterFakeSig');
+      }
+    });
   });
 });

@@ -1,8 +1,17 @@
 import syncService from '../services/syncService';
 import serviceHelper from '../services/serviceHelper';
 import enterpriseHooks from '../services/enterpriseHooks';
+import { getEnterpriseNoncesNeeded } from '../services/noncePoolStatusCache';
 import log from '../lib/log';
-import { stripAuthFields } from '../middleware/authMiddleware';
+import {
+  stripAuthFields,
+  AuthenticatedRequest,
+} from '../middleware/authMiddleware';
+import {
+  parseWitnessScript,
+  deriveP2PKHAddress,
+  detectNetworkFromAddress,
+} from '../lib/identityAuth';
 
 interface syncData {
   chain: string;
@@ -15,17 +24,76 @@ interface syncData {
   walletXpub?: string;
   keyIdentity?: string;
   redeemScript?: string;
-  witnessScript?: string;
+  witnessScript?: string; // chain first-address script (see postSync)
   recoveryXpub?: string;
   xpubSignature?: string;
+  // CS-1: base64 Bitcoin message signature by the Key's identity key over
+  // `SSP_CHAIN_SYNC:${chain}:${walletXpub}:${keyXpub}`. Carried through for
+  // the wallet to verify; the relay only checks its shape.
+  keyXpubSignature?: string;
   // For chainType === 'sol', keyXpub/walletXpub are JSON-stringified
   // arrays of 20 base58 Ed25519 leaf pubkeys.
+  // Whether the write was signed (wkIdentity auth). Server-side only (not in
+  // the GET projection); used by assertSyncRecordWritable.
+  authenticated?: boolean;
 }
 
-async function getSync(req, res) {
+// Sync records live 15 minutes (syncService.postSync / the TTL index).
+const SYNC_RECORD_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Refuse a sync write that would take over another pairing's LIVE record.
+ *
+ * Records are keyed by walletIdentity, and any WK identity whose script
+ * contains the wallet's identity key can pass verifySyncIdentityBinding (the
+ * wallet key is public), so a signature alone does not prove the writer is the
+ * wallet's real partner. While a record is live (< 15 min) it may only be
+ * rewritten for the SAME wkIdentity:
+ *   - different wkIdentity → refused (also for unsigned legacy writes);
+ *   - an unsigned (legacy) write may not replace a live SIGNED record at all.
+ * An expired record (expireAt passed; Mongo's TTL sweep can lag a minute) or
+ * a legacy-empty one (no wkIdentity) may be replaced. A genuine re-pairing
+ * with a different SSP Key therefore waits until the previous record expires
+ * (at most 15 minutes).
+ */
+export function assertSyncRecordWritable(
+  existing: {
+    wkIdentity?: unknown;
+    expireAt?: unknown;
+    createdAt?: unknown;
+    authenticated?: unknown;
+  } | null,
+  incoming: { wkIdentity: string; authenticated: boolean },
+  now = Date.now(),
+): void {
+  if (!existing) return;
+  if (typeof existing.wkIdentity !== 'string' || !existing.wkIdentity) return;
+  const toMs = (v: unknown): number =>
+    v instanceof Date || typeof v === 'string' || typeof v === 'number'
+      ? new Date(v).getTime()
+      : NaN;
+  let liveUntil = toMs(existing.expireAt);
+  if (!Number.isFinite(liveUntil)) {
+    const created = toMs(existing.createdAt);
+    liveUntil = Number.isFinite(created) ? created + SYNC_RECORD_TTL_MS : 0;
+  }
+  if (liveUntil <= now) return;
+  if (existing.wkIdentity !== incoming.wkIdentity) {
+    throw new Error(
+      'A pending sync for this wallet belongs to a different SSP identity; refusing to overwrite it (retry after it expires, at most 15 minutes)',
+    );
+  }
+  if (existing.authenticated === true && !incoming.authenticated) {
+    throw new Error(
+      'A signed sync for this wallet is pending; an unsigned sync cannot replace it',
+    );
+  }
+}
+
+async function getSync(req: AuthenticatedRequest, res) {
   try {
-    let { id } = req.params;
-    id = id || req.query.id; // id is walletIdentity
+    const { id: paramId } = req.params;
+    const id: unknown = paramId || req.query.id; // id is walletIdentity
     if (
       !id ||
       typeof id !== 'string' ||
@@ -44,24 +112,16 @@ async function getSync(req, res) {
       throw new Error(`Sync of ${id} does not exist`);
     }
 
-    // Enrich sync response with enterprise nonce pool status if available
-    if (enterpriseHooks.isLoaded() && syncExist.wkIdentity) {
-      try {
-        const MINIMUM_COUNT = 10;
-        const poolStatus = await enterpriseHooks.getNoncePoolStatus(
-          syncExist.wkIdentity,
-        );
-        const walletPool = poolStatus.find((p) => p.source === 'wallet');
-        const keyPool = poolStatus.find((p) => p.source === 'key');
-        syncExist.enterpriseNoncesNeeded = {
-          wallet: (walletPool?.available ?? 0) < MINIMUM_COUNT,
-          key: (keyPool?.available ?? 0) < MINIMUM_COUNT,
-        };
-      } catch (nonceErr) {
-        // Non-critical: don't fail sync if nonce check fails
-        log.error(
-          `[SYNC] Nonce pool check failed for ${syncExist.wkIdentity}: ${nonceErr}`,
-        );
+    // Enrich with the enterprise nonce-pool flag, rate-limited per identity
+    // (10 s for a read signed by this walletIdentity, 60 s for unsigned reads
+    // under RELAY_READ_AUTH_MODE=log). Polled every second while pairing.
+    if (typeof syncExist.wkIdentity === 'string' && syncExist.wkIdentity) {
+      const noncesNeeded = await getEnterpriseNoncesNeeded(
+        syncExist.wkIdentity,
+        req.isAuthenticated === true && req.verifiedIdentity === id,
+      );
+      if (noncesNeeded) {
+        syncExist.enterpriseNoncesNeeded = noncesNeeded;
       }
     }
 
@@ -74,14 +134,91 @@ async function getSync(req, res) {
   }
 }
 
-async function postSync(req, res) {
+/**
+ * Bind a SIGNED sync to the WK pair it claims.
+ *
+ * POST /v1/sync is signed by SSP Key as the wkIdentity (2-of-2 of the
+ * wallet's and the Key's /10/0 identity keys). The record is stored under
+ * `walletIdentity`, so the signature alone is not enough: anyone can sign for
+ * a WK identity they made up. The record may only be written by the WK
+ * partner of that wallet, i.e.:
+ *   - the auth witness script is the canonical 2-of-2 for wkIdentity
+ *     (already checked by the auth middleware),
+ *   - walletIdentity is the P2PKH address of the script key that did NOT sign,
+ *   - keyIdentity, when present, is the P2PKH address of the signing key.
+ * Throws with a reason on any mismatch.
+ */
+export function verifySyncIdentityBinding(opts: {
+  wkIdentity: string;
+  wkWitnessScript: unknown;
+  signerPublicKey: unknown;
+  walletIdentity: string;
+  keyIdentity?: unknown;
+}): void {
+  if (typeof opts.wkWitnessScript !== 'string') {
+    throw new Error('Signed sync is missing the WK witness script');
+  }
+  if (typeof opts.signerPublicKey !== 'string') {
+    throw new Error('Signed sync is missing the signer public key');
+  }
+  const network = detectNetworkFromAddress(opts.wkIdentity);
+  const { publicKeys } = parseWitnessScript(opts.wkWitnessScript);
+  const signer = opts.signerPublicKey.toLowerCase();
+  const signerIndex = publicKeys.findIndex((pk) => pk.toLowerCase() === signer);
+  if (signerIndex === -1) {
+    throw new Error('Sync signer is not a member of the WK identity');
+  }
+  const walletKey = publicKeys[1 - signerIndex];
+  if (deriveP2PKHAddress(walletKey, network) !== opts.walletIdentity) {
+    throw new Error(
+      "walletIdentity is not the WK partner of the signing key — refusing to overwrite another wallet's sync record",
+    );
+  }
+  if (
+    opts.keyIdentity !== undefined &&
+    opts.keyIdentity !== null &&
+    opts.keyIdentity !== '' &&
+    deriveP2PKHAddress(publicKeys[signerIndex], network) !== opts.keyIdentity
+  ) {
+    throw new Error('keyIdentity does not match the signing key');
+  }
+}
+
+async function postSync(req: AuthenticatedRequest, res) {
   try {
-    // Preserve witnessScript before stripping auth fields — it serves dual
-    // purpose (auth verification AND sync data storage)
+    // `witnessScript` is ambiguous on this endpoint. On a SIGNED sync it is
+    // the auth envelope's WK identity script (verified by the middleware) and
+    // the chain's first-address script travels as `chainWitnessScript` (so it
+    // is covered by the body hash). On a legacy UNSIGNED sync (only possible
+    // with RELAY_LEGACY_UNAUTH_MODE=log) it is the chain script, as before.
     const rawWitnessScript = req.body?.witnessScript;
 
     // Strip auth fields before processing
     const processedBody = stripAuthFields(req.body);
+    let chainWitnessScript: unknown;
+    if (req.isAuthenticated === true) {
+      if (req.verifiedIdentity !== processedBody.wkIdentity) {
+        throw new Error('Verified identity does not match wkIdentity');
+      }
+      if (
+        typeof processedBody.walletIdentity !== 'string' ||
+        !processedBody.walletIdentity
+      ) {
+        throw new Error('Invalid Wallet identity specified');
+      }
+      verifySyncIdentityBinding({
+        wkIdentity: processedBody.wkIdentity,
+        wkWitnessScript: rawWitnessScript,
+        signerPublicKey: req.signerPublicKey,
+        walletIdentity: processedBody.walletIdentity,
+        keyIdentity: processedBody.keyIdentity,
+      });
+      chainWitnessScript = processedBody.chainWitnessScript;
+    } else if (req.legacyUnauthenticated === true) {
+      chainWitnessScript = rawWitnessScript;
+    } else {
+      throw new Error('Unauthenticated sync refused');
+    }
     if (
       !processedBody.chain ||
       typeof processedBody.chain !== 'string' ||
@@ -266,12 +403,12 @@ async function postSync(req, res) {
       throw new Error('Invalid Redeem Script specified');
     }
 
-    // validate witnessScript (optional, preserved from pre-strip) - hex string
+    // validate the chain's first-address witness script (optional) - hex string
     if (
-      rawWitnessScript &&
-      (typeof rawWitnessScript !== 'string' ||
-        rawWitnessScript.length > 1000 ||
-        !/^[a-fA-F0-9]+$/.test(rawWitnessScript))
+      chainWitnessScript &&
+      (typeof chainWitnessScript !== 'string' ||
+        chainWitnessScript.length > 1000 ||
+        !/^[a-fA-F0-9]+$/.test(chainWitnessScript))
     ) {
       throw new Error('Invalid Witness Script specified');
     }
@@ -299,8 +436,8 @@ async function postSync(req, res) {
     if (processedBody.redeemScript) {
       data.redeemScript = processedBody.redeemScript;
     }
-    if (rawWitnessScript && typeof rawWitnessScript === 'string') {
-      data.witnessScript = rawWitnessScript;
+    if (chainWitnessScript && typeof chainWitnessScript === 'string') {
+      data.witnessScript = chainWitnessScript;
     }
     // SSP Key's recovery account xpub and its signature. SSP Wallet verifies the
     // signature itself, so this is carried through rather than interpreted.
@@ -318,6 +455,25 @@ async function postSync(req, res) {
     ) {
       data.xpubSignature = processedBody.xpubSignature;
     }
+
+    if (processedBody.keyXpubSignature !== undefined) {
+      if (
+        typeof processedBody.keyXpubSignature !== 'string' ||
+        processedBody.keyXpubSignature.length > 120 ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(processedBody.keyXpubSignature)
+      ) {
+        throw new Error('Invalid keyXpubSignature specified');
+      }
+      data.keyXpubSignature = processedBody.keyXpubSignature;
+    }
+
+    data.authenticated = req.isAuthenticated === true;
+    // Fails closed: if the current owner cannot be read, nothing is written.
+    const existing = await syncService.getSyncOwner(data.walletIdentity);
+    assertSyncRecordWritable(existing, {
+      wkIdentity: data.wkIdentity,
+      authenticated: data.authenticated,
+    });
 
     const tokenData = {
       wkIdentity: processedBody.wkIdentity,
@@ -344,10 +500,19 @@ async function postSync(req, res) {
   }
 }
 
-async function postToken(req, res) {
+async function postToken(req: AuthenticatedRequest, res) {
   try {
     // Strip auth fields before processing
     const processedBody = stripAuthFields(req.body);
+    // The route requires wkIdentity auth; never accept a token write for an
+    // identity other than the one that signed (it would redirect someone
+    // else's push notifications).
+    if (
+      req.isAuthenticated !== true ||
+      req.verifiedIdentity !== processedBody.wkIdentity
+    ) {
+      throw new Error('Unauthenticated token update refused');
+    }
     if (
       !processedBody.wkIdentity ||
       typeof processedBody.wkIdentity !== 'string' ||
