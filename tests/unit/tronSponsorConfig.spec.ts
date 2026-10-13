@@ -5,9 +5,17 @@ import sinon from 'sinon';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import config from 'config';
 import { NETWORKS, getNetwork, localSigner } from '@runonflux/tron-multisig';
+import defaultConfig from '../../config/default';
 import {
+  DEFAULT_NEW_VAULT_MAX_SPONSORED_ENERGY,
+  DEFAULT_NEW_VAULT_PAID_OPS,
   __setRuntimeForTests,
+  assertTronConfig,
+  configuredNewVaultMaxEnergy,
+  configuredNewVaultPaidOps,
+  getRuntime,
   getSponsorContext,
   isKillSwitchOn,
   parseRelayerKeys,
@@ -183,6 +191,141 @@ describe('TRON sponsor configuration', function () {
       } catch (e) {
         expect(e.message).to.not.include('ff'.repeat(32));
       }
+    });
+  });
+
+  describe('new-vault energy cap settings (TRX-1)', function () {
+    const ENV = [
+      'TRON_NEW_VAULT_MAX_ENERGY',
+      'TRON_NEW_VAULT_PAID_OPS',
+      relayerEnvVar('tron'),
+    ];
+    const saved: Record<string, string | undefined> = {};
+    let tmpHome: string;
+
+    /** A config source holding only `values` (node-config itself is frozen). */
+    function source(values: Record<string, unknown>) {
+      return {
+        has: (key: string) => key in values,
+        get: <T>(key: string): T => {
+          if (!(key in values)) throw new Error(`no ${key}`);
+          return values[key] as T;
+        },
+      };
+    }
+
+    beforeEach(function () {
+      tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ssp-relay-tron-'));
+      // getRuntime() must never read a real relayer key file.
+      sinon.stub(os, 'homedir').returns(tmpHome);
+      for (const k of ENV) {
+        saved[k] = process.env[k];
+        delete process.env[k];
+      }
+    });
+
+    afterEach(function () {
+      sinon.restore();
+      __setRuntimeForTests('tron', null);
+      fs.rmSync(tmpHome, { recursive: true, force: true });
+      for (const k of ENV) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+    });
+
+    it('config/default.ts ships 350k energy until 3 paid ops', function () {
+      expect(defaultConfig.tron.newVaultMaxSponsoredEnergy).to.equal(
+        DEFAULT_NEW_VAULT_MAX_SPONSORED_ENERGY,
+      );
+      expect(defaultConfig.tron.newVaultPaidOps).to.equal(
+        DEFAULT_NEW_VAULT_PAID_OPS,
+      );
+      expect(DEFAULT_NEW_VAULT_MAX_SPONSORED_ENERGY).to.equal(350_000);
+      expect(DEFAULT_NEW_VAULT_PAID_OPS).to.equal(3);
+      // The loaded node-config carries them, and the parsers read them.
+      expect(config.get('tron.newVaultMaxSponsoredEnergy')).to.equal(350_000);
+      expect(config.get('tron.newVaultPaidOps')).to.equal(3);
+      expect(configuredNewVaultMaxEnergy({})).to.equal(350_000n);
+      expect(configuredNewVaultPaidOps({})).to.equal(3);
+    });
+
+    it('reads the config value when the env var is unset', function () {
+      const cfg = source({
+        'tron.newVaultMaxSponsoredEnergy': 200_000,
+        'tron.newVaultPaidOps': 5,
+      });
+      expect(configuredNewVaultMaxEnergy({}, cfg)).to.equal(200_000n);
+      expect(configuredNewVaultPaidOps({}, cfg)).to.equal(5);
+    });
+
+    it('the env var wins over the config value', function () {
+      const cfg = source({
+        'tron.newVaultMaxSponsoredEnergy': 200_000,
+        'tron.newVaultPaidOps': 5,
+      });
+      expect(
+        configuredNewVaultMaxEnergy(
+          { TRON_NEW_VAULT_MAX_ENERGY: '400000' },
+          cfg,
+        ),
+      ).to.equal(400_000n);
+      expect(
+        configuredNewVaultPaidOps({ TRON_NEW_VAULT_PAID_OPS: '1' }, cfg),
+      ).to.equal(1);
+    });
+
+    it('falls back to the built-in defaults when config has no value', function () {
+      const cfg = source({});
+      expect(configuredNewVaultMaxEnergy({}, cfg)).to.equal(350_000n);
+      expect(configuredNewVaultPaidOps({}, cfg)).to.equal(3);
+    });
+
+    it('an out-of-range config value stops the relay at startup (fail closed)', function () {
+      for (const bad of [0, 49_999, 1_200_001, 300_000.5, -1, '1e6', null]) {
+        const cfg = source({ 'tron.newVaultMaxSponsoredEnergy': bad });
+        expect(
+          () => configuredNewVaultMaxEnergy({}, cfg),
+          String(bad),
+        ).to.throw(/tron\.newVaultMaxSponsoredEnergy/);
+        expect(() => assertTronConfig({}, cfg), String(bad)).to.throw(
+          /tron\.newVaultMaxSponsoredEnergy/,
+        );
+      }
+      for (const bad of [-1, 1001, 2.5, 'many', null]) {
+        const cfg = source({ 'tron.newVaultPaidOps': bad });
+        expect(() => configuredNewVaultPaidOps({}, cfg), String(bad)).to.throw(
+          /tron\.newVaultPaidOps/,
+        );
+        expect(() => assertTronConfig({}, cfg), String(bad)).to.throw(
+          /tron\.newVaultPaidOps/,
+        );
+      }
+      // The shipped config passes.
+      expect(() => assertTronConfig({})).to.not.throw();
+    });
+
+    it('the live runtime takes both values from config, env overriding', function () {
+      __setRuntimeForTests('tron', null);
+      let rt = getRuntime('tron');
+      expect(rt.newVaultMaxSponsoredEnergy).to.equal(350_000n);
+      expect(rt.newVaultPaidOps).to.equal(3);
+
+      process.env.TRON_NEW_VAULT_MAX_ENERGY = '600000';
+      process.env.TRON_NEW_VAULT_PAID_OPS = '0';
+      __setRuntimeForTests('tron', null);
+      rt = getRuntime('tron');
+      expect(rt.newVaultMaxSponsoredEnergy).to.equal(600_000n);
+      expect(rt.newVaultPaidOps).to.equal(0);
+    });
+
+    it('documents the failed-energy breaker as Mongo-backed, not per process', function () {
+      const src = fs.readFileSync(
+        path.join(__dirname, '../../config/default.ts'),
+        'utf8',
+      );
+      expect(src).to.not.match(/per relay\s*(?:\/\/\s*)?process/);
+      expect(src).to.match(/shared by every relay process/);
     });
   });
 

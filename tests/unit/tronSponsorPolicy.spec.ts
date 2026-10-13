@@ -50,7 +50,7 @@ async function refused(p: Promise<unknown>, re: RegExp) {
 }
 
 describe('TRON sponsor: sponsorable-call policy', () => {
-  it('sponsors TRX to a plain account, TRC-20 transfer on a whitelisted token, TRC-10 to a plain account and vault self-calls', async () => {
+  it('sponsors TRX to a plain account, TRC-20 transfer on a whitelisted token, TRC-10 to a plain account and the nonce-invalidation self-call', async () => {
     const { rt } = makeRuntime();
     const v = testVault();
     await assertSponsorableCalls(rt, v.vault, [
@@ -58,11 +58,66 @@ describe('TRON sponsor: sponsorable-call policy', () => {
       trc20TransferCall(USDT, RECIPIENT, 5_000_000n),
       trc10TransferCall(RECIPIENT, 1000001n, 10n),
       selfCall(v.vault, { action: 'invalidateNonces', word: 0n, mask: 1n }),
-      selfCall(v.vault, {
-        action: 'freezeBalanceV2',
-        amount: 1_000_000n,
+    ]);
+  });
+
+  it('TRX-3: never sponsors a Stake 2.0 self-call (needs an org policy the public relay cannot see)', async () => {
+    const { rt } = makeRuntime();
+    const v = testVault();
+    const staking = [
+      { action: 'freezeBalanceV2', amount: 1_000_000n, resource: 'ENERGY' },
+      { action: 'unfreezeBalanceV2', amount: 1n, resource: 'BANDWIDTH' },
+      { action: 'withdrawExpireUnfreeze' },
+      { action: 'cancelAllUnfreezeV2' },
+      {
+        action: 'delegateResource',
+        receiver: RECIPIENT,
+        amount: 10n ** 12n,
         resource: 'ENERGY',
-      }),
+      },
+      {
+        action: 'undelegateResource',
+        receiver: RECIPIENT,
+        amount: 1n,
+        resource: 'ENERGY',
+      },
+      { action: 'voteWitnesses', votes: [{ witness: RECIPIENT, count: 1n }] },
+      { action: 'withdrawReward' },
+    ];
+    for (const a of staking) {
+      await refused(
+        assertSponsorableCalls(rt, v.vault, [
+          trxTransferCall(RECIPIENT, 1n),
+          selfCall(v.vault, a),
+        ]),
+        new RegExp(
+          `call 1: staking self-calls \\(${a.action}\\) can't be sponsored`,
+        ),
+      );
+    }
+  });
+
+  it('TRX-5: an empty getcontractinfo for an account typed Contract is not "no code"', async () => {
+    const { rt, node } = makeRuntime();
+    const v = testVault();
+    // A lagging / failed-over node answers {} for a real contract, but its
+    // account still says Contract: refused, never sponsored as an EOA.
+    node.state.accounts.set(HOSTILE, { balance: 0n, type: 'Contract' });
+    await refused(
+      assertSponsorableCalls(rt, v.vault, [trxTransferCall(HOSTILE, 1n)]),
+      /TRX transfer to a contract/,
+    );
+    await refused(
+      assertSponsorableCalls(rt, v.vault, [
+        trc10TransferCall(HOSTILE, 1000001n, 1n),
+      ]),
+      /TRC-10 transfer to a contract/,
+    );
+    // A plain (Normal) or never-activated account is still a safe recipient.
+    node.state.accounts.set(RECIPIENT, { balance: 1n, type: 'Normal' });
+    await assertSponsorableCalls(rt, v.vault, [
+      trxTransferCall(RECIPIENT, 1n),
+      trxTransferCall(RANDOM_TOKEN, 1n),
     ]);
   });
 

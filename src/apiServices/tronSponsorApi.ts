@@ -1,6 +1,8 @@
 import tronSponsorService, {
   TronSponsorRefusal,
+  clientKeyOf,
 } from '../services/tronSponsorService';
+import { clientIpKey } from '../lib/clientIp';
 import serviceHelper from '../services/serviceHelper';
 import log from '../lib/log';
 import { stripAuthFields } from '../middleware/authMiddleware';
@@ -103,7 +105,11 @@ async function postBroadcast(req, res) {
       op: body.op as TronBroadcastRequest['op'],
       signatures: body.signatures as string[],
     };
-    const result = await tronSponsorService.broadcast(request);
+    // The per-client failure breaker (TRX-1) keys on a HASH of the same
+    // client IP the rate limiters use; the raw IP is never stored.
+    const result = await tronSponsorService.broadcast(request, {
+      clientKey: clientKeyOf(clientIpKey(req)),
+    });
     res.json(serviceHelper.createDataMessage(result));
   } catch (error) {
     sendError(res, error);

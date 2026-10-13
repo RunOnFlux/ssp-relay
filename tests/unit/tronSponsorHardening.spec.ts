@@ -197,10 +197,15 @@ describe('TRON sponsor hardening (adversarial review)', function () {
   });
 
   describe('failure circuit breakers (divergence the relay cannot see coming)', function () {
-    it('pauses sponsorship on the chain once on-chain failures burned the hourly budget', async function () {
+    it('pauses sponsorship of new vaults once their on-chain failures burned the hourly budget', async function () {
+      // v1 and v2 are fresh (no paid sponsored history): v1's failure lands
+      // in the new-vault pool, which pauses unproven vaults only.
       const v1 = testVault(0x73, 0x74);
       const v2 = testVault(0x75, 0x76);
-      const env = setup(v1, { maxFailedEnergyPerHour: 200_000 });
+      const env = setup(v1, {
+        maxFailedEnergyPerHour: 200_000,
+        maxNewVaultFailedEnergyPerHour: 200_000,
+      });
       env.node.state.accounts.set(v2.vault, { balance: 100_000_000n });
       failOnChain(env.node, 250_000);
       const first = await acceptAndBroadcast(
@@ -219,7 +224,9 @@ describe('TRON sponsor hardening (adversarial review)', function () {
         acceptAndBroadcast(env.rt, broadcastRequest(v2, later)),
       );
       expect(r.ok).to.equal(false);
-      expect(r.error.message).to.match(/temporarily unavailable/);
+      expect(r.error.message).to.match(
+        /temporarily unavailable for new vaults/,
+      );
       expect(env.node.state.broadcasts).to.have.length(1);
       // The window rolls: sponsorship resumes by itself.
       env.clock.now += 3_600_001;
@@ -233,7 +240,10 @@ describe('TRON sponsor hardening (adversarial review)', function () {
       // attacks land before the breaker notices the first one.
       const v1 = testVault(0x81, 0x82);
       const v2 = testVault(0x83, 0x84);
-      const env = setup(v1, { maxFailedEnergyPerHour: 200_000 });
+      const env = setup(v1, {
+        maxFailedEnergyPerHour: 200_000,
+        maxNewVaultFailedEnergyPerHour: 200_000,
+      });
       env.node.state.accounts.set(v2.vault, { balance: 100_000_000n });
       env.node.state.broadcastReply = (hex) => {
         const id = decodeTransaction(hex).txid;
@@ -270,7 +280,13 @@ describe('TRON sponsor hardening (adversarial review)', function () {
         broadcastRequest(v1, makeOp({ calls: trxCall, nonce: 1n })),
       );
       await first.confirmation;
-      expect(env.rt.failures.map((f) => f.energy)).to.deep.equal([300_000]);
+      // One persisted failure event (keyed by txid), not two.
+      const events = env.cols.reservations.docs.filter(
+        (d) => d.vault === '#failure',
+      );
+      expect(events.map((f) => f.energy)).to.deep.equal([300_000]);
+      expect(events[0].nonce).to.equal(first.txid);
+      expect(events[0].opVault).to.equal(v1.vault);
     });
 
     it('stops sponsoring a vault after repeated on-chain failures, even through digest retries', async function () {
@@ -339,13 +355,16 @@ describe('TRON sponsor hardening (adversarial review)', function () {
       expect(env.node.state.broadcasts).to.have.length(1);
       const refusedOne = results.find((x) => !x.ok);
       expect(refusedOne.error.message).to.match(/sponsor energy is low/);
+      // Either may win (colliding commitments back off at random); the
+      // loser's vault has nothing in flight.
+      const loser = results[0].ok ? v2 : v1;
       // Once the first transaction has had time to land (the node's figure
       // then already reflects it), S's energy is judged by the chain again.
       env.clock.now += 20_000;
       env.node.state.block.timestamp += 20_000n;
       const ok = await acceptAndBroadcast(
         env.rt,
-        broadcastRequest(v2, makeOp({ calls: trxCall, nonce: 2n })),
+        broadcastRequest(loser, makeOp({ calls: trxCall, nonce: 2n })),
       );
       expect(ok.txid).to.match(/^[0-9a-f]{64}$/);
     });

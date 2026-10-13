@@ -6,6 +6,7 @@ import httpMocks from 'node-mocks-http';
 import tronSponsorApi from '../../src/apiServices/tronSponsorApi';
 import tronSponsorService, {
   TronSponsorRefusal,
+  clientKeyOf,
 } from '../../src/services/tronSponsorService';
 
 function body(res) {
@@ -178,6 +179,36 @@ describe('TRON sponsor API', function () {
         op: { calls: [] },
         signatures: ['0x1', '0x2'],
       });
+    });
+
+    it('TRX-1: passes a HASH of the client IP for the per-client breaker; the body cannot set it', async function () {
+      const stub = sinon
+        .stub(tronSponsorService, 'broadcast')
+        .resolves({ txid: 'ab'.repeat(32) });
+      const res = httpMocks.createResponse();
+      await tronSponsorApi.postBroadcast(
+        httpMocks.createRequest({
+          method: 'POST',
+          headers: { 'cf-connecting-ip': '203.0.113.7' },
+          body: {
+            chain: 'tron',
+            signers: ['A'],
+            threshold: 1,
+            op: { calls: [] },
+            signatures: ['0x1'],
+            clientKey: 'f'.repeat(32),
+          },
+        }),
+        res,
+      );
+      const opts = stub.firstCall.args[1];
+      expect(opts.clientKey).to.equal(clientKeyOf('203.0.113.7'));
+      expect(opts.clientKey).to.match(/^[0-9a-f]{32}$/);
+      expect(opts.clientKey).to.not.equal('f'.repeat(32));
+      expect(JSON.stringify(stub.firstCall.args)).to.not.include('203.0.113.7');
+      expect(stub.firstCall.args[0]).to.not.have.property('clientKey');
+      expect(clientKeyOf('unknown')).to.equal(null);
+      expect(clientKeyOf('')).to.equal(null);
     });
 
     it('returns refusals as 400 and unexpected errors as 500', async function () {

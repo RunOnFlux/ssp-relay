@@ -61,8 +61,9 @@ export function makeRuntime(overrides: Partial<TronRuntime> = {}) {
     defaultMarkup: 1.15,
     maxOpsPerVaultPerDay: 50,
     maxFailedEnergyPerHour: 2_500_000,
-    failures: [],
-    committedEnergy: [],
+    maxNewVaultFailedEnergyPerHour: 1_500_000,
+    newVaultMaxSponsoredEnergy: 350_000n,
+    newVaultPaidOps: 3,
     rental: null,
     killSwitchOn: () => true,
     collections: async () =>

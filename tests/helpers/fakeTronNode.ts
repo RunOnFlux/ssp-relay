@@ -35,7 +35,8 @@ export interface FakeNodeState {
       originEnergyLimit?: number;
     }
   >;
-  accounts: Map<string, { balance: bigint }>;
+  /** `type` is getaccount's account type ('Normal', 'Contract', …). */
+  accounts: Map<string, { balance: bigint; type?: string }>;
   resources: Map<
     string,
     {
@@ -212,7 +213,12 @@ export function createFakeNode(): {
       }
       case '/wallet/getaccount': {
         const a = state.accounts.get(String(body.address));
-        reply = a ? { balance: Number(a.balance) } : {};
+        reply = a
+          ? {
+              balance: Number(a.balance),
+              ...(a.type !== undefined ? { type: a.type } : {}),
+            }
+          : {};
         break;
       }
       case '/wallet/getaccountresource':
@@ -261,6 +267,11 @@ export function createFakeNode(): {
   return {
     state,
     fetch,
-    client: new TronHttpClient('https://node.test', fetch),
+    // The SDK only reports `none` (no code) when the node's head block is
+    // fresh (getCodeState, review D-10): the client's clock follows the fake
+    // chain's head, so the fake node is never "lagging".
+    client: new TronHttpClient('https://node.test', fetch, {
+      now: () => Number(state.block.timestamp) + 1000,
+    }),
   };
 }

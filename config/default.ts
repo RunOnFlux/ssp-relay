@@ -85,14 +85,42 @@ export default {
     // Launch cap (plan §8.2): sponsored Ops per vault per rolling 24 h.
     // 0 disables the cap.
     maxOpsPerVaultPerDay: 50,
-    // Circuit breaker: once sponsored transactions that FAILED on-chain burned
-    // this much of S's energy in the rolling hour, the relay refuses new
-    // sponsored broadcasts on that chain until the window rolls (per relay
-    // process; logged as an error). A vault's owner can always force a revert
-    // the relay cannot foresee (a self-paid Op racing the sponsored one, code
-    // deployed at a recipient), so this bounds what that costs. ≈ 2 max-size
-    // failures; 0 disables it.
+    // Circuit breaker: once sponsored transactions of PROVEN vaults (vaults
+    // that had paid `newVaultPaidOps` sponsored fees) that FAILED on-chain
+    // burned this much of S's energy in the rolling hour, and those failures
+    // come from at least 3 distinct vaults, the relay refuses new sponsored
+    // broadcasts on that chain until the window rolls (logged as an error).
+    // The failure events live in Mongo (`tronNonceReservations`, kept 24 h),
+    // so the budget is shared by every relay process and survives restarts.
+    // A vault's owner can always force a revert the relay cannot foresee (a
+    // self-paid Op racing the sponsored one, code deployed at a recipient),
+    // so this bounds what that costs. ≈ 2 max-size failures; 0 disables it.
+    // (The per-vault, per-signer and per-client failure limits are fixed in
+    // tronSponsorService and are not configured here.)
     maxFailedEnergyPerHour: 2_500_000,
+    // The same budget for failures of NEW (unproven) vaults, kept apart so
+    // that free fresh vaults cannot stop sponsorship for everyone: exhausting
+    // it refuses only vaults without paid sponsored history; proven vaults
+    // keep being sponsored. ≈ 3–4 failed races of fresh 2-of-2 vaults.
+    // Integer in [0, 100000000]; 0 = no separate pool (new-vault failures
+    // count toward maxFailedEnergyPerHour instead). Env
+    // TRON_MAX_NEW_VAULT_FAILED_ENERGY_PER_HOUR overrides it; read at start.
+    maxNewVaultFailedEnergyPerHour: 1_500_000,
+    // New-vault energy cap (TRX-1): vaults and signers are free, so until a
+    // vault has paid `newVaultPaidOps` confirmed sponsored fees, a sponsored
+    // Op may simulate to at most `newVaultMaxSponsoredEnergy` energy instead
+    // of the 1.2M launch cap. 350k admits one transfer of any kind on first
+    // use of a 2-of-2 vault (a first send costs 172k–305k), so a fresh
+    // 2-of-2 vault can put at most 1.25 × 350k of S's energy at stake per
+    // failed race. Vaults with a larger threshold get +4,650 per signature
+    // above 2 (the measured cost of verifying it; 20-of-40: 433,700).
+    // Integer in [50000, 1200000]; env TRON_NEW_VAULT_MAX_ENERGY overrides it.
+    newVaultMaxSponsoredEnergy: 350_000,
+    // Confirmed, fee-paying sponsored Ops after which a vault gets the full
+    // launch cap. Integer in [0, 1000]; 0 disables the new-vault cap. Env
+    // TRON_NEW_VAULT_PAID_OPS overrides it. Both are read at start: restart
+    // the relay after changing them.
+    newVaultPaidOps: 3,
     // Per network: `node` = full-node HTTP API (/wallet/*, /walletsolidity/*),
     // `api` = TronGrid v1. Both are the ssp-backends-proxy Worker, which gets
     // the X-SSP-Relay-Key header like the Solana path.
