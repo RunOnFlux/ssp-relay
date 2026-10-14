@@ -1473,13 +1473,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@runonflux/kaspa-core@npm:1.0.0":
-  version: 1.0.0
-  resolution: "@runonflux/kaspa-core@npm:1.0.0"
+"@runonflux/kaspa-core@npm:1.0.1":
+  version: 1.0.1
+  resolution: "@runonflux/kaspa-core@npm:1.0.1"
   dependencies:
     "@noble/curves": "npm:2.4.0"
     "@noble/hashes": "npm:2.4.0"
-  checksum: 10c0/18f1099907a0c82ddf3ff6d37fb32b6ec20b61172edc6fa2ab0f081fa1f1e9b3c4555e384f12fb8db988cfb6f0bcd474470cdc751eb5d5f574040ba67e69a768
+  checksum: 10c0/a4bc1bf710524f4a2285ad705cab6928bdfb8cf1797db977ac75dcf0fac97f2c28b79c9d12ef9154c94c3bb1bfc024140176cdfad9ecc9c3e57b40f65adb14c8
   languageName: node
   linkType: hard
 
@@ -7363,7 +7363,7 @@ __metadata:
     "@eslint/js": "npm:9.39.2"
     "@noble/curves": "npm:1.9.1"
     "@runonflux/aa-schnorr-multisig-sdk": "npm:1.3.0"
-    "@runonflux/kaspa-core": "npm:1.0.0"
+    "@runonflux/kaspa-core": "npm:1.0.1"
     "@runonflux/solana-multisig": "npm:0.12.0"
     "@runonflux/tron-multisig": "file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0-f79be28a.tgz"
     "@runonflux/utxo-lib": "npm:1.0.5"
