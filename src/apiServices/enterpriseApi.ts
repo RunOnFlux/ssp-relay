@@ -756,6 +756,8 @@ const postVaultProposalRetryBroadcast = vaultHandler(
 const postVaultProposalTronInvalidate = vaultHandler(
   'vaultProposalTronInvalidate',
 );
+// Add payments to a pending UTXO/Kaspa proposal (rebuilt, signatures reset).
+const postVaultProposalAmend = vaultHandler('vaultProposalAmend');
 // Vault signature requests (WalletConnect Phase 2 — vault message signing).
 const postVaultSignatureRequest = vaultHandler('vaultSignatureRequestCreate');
 const getVaultSignatureRequests = vaultHandler('vaultSignatureRequestList');
@@ -1088,6 +1090,7 @@ export default {
   postVaultProposalCancel,
   postVaultProposalRetryBroadcast,
   postVaultProposalTronInvalidate,
+  postVaultProposalAmend,
   postVaultSignatureRequest,
   getVaultSignatureRequests,
   getVaultSignatureRequest,
