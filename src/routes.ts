@@ -230,6 +230,22 @@ const previewSimulateLimiter = rateLimit({
   },
 });
 
+// Public, unauthenticated read of a proposal share link (payment status for
+// the payee). The token is a 256-bit secret, so this only bounds scraping and
+// load: 60/min per IP is far above a person refreshing a status page (the page
+// itself polls every 15-30s).
+const publicShareLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  message: {
+    status: 'error',
+    data: { message: 'Too many requests. Please wait a minute and retry.' },
+  },
+});
+
 // Start nonce cache cleanup on module load
 startNonceCacheCleanup();
 
@@ -1349,6 +1365,35 @@ export default (app) => {
     '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/retry-broadcast',
     (req, res) => {
       enterpriseApi.postVaultProposalRetryBroadcast(req, res);
+    },
+  );
+  // Read-only share links for a proposal (payment status for the payee).
+  // Pass-through only; permissions and validation live in the enterprise module.
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/shares',
+    (req, res) => {
+      enterpriseApi.postVaultProposalShare(req, res);
+    },
+  );
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/shares',
+    (req, res) => {
+      enterpriseApi.getVaultProposalShares(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/shares/:shareId/revoke',
+    (req, res) => {
+      enterpriseApi.postVaultProposalShareRevoke(req, res);
+    },
+  );
+  // PUBLIC (no session): the view behind a share link. Token in the body so it
+  // never lands in URL access logs.
+  app.post(
+    '/v1/enterprise/public/proposal-share',
+    publicShareLimiter,
+    (req, res) => {
+      enterpriseApi.postPublicProposalShare(req, res);
     },
   );
 
