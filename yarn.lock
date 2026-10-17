@@ -1460,32 +1460,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@runonflux/aa-schnorr-multisig-sdk@npm:1.3.0":
-  version: 1.3.0
-  resolution: "@runonflux/aa-schnorr-multisig-sdk@npm:1.3.0"
+"@runonflux/aa-schnorr-multisig-sdk@npm:1.5.0":
+  version: 1.5.0
+  resolution: "@runonflux/aa-schnorr-multisig-sdk@npm:1.5.0"
   dependencies:
     "@alchemy/aa-core": "npm:^3.19.0"
     bigi: "npm:^1.4.2"
     ecurve: "npm:^1.0.6"
     ethers: "npm:^6.13.5"
     secp256k1: "npm:^5.0.1"
-  checksum: 10c0/bad12ec9ab5bb5c47e3139ad6a9cca8a5cd56a4b8a9c2bbce836b7d1e4b21709192916b12b7115faf12168ae087b82cdde8415446a9001b8e263da5c35081d35
+  checksum: 10c0/13749361ce9aa1702f36111bccedbdb8099716bda6ae0543d37705c68f5595ab302c5215bcec49771af1203d1e48f5ec1d778219c7fc61e67804b1564836304b
   languageName: node
   linkType: hard
 
-"@runonflux/solana-multisig@npm:0.12.0":
-  version: 0.12.0
-  resolution: "@runonflux/solana-multisig@npm:0.12.0"
+"@runonflux/solana-multisig@npm:0.12.1":
+  version: 0.12.1
+  resolution: "@runonflux/solana-multisig@npm:0.12.1"
   dependencies:
     "@coral-xyz/anchor": "npm:0.31.1"
     "@solana/web3.js": "npm:1.98.4"
-  checksum: 10c0/982bfb92e5bf38e996a74d425daef1f9a85d37ef6b01de393fd466a03089c43a0bed9e9c133e45addaba2c530bc9964b34076b32c74ac7cdd4e5f03c38d7b49e
+  checksum: 10c0/abd28e47a6ad9eed308cfa783648ed897471c23b9b0e503f573aa91c7da5a34fadfa5566133f236da51643270f5915894dde8090eb863ec9426573cc2e76149c
   languageName: node
   linkType: hard
 
-"@runonflux/utxo-lib@npm:1.0.5":
-  version: 1.0.5
-  resolution: "@runonflux/utxo-lib@npm:1.0.5"
+"@runonflux/utxo-lib@npm:1.0.6":
+  version: 1.0.6
+  resolution: "@runonflux/utxo-lib@npm:1.0.6"
   dependencies:
     bech32: "npm:0.0.3"
     bigi: "npm:^1.4.0"
@@ -1502,14 +1502,14 @@ __metadata:
     pushdata-bitcoin: "npm:^1.0.1"
     randombytes: "npm:^2.0.1"
     safe-buffer: "npm:^5.0.1"
-    secp256k1: "npm:^3.5.2"
+    secp256k1: "npm:^3.8.1"
     typeforce: "npm:^1.11.3"
     varuint-bitcoin: "npm:^1.0.4"
     wif: "npm:^2.0.1"
   dependenciesMeta:
     secp256k1:
       optional: true
-  checksum: 10c0/c89c90c3a8848a2b5524f9866a7a9af20d59bfa586aa8a0baf229bf3d3533279100fd04f7d05f36215d1c55983c1908af9dd9518f2200d178bbff939e1e27580
+  checksum: 10c0/ff0b5eadb49156d4d6ff8f98fff9f203c92f6cded81bfeaed7a8afec6eb63c45c6f6e972d57643826ad0c5742a34bde1f4f74d24f697c47bd682a3985e645406
   languageName: node
   linkType: hard
 
@@ -6988,7 +6988,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"secp256k1@npm:^3.0.1, secp256k1@npm:^3.5.2":
+"secp256k1@npm:^3.0.1, secp256k1@npm:^3.8.1":
   version: 3.8.1
   resolution: "secp256k1@npm:3.8.1"
   dependencies:
@@ -7311,9 +7311,9 @@ __metadata:
   resolution: "ssp-relay@workspace:."
   dependencies:
     "@eslint/js": "npm:9.39.2"
-    "@runonflux/aa-schnorr-multisig-sdk": "npm:1.3.0"
-    "@runonflux/solana-multisig": "npm:0.12.0"
-    "@runonflux/utxo-lib": "npm:1.0.5"
+    "@runonflux/aa-schnorr-multisig-sdk": "npm:1.5.0"
+    "@runonflux/solana-multisig": "npm:0.12.1"
+    "@runonflux/utxo-lib": "npm:1.0.6"
     "@scure/bip32": "npm:2.2.0"
     "@solana/spl-token": "npm:0.4.14"
     "@solana/web3.js": "npm:1.98.4"
