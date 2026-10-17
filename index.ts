@@ -13,10 +13,12 @@ import databaseService from './src/services/databaseIndexCreationService';
 import ratesService from './src/services/ratesService';
 import networkFeesService from './src/services/networkFeesService';
 import { logPaymasterStatus } from './src/services/solPaymasterService';
+import { logAuthModeBanner } from './src/middleware/authMiddleware';
 
 async function startServer() {
   try {
     log.info('Starting SSP Relay server');
+    logAuthModeBanner();
 
     // Setup graceful shutdown handlers first
     setupGracefulShutdown();

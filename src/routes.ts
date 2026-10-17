@@ -18,9 +18,11 @@ import enterpriseHooks from './services/enterpriseHooks';
 import log from './lib/log';
 import {
   requireAuth,
-  optionalWkIdentityAuth,
+  requireReadAuth,
   requireWkIdentityAuth,
+  requireWkIdentityAuthLegacyGated,
 } from './middleware/authMiddleware';
+import { isUnsignedRecoveryRequest } from './apiServices/actionApi';
 import { apiKeyAuth } from './middleware/apiKeyAuth';
 import { startNonceCacheCleanup } from './lib/identityAuth';
 
@@ -94,11 +96,11 @@ const pricingLimiter = rateLimit({
 });
 
 // Solana paymaster broadcast — each request triggers an on-chain Solana
-// tx that costs the relay-operator real SOL (paymaster fee + potential
-// leaf-funding top-up). 10/min/IP keeps any single user well under the
-// per-tx cost ceiling while allowing normal back-to-back sends. Combined
-// with `optionalWkIdentityAuth` on the route, this protects the paymaster
-// wallet from drainage attacks.
+// tx that costs the relay-operator real SOL (paymaster fee). 10/min/IP keeps
+// any single user well under the per-tx cost ceiling while allowing normal
+// back-to-back sends. The paymaster's real protection is the positive
+// instruction allowlist + balance-delta simulation in broadcastWithPaymaster;
+// WK auth on the route (RELAY_LEGACY_UNAUTH_MODE-gated) adds attribution.
 const solBroadcastLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -110,6 +112,64 @@ const solBroadcastLimiter = rateLimit({
     data: {
       message:
         'Too many Solana broadcast requests. Please wait a minute and try again.',
+    },
+  },
+});
+
+// Wallet-recovery requests are the one action posted UNSIGNED (the recovering
+// wallet has no keys). Each one pushes an approval prompt to the target's
+// SSP Key, so cap them hard per IP. Signed actions skip this limiter.
+const unsignedRecoveryLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  skip: (req) => {
+    const body = req.body as Record<string, unknown> | undefined;
+    return !(
+      body &&
+      typeof body === 'object' &&
+      !body.signature &&
+      !body.message &&
+      !body.publicKey &&
+      body.action === 'recoveryrequest'
+    );
+  },
+  message: {
+    status: 'error',
+    data: {
+      message: 'Too many recovery requests. Please wait and try again.',
+    },
+  },
+});
+
+// …and per target identity, so many IPs cannot flood one person's Key with
+// recovery prompts (or keep its action slot busy).
+const unsignedRecoveryIdentityLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const wk = (req.body as Record<string, unknown> | undefined)?.wkIdentity;
+    return `recovery:${typeof wk === 'string' ? wk.slice(0, 200) : 'none'}`;
+  },
+  skip: (req) => {
+    const body = req.body as Record<string, unknown> | undefined;
+    return !(
+      body &&
+      typeof body === 'object' &&
+      !body.signature &&
+      !body.message &&
+      !body.publicKey &&
+      body.action === 'recoveryrequest'
+    );
+  },
+  message: {
+    status: 'error',
+    data: {
+      message: 'Too many recovery requests for this identity. Please wait.',
     },
   },
 });
@@ -233,72 +293,117 @@ const previewSimulateLimiter = rateLimit({
 // Start nonce cache cleanup on module load
 startNonceCacheCleanup();
 
+// Route-bound signed actions (the `action` inside the signed payload), as the
+// clients send them: wallet 2.1.3+/Key 2.1.1+ sign /v1/action, /v1/nonces*,
+// /v1/sol/* and /v1/enterprise/* with 'action'; the Key signs /v1/sync with
+// 'sync', /v1/token with 'token' and /v1/recoverypub with 'sync'.
+const requireSyncAuth = requireAuth('wkIdentity', {
+  actions: ['sync'],
+  unauthenticated: 'legacy',
+});
+const requireTokenAuth = requireAuth('wkIdentity', { actions: ['token'] });
+const requireRecoveryPubAuth = requireAuth('wkIdentity', {
+  actions: ['sync'],
+});
+
 export default (app) => {
-  // return sync data (no auth needed for GET)
-  app.get('/v1/sync{/:id}', (req, res) => {
+  // Reads of pending coordination state. Header-signed by the clients
+  // (requireReadAuth, action 'read', path-hash bound). RELAY_READ_AUTH_MODE
+  // decides whether UNSIGNED reads are still served ('log', default until the
+  // new apps reach adoption) or refused ('enforce'). Bad auth is always 401.
+  //   /v1/sync/<walletIdentity>  signed by the wallet's identity key
+  //   /v1/action/<wkIdentity>    signed by wallet or Key as wkIdentity
+  app.get('/v1/sync{/:id}', requireReadAuth('id'), (req, res) => {
     syncApi.getSync(req, res);
   });
-  app.get('/v1/action{/:id}', (req, res) => {
-    actionApi.getAction(req, res);
-  });
+  // Under 'enforce' an unsigned read of /v1/action may only return a wallet
+  // recovery answer (the recovering wallet has no keys; the answer is
+  // encrypted to its ephemeral key). See actionApi.getAction.
+  app.get(
+    '/v1/action{/:id}',
+    requireReadAuth('id', { allowUnsignedRecoveryRead: true }),
+    (req, res) => {
+      actionApi.getAction(req, res);
+    },
+  );
   // TRANSITIONAL — remove once adoption allows; see recoveryPubApi.ts.
-  // SSP Key's recovery account xpub. Public data, so the GET is open like the
-  // other reads; the wallet verifies the stored signature itself.
+  // SSP Key's recovery account xpub. Public data (signed by the Key), so the
+  // GET stays open; the wallet verifies the stored signature itself.
   app.get('/v1/recoverypub{/:id}', (req, res) => {
     recoveryPubApi.getRecoveryPub(req, res);
   });
 
-  // post sync data - requires walletIdentity auth (from SSP Key)
-  // Note: Using optional auth during transition period
-  // TODO: Change to requireAuth('walletIdentity') after clients are updated
-  app.post(
-    '/v1/sync',
-    requireAuth('wkIdentity', { required: false }),
-    (req, res) => {
-      syncApi.postSync(req, res);
-    },
-  );
+  // post sync data — SSP Key signs as wkIdentity; the handler binds the
+  // record's walletIdentity to the WK pair. Key 2.1.1 does not sign this yet,
+  // so unsigned posts follow RELAY_LEGACY_UNAUTH_MODE (log by default).
+  // Signed payload action: 'sync'.
+  app.post('/v1/sync', requireSyncAuth, (req, res) => {
+    syncApi.postSync(req, res);
+  });
 
-  // post token - requires wkIdentity auth
-  // Note: Using optional auth during transition period
-  app.post('/v1/token', optionalWkIdentityAuth, (req, res) => {
+  // post FCM token — always signed by SSP Key as wkIdentity (action 'token').
+  app.post('/v1/token', requireTokenAuth, (req, res) => {
     syncApi.postToken(req, res);
   });
 
-  // post action data - requires wkIdentity auth
-  // Note: Using optional auth during transition period
-  app.post('/v1/action', optionalWkIdentityAuth, (req, res) => {
-    actionApi.postAction(req, res);
-  });
+  // post action data — signed as wkIdentity by wallet and Key. The single
+  // by-design exception is the wallet-recovery request (the recovering wallet
+  // has no keys); it must match its exact payload shape and is rate-limited.
+  app.post(
+    '/v1/action',
+    unsignedRecoveryLimiter,
+    unsignedRecoveryIdentityLimiter,
+    requireAuth('wkIdentity', {
+      actions: ['action'],
+      allowUnauthenticated: isUnsignedRecoveryRequest,
+    }),
+    (req, res) => {
+      actionApi.postAction(req, res);
+    },
+  );
 
   // post recovery account xpub (from SSP Key)
   // TRANSITIONAL — remove once adoption allows; see recoveryPubApi.ts.
   // Writes are authenticated: the record is keyed by wkIdentity and only the
   // paired Key may write its own.
-  app.post('/v1/recoverypub', requireWkIdentityAuth, (req, res) => {
+  // SSP Key (2.1.1 and later) signs this with payload action 'sync'.
+  app.post('/v1/recoverypub', requireRecoveryPubAuth, (req, res) => {
     recoveryPubApi.postRecoveryPub(req, res);
   });
 
-  // post nonces - periodic sync of public nonces from wallet/key
-  // Note: Using optional auth during transition period
-  app.post('/v1/nonces', optionalWkIdentityAuth, (req, res) => {
+  // Enterprise nonce pools. Signed as wkIdentity; the enterprise module binds
+  // body.wkIdentity to req.verifiedIdentity. Released clients do not sign
+  // these yet, so unsigned posts follow RELAY_LEGACY_UNAUTH_MODE.
+  app.post('/v1/nonces', requireWkIdentityAuthLegacyGated, (req, res) => {
     noncesApi.postNonces(req, res);
   });
 
-  // get nonce pool status (no auth — identity is in URL, validation in enterprise module)
-  app.get('/v1/nonces/status/:wkIdentity', (req, res) => {
-    noncesApi.getNonceStatus(req, res);
-  });
+  // nonce pool status — header-signed read (RELAY_READ_AUTH_MODE)
+  app.get(
+    '/v1/nonces/status/:wkIdentity',
+    requireReadAuth('wkIdentity'),
+    (req, res) => {
+      noncesApi.getNonceStatus(req, res);
+    },
+  );
 
   // validate nonces - check if submitted nonces are stored correctly
-  app.post('/v1/nonces/validate', optionalWkIdentityAuth, (req, res) => {
-    noncesApi.validateNonces(req, res);
-  });
+  app.post(
+    '/v1/nonces/validate',
+    requireWkIdentityAuthLegacyGated,
+    (req, res) => {
+      noncesApi.validateNonces(req, res);
+    },
+  );
 
   // reconcile nonces - purge server-side orphans not present on device
-  app.post('/v1/nonces/reconcile', optionalWkIdentityAuth, (req, res) => {
-    noncesApi.reconcileNonces(req, res);
-  });
+  app.post(
+    '/v1/nonces/reconcile',
+    requireWkIdentityAuthLegacyGated,
+    (req, res) => {
+      noncesApi.reconcileNonces(req, res);
+    },
+  );
 
   // rates endpoint
   app.get('/v1/rates', (req, res) => {
@@ -316,10 +421,13 @@ export default (app) => {
   app.get('/v1/sol/paymaster', (req, res) => {
     solPaymasterApi.getPaymaster(req, res);
   });
+  // Consumer Solana broadcast (SSP Key) and vault setup (wallet). WK auth;
+  // released clients do not sign these yet, so unsigned posts follow
+  // RELAY_LEGACY_UNAUTH_MODE (log by default).
   app.post(
     '/v1/sol/broadcast',
     solBroadcastLimiter,
-    optionalWkIdentityAuth,
+    requireWkIdentityAuthLegacyGated,
     (req, res) => {
       solPaymasterApi.postBroadcast(req, res);
     },
@@ -331,7 +439,7 @@ export default (app) => {
   app.post(
     '/v1/sol/setup',
     solBroadcastLimiter,
-    optionalWkIdentityAuth,
+    requireWkIdentityAuthLegacyGated,
     (req, res) => {
       solPaymasterApi.postSetup(req, res);
     },
@@ -365,37 +473,21 @@ export default (app) => {
   });
 
   // SSP Enterprise - notification subscription (requires wkIdentity auth)
-  app.post(
-    '/v1/enterprise/subscribe',
-    requireAuth('wkIdentity'),
-    (req, res) => {
-      enterpriseNotificationApi.postSubscribe(req, res);
-    },
-  );
-  app.post(
-    '/v1/enterprise/unsubscribe',
-    requireAuth('wkIdentity'),
-    (req, res) => {
-      enterpriseNotificationApi.postUnsubscribe(req, res);
-    },
-  );
-  app.post(
-    '/v1/enterprise/subscription',
-    requireAuth('wkIdentity'),
-    (req, res) => {
-      enterpriseNotificationApi.getStatus(req, res);
-    },
-  );
+  app.post('/v1/enterprise/subscribe', requireWkIdentityAuth, (req, res) => {
+    enterpriseNotificationApi.postSubscribe(req, res);
+  });
+  app.post('/v1/enterprise/unsubscribe', requireWkIdentityAuth, (req, res) => {
+    enterpriseNotificationApi.postUnsubscribe(req, res);
+  });
+  app.post('/v1/enterprise/subscription', requireWkIdentityAuth, (req, res) => {
+    enterpriseNotificationApi.getStatus(req, res);
+  });
   // Update notification preferences from SSP Wallet (partial update; incl.
   // the minimum-USD tx email filter). Same wkIdentity signature auth as
   // subscribe/unsubscribe.
-  app.post(
-    '/v1/enterprise/preferences',
-    requireAuth('wkIdentity'),
-    (req, res) => {
-      enterpriseNotificationApi.postUpdatePreferences(req, res);
-    },
-  );
+  app.post('/v1/enterprise/preferences', requireWkIdentityAuth, (req, res) => {
+    enterpriseNotificationApi.postUpdatePreferences(req, res);
+  });
 
   // SSP Enterprise - wallet tx notification preferences (session auth, used
   // by the Enterprise App; distinct from the org-scoped /notification-prefs
@@ -1208,6 +1300,14 @@ export default (app) => {
   app.get('/v1/enterprise/vaults/pending-setup', (req, res) => {
     enterpriseApi.getVaultPendingSetups(req, res);
   });
+
+  // Vault descriptor (signer set the wallet and Key verify and pin)
+  app.get(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/descriptor',
+    (req, res) => {
+      enterpriseApi.getVaultDescriptor(req, res);
+    },
+  );
 
   // Vault addresses
   app.get(

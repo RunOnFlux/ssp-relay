@@ -10,7 +10,7 @@ import config from 'config';
 import routes from '../routes';
 import { errorHandler, notFoundHandler, timeoutHandler } from './errorHandler';
 import serviceHelper from '../services/serviceHelper';
-import { clientIpKey } from './clientIp';
+import { attachClientIp, clientIpKey } from './clientIp';
 
 const app = express();
 
@@ -42,6 +42,11 @@ const trustProxyValue = trustProxyEnv
     : trustProxyEnv
   : config.server.trustProxy;
 app.set('trust proxy', trustProxyValue);
+
+// Stamp the Cloudflare-verified client IP on every request first
+// (req.sspClientIp / req.sspViaCloudflare; see clientIp.ts). The enterprise
+// module reads only these, never raw forwarding headers.
+app.use(attachClientIp);
 
 // Request logging
 app.use(

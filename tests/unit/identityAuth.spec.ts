@@ -13,12 +13,17 @@ import {
   verifySingleSigAuth,
   verifyMultisigAuth,
   isMultisigIdentity,
+  isValidCompressedPubKey,
   detectNetworkFromAddress,
   generateNonce,
   createSignaturePayload,
   cleanupNonceCache,
   consumeNonce,
+  nonceCacheSize,
+  resetNonceCache,
+  MAX_TIMESTAMP_DRIFT_MS,
 } from '../../src/lib/identityAuth';
+import sinon from 'sinon';
 
 // Test fixtures - derived from a known WIF
 const TEST_PRIVATE_KEY_WIF =
@@ -31,7 +36,13 @@ const TEST_ADDRESS = '15hETetDmcXm1mM4sEf7U2KXC9hDHFMSzz'; // P2PKH address matc
 // For multisig testing - 2 key pairs
 // TEST_PUBKEY_1 matches TEST_PUBLIC_KEY so we can sign with TEST_PRIVATE_KEY_WIF
 const TEST_PUBKEY_1 = TEST_PUBLIC_KEY;
+// A valid compressed point (the secp256k1 generator, private key 1). The
+// previous fixture was an off-curve x coordinate, which the strict witness
+// script parser now (correctly) refuses.
 const TEST_PUBKEY_2 =
+  '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+// An x coordinate that is NOT on the curve (no matching y exists).
+const OFF_CURVE_PUBKEY =
   '0354dae65cc6eede1d82b4a68a97c28b1f2cd44f7d99b86a2bdcfe89e9fd5c7f9e';
 
 // Generate a 2-of-2 witness script for testing
@@ -266,6 +277,66 @@ describe('Identity Authentication Library', function () {
       expect(result.error).to.include('action');
     });
 
+    // UTXO-9: a non-numeric timestamp used to yield NaN, which slipped past
+    // the drift comparison.
+    it('rejects non-numeric, non-integer and non-finite timestamps', function () {
+      for (const timestamp of [
+        'not-a-number',
+        String(Date.now()),
+        Number.NaN,
+        Number.POSITIVE_INFINITY,
+        Date.now() + 0.5,
+        null,
+        undefined,
+        { valueOf: () => Date.now() },
+      ]) {
+        const result = validateSignaturePayload({
+          timestamp,
+          action: 'join',
+          identity: 'test-identity',
+          nonce: crypto.randomBytes(32).toString('hex'),
+        } as unknown as Parameters<typeof validateSignaturePayload>[0]);
+        expect(result.valid, String(timestamp)).to.equal(false);
+        expect(result.error).to.match(/timestamp/i);
+      }
+    });
+
+    it('rejects a non-string nonce and a non-object payload', function () {
+      const result = validateSignaturePayload({
+        timestamp: Date.now(),
+        action: 'join',
+        identity: 'test-identity',
+        nonce: 1234 as unknown as string,
+      });
+      expect(result.valid).to.equal(false);
+      expect(
+        validateSignaturePayload(
+          null as unknown as Parameters<typeof validateSignaturePayload>[0],
+        ).valid,
+      ).to.equal(false);
+    });
+
+    it("does not accept a 'read' payload unless the caller allows it", function () {
+      const payload = {
+        timestamp: Date.now(),
+        action: 'read' as const,
+        identity: 'test-identity',
+        nonce: crypto.randomBytes(32).toString('hex'),
+      };
+      expect(validateSignaturePayload(payload).valid).to.equal(false);
+      expect(
+        validateSignaturePayload({ ...payload }, undefined, ['read']).valid,
+      ).to.equal(true);
+      // and a read-only caller refuses write actions
+      expect(
+        validateSignaturePayload(
+          { ...payload, action: 'action' as const },
+          undefined,
+          ['read'],
+        ).valid,
+      ).to.equal(false);
+    });
+
     it('should reject reused nonce', function () {
       // Clean cache first
       cleanupNonceCache();
@@ -392,7 +463,74 @@ describe('Identity Authentication Library', function () {
     it('should throw for script missing OP_CHECKMULTISIG', function () {
       // Just OP_2 and two pubkeys, no OP_CHECKMULTISIG
       const badScript = '5221' + TEST_PUBKEY_1 + '21' + TEST_PUBKEY_2 + '52'; // Missing ae
-      expect(() => parseWitnessScript(badScript)).to.throw('OP_CHECKMULTISIG');
+      expect(() => parseWitnessScript(badScript)).to.throw(
+        'Invalid witness script',
+      );
+    });
+
+    // UTXO-9: only the exact canonical 2-of-2 layout is accepted.
+    it('rejects a script with an interleaved opcode between the keys', function () {
+      // OP_2 <k1> OP_NOP <k2> OP_2 OP_CHECKMULTISIG — used to parse because
+      // non-push chunks were skipped.
+      const script =
+        '5221' + TEST_PUBKEY_1 + '61' + '21' + TEST_PUBKEY_2 + '52ae';
+      expect(() => parseWitnessScript(script)).to.throw(
+        'Invalid witness script',
+      );
+    });
+
+    it('rejects a 1-of-2 and a 2-of-3 script', function () {
+      const oneOfTwo = '5121' + TEST_PUBKEY_1 + '21' + TEST_PUBKEY_2 + '52ae';
+      expect(() => parseWitnessScript(oneOfTwo)).to.throw(
+        'Invalid witness script',
+      );
+      const third = '03' + crypto.randomBytes(32).toString('hex'); // length only matters
+      const twoOfThree =
+        '5221' + TEST_PUBKEY_1 + '21' + TEST_PUBKEY_2 + '21' + third + '53ae';
+      expect(() => parseWitnessScript(twoOfThree)).to.throw(
+        'Invalid witness script',
+      );
+    });
+
+    it('rejects a script with the same key twice', function () {
+      const dup = '5221' + TEST_PUBKEY_1 + '21' + TEST_PUBKEY_1 + '52ae';
+      expect(() => parseWitnessScript(dup)).to.throw('distinct');
+    });
+
+    it('rejects an off-curve or uncompressed key', function () {
+      const offCurve =
+        '5221' + TEST_PUBKEY_1 + '21' + OFF_CURVE_PUBKEY + '52ae';
+      expect(() => parseWitnessScript(offCurve)).to.throw(
+        'valid compressed secp256k1 point',
+      );
+      const badPrefix =
+        '5221' + TEST_PUBKEY_1 + '21' + '04' + TEST_PUBKEY_2.slice(2) + '52ae';
+      expect(() => parseWitnessScript(badPrefix)).to.throw(
+        'valid compressed secp256k1 point',
+      );
+    });
+
+    it('rejects non-hex input and trailing bytes', function () {
+      expect(() => parseWitnessScript('zz')).to.throw('Invalid witness script');
+      const trailing = generateTestWitnessScript() + '00';
+      expect(() => parseWitnessScript(trailing)).to.throw(
+        'Invalid witness script',
+      );
+    });
+  });
+
+  describe('isValidCompressedPubKey', function () {
+    it('accepts on-curve compressed keys and rejects everything else', function () {
+      expect(isValidCompressedPubKey(TEST_PUBKEY_1)).to.equal(true);
+      expect(isValidCompressedPubKey(TEST_PUBKEY_2)).to.equal(true);
+      expect(isValidCompressedPubKey(OFF_CURVE_PUBKEY)).to.equal(false);
+      expect(isValidCompressedPubKey('04' + TEST_PUBKEY_2.slice(2))).to.equal(
+        false,
+      );
+      expect(isValidCompressedPubKey('02')).to.equal(false);
+      expect(isValidCompressedPubKey(undefined as unknown as string)).to.equal(
+        false,
+      );
     });
   });
 
@@ -659,8 +797,9 @@ describe('Identity Authentication Library', function () {
       const payload = createSignaturePayload('join', wkIdentity);
 
       // Use a different public key that's not in the witness script
+      // (2·G, a valid point that is not one of the script's keys)
       const otherPubKey =
-        '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+        '02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5';
 
       const result = verifyMultisigAuth(
         {
@@ -698,6 +837,99 @@ describe('Identity Authentication Library', function () {
 
       expect(result.valid).to.be.false;
       expect(result.error).to.include('Address mismatch');
+    });
+  });
+
+  describe('nonce cache lifetime and bound (item 3)', function () {
+    let clock;
+    afterEach(function () {
+      if (clock) clock.restore();
+      clock = undefined;
+      delete process.env.RELAY_NONCE_CACHE_MAX_ENTRIES;
+      resetNonceCache();
+    });
+
+    const payloadAt = (timestamp, nonce = generateNonce()) => ({
+      timestamp,
+      action: 'action',
+      identity: TEST_ADDRESS,
+      nonce,
+    });
+
+    it('remembers a future-stamped nonce until timestamp + drift (not consume time + drift)', function () {
+      resetNonceCache();
+      const start = Date.now();
+      clock = sinon.useFakeTimers({ now: start, toFake: ['Date'] });
+      // stamped 9 minutes ahead: valid until start + 19 min
+      const p = payloadAt(start + 9 * 60 * 1000);
+      expect(validateSignaturePayload(p).valid).to.equal(true);
+      expect(consumeNonce(p.nonce, 'fp', p.timestamp)).to.equal(true);
+      // 11 minutes later the old cache (consume + 10 min) had forgotten it,
+      // while the payload is still inside the drift window
+      clock.tick(11 * 60 * 1000);
+      cleanupNonceCache();
+      const replay = validateSignaturePayload(p);
+      expect(replay.valid).to.equal(false);
+      expect(replay.error).to.include('replay');
+      // once the payload itself has expired, the entry is swept
+      clock.tick(9 * 60 * 1000);
+      cleanupNonceCache();
+      expect(nonceCacheSize()).to.equal(0);
+      expect(validateSignaturePayload(p).error).to.include('Timestamp');
+    });
+
+    it('a past-stamped nonce is remembered for drift from consumption', function () {
+      resetNonceCache();
+      const start = Date.now();
+      clock = sinon.useFakeTimers({ now: start, toFake: ['Date'] });
+      const p = payloadAt(start - 9 * 60 * 1000);
+      expect(consumeNonce(p.nonce, '', p.timestamp)).to.equal(true);
+      clock.tick(9 * 60 * 1000);
+      cleanupNonceCache();
+      expect(nonceCacheSize()).to.equal(1);
+      clock.tick(60 * 1000 + 1);
+      cleanupNonceCache();
+      expect(nonceCacheSize()).to.equal(0);
+    });
+
+    it('refuses (never evicts) when full of unexpired nonces, and recovers after they expire', function () {
+      resetNonceCache();
+      process.env.RELAY_NONCE_CACHE_MAX_ENTRIES = '2';
+      const start = Date.now();
+      clock = sinon.useFakeTimers({ now: start, toFake: ['Date'] });
+      const a = generateNonce();
+      expect(consumeNonce(a, '', start)).to.equal(true);
+      expect(consumeNonce(generateNonce(), '', start)).to.equal(true);
+      expect(consumeNonce(generateNonce(), '', start)).to.equal(false);
+      // the earlier nonces are all still spent
+      expect(validateSignaturePayload(payloadAt(start, a)).valid).to.equal(
+        false,
+      );
+      clock.tick(MAX_TIMESTAMP_DRIFT_MS + 10_000);
+      expect(consumeNonce(generateNonce(), '', Date.now())).to.equal(true);
+      expect(nonceCacheSize()).to.equal(1);
+    });
+
+    it('a verifier answers "unavailable" instead of accepting when the cache is full', function () {
+      resetNonceCache();
+      process.env.RELAY_NONCE_CACHE_MAX_ENTRIES = '1';
+      consumeNonce(generateNonce());
+      const payload = createSignaturePayload('action', TEST_ADDRESS);
+      const message = JSON.stringify(payload);
+      const keyPair = utxolib.ECPair.fromWIF(
+        TEST_PRIVATE_KEY_WIF,
+        utxolib.networks.bitcoin,
+      );
+      const signature = bitcoinMessage
+        .sign(message, keyPair.d.toBuffer(32), keyPair.compressed)
+        .toString('base64');
+      const r = verifySingleSigAuth(
+        { signature, message, publicKey: TEST_PUBLIC_KEY },
+        TEST_ADDRESS,
+        'mainnet',
+      );
+      expect(r.valid).to.equal(false);
+      expect(r.unavailable).to.equal(true);
     });
   });
 

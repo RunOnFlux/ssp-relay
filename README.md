@@ -1,8 +1,8 @@
-# SSP Relay  
+# SSP Relay
 
 [![codecov](https://codecov.io/gh/RunOnFlux/ssp-relay/graph/badge.svg?token=75xdbQxCch)](https://codecov.io/gh/RunOnFlux/ssp-relay)  
 [![DeepScan grade](https://deepscan.io/api/teams/13348/projects/27694/branches/888993/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=13348&pid=27694&bid=888993)  
-[![CodeFactor](https://www.codefactor.io/repository/github/runonflux/ssp-relay/badge)](https://www.codefactor.io/repository/github/runonflux/ssp-relay)  
+[![CodeFactor](https://www.codefactor.io/repository/github/runonflux/ssp-relay/badge)](https://www.codefactor.io/repository/github/runonflux/ssp-relay)
 
 ---
 
@@ -11,6 +11,7 @@
 **SSP Relay** is the communication backbone of the **[SSP Wallet](https://sspwallet.io)** ecosystem, enabling seamless interaction between **SSP Wallet** and **SSP Key**. By acting as a secure relay server, it facilitates synchronization, multisignature transaction management, and reliable communication without ever compromising private keys or sensitive data.
 
 ### Key Features
+
 - **Secure Communication**: Ensures encrypted and authenticated data transfer between SSP Wallet and SSP Key.
 - **Multisignature Support**: Powers the **2-of-2 multisignature architecture**, enhancing the security of user transactions.
 - **True Self-Custody**: Operates without storing or accessing private keys, maintaining the user's self-custody.
@@ -21,8 +22,9 @@
 ## Requirements
 
 To run SSP Relay, ensure your environment meets the following prerequisites:
+
 - **Node.js**: Version 24 or higher
-- **MongoDB**: A running MongoDB instance for data storage and processing  
+- **MongoDB**: A running MongoDB instance for data storage and processing
 
 ---
 
@@ -30,14 +32,16 @@ To run SSP Relay, ensure your environment meets the following prerequisites:
 
 Follow these steps to set up and run SSP Relay:
 
-1. **Clone the Repository**  
+1. **Clone the Repository**
+
    ```bash
    git clone https://github.com/RunOnFlux/ssp-relay.git
    cd ssp-relay
    ```
 
 2. **Install Dependencies**  
-   Use Yarn to install the necessary packages:  
+   Use Yarn to install the necessary packages:
+
    ```bash
    yarn install
    ```
@@ -46,7 +50,8 @@ Follow these steps to set up and run SSP Relay:
    Ensure you have a MongoDB instance running and accessible. Update the configuration file with the appropriate MongoDB connection details.
 
 4. **Start the Service**  
-   Run the following command to start the SSP Relay server:  
+   Run the following command to start the SSP Relay server:
+
    ```bash
    yarn start
    ```
@@ -58,6 +63,7 @@ Follow these steps to set up and run SSP Relay:
 ## Usage
 
 SSP Relay is designed to work seamlessly with SSP Wallet and SSP Key. It plays a critical role in:
+
 1. **Synchronization**: Facilitating secure exchange of public keys between SSP Wallet and SSP Key.
 2. **Transaction Signing**: Relaying partially signed transactions for final signing and broadcast.
 
@@ -65,16 +71,52 @@ For more details on how SSP Relay integrates with SSP Wallet and SSP Key, refer 
 
 ---
 
+## Security configuration (environment variables)
+
+| Variable                          | Values                          | Default                                               | Effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------- | ------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RELAY_LEGACY_UNAUTH_MODE`        | `log` \| `deny`                 | `log`                                                 | Unsigned requests to the POST endpoints that released clients (wallet 2.1.3, Key 2.1.1) do not sign (`/v1/sync`, `/v1/nonces`, `/v1/nonces/validate`, `/v1/nonces/reconcile`, `/v1/sol/broadcast`, `/v1/sol/setup`). `log` (default) lets them through unauthenticated (`req.legacyUnauthenticated = true`, no `req.verifiedIdentity`), logs each one and prints a startup WARNING; `deny` refuses them with 401. Any other value is treated as `deny`. **Flip to `deny` once the new SSP Wallet and SSP Key have reached adoption** — under `deny`, pairing, chain sync, nonce replenish and consumer Solana sends break for released clients. `/v1/action`, `/v1/token`, `/v1/recoverypub` and socket joins always require a signature; the wallet-recovery request is the only unsigned action, by design. |
+| `RELAY_READ_AUTH_MODE`            | `log` \| `enforce`              | `log`                                                 | Unsigned reads of `GET /v1/action/:id`, `GET /v1/sync/:id` and `GET /v1/nonces/status/:id`. `log` serves and logs them (startup WARNING); `enforce` refuses them with 401. A present but invalid read signature is refused in both modes. Flip to `enforce` after the new clients reach adoption.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `RELAY_NONCE_CACHE_MAX_ENTRIES`   | integer                         | `250000`                                              | Upper bound on remembered auth nonces (~250 bytes each). Nonces are never evicted before their payload expires; when the cache is full of live nonces, signed requests get 503 `AUTH_UNAVAILABLE` until entries expire.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `RELAY_OWN_PROXY_HOPS`            | integer                         | `1`                                                   | SSP-operated proxies between Cloudflare and the relay (Cloudflare → FDM/HAProxy → relay = 1). Used to find the peer that connected to our edge; `CF-Connecting-IP` is honoured only when that peer is a Cloudflare address.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `RELAY_CLOUDFLARE_IP_RANGES`      | comma-separated CIDRs           | built-in list (fetched 2026-10-12)                    | Replaces the embedded Cloudflare edge ranges.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `RELAY_SOCKET_CORS_ORIGINS`       | comma-separated origins, or `*` | extension origins + `https://*.sspwallet.com` / `.io` | Browser origins allowed on the wallet socket's polling transport.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `SSP_RELAY_PROXY_KEY`             | secret                          | unset                                                 | Sent as `X-SSP-Relay-Key` only to SSP's own `*.sspwallet.io` proxies, never to third-party hosts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `ENTERPRISE_APP_URL`              | URL                             | `https://enterprise.sspwallet.com`                    | The exact enterprise app origin. Enterprise login and critical-action challenges are bound to it (enterprise module).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `ENTERPRISE_CHALLENGE_TOKEN_MODE` | `enforce` \| `log`              | `enforce`                                             | Whether consumers of an enterprise login challenge (e.g. `POST /v1/enterprise/auth/wk`) must present the `challengeToken` returned with the challenge (enterprise module).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+**Wallet password recovery (the one unsigned flow, by design).** A recovering wallet has no decrypted keys, so it cannot sign. The exception is deliberately narrow and holds in every mode:
+
+- `POST /v1/action` without auth is accepted only for `action: 'recoveryrequest'` whose payload is exactly `{ pkEph, nonce, timestamp, recoveryIndex[, version] }` (33-byte compressed hex key, 32–128 hex nonce, timestamp within 5 minutes, integer index < 2^31). It is rate-limited per IP (10 per 10 min) and per wkIdentity (5 per 10 min). It never clobbers what someone is waiting for in that identity's single action slot: it is refused while a live action of any other kind is pending, while a `recoveryresponse` / `recoverydenied` is less than 5 minutes old (the recovering wallet is polling for it), and while another recovery request with a different `pkEph` is still inside the Key's 5-minute window (the same `pkEph` may retry). A failure to read the slot refuses the request.
+- An unsigned socket `join` on the wallet namespace is admitted only to the room `recovery:<wkIdentity>`, which receives nothing but `recoveryresponse` / `recoverydenied`. The key namespace never admits unsigned joins.
+- Under `RELAY_READ_AUTH_MODE=enforce`, an unsigned `GET /v1/action/:id` returns the stored action only if it is `recoveryresponse` or `recoverydenied` (the payload is encrypted to the requester's ephemeral key); anything else, including "nothing pending", is a 401.
+
+Operational requirements: the relay's own port must only be reachable through the SSP proxy (firewall the origin), and the proxy must append `X-Forwarded-For`; otherwise a direct client controls the addresses used for rate limiting.
+
+**Single process.** Run the relay as ONE process. The auth replay-protection nonce cache, the Solana paymaster failure breaker and the socket.io rooms are all in-process; a second instance behind a load balancer would accept a nonce the first one already spent (signed requests could be replayed against the other instance) and would not see the other's rooms. A multi-instance deployment needs sticky routing per client plus a shared nonce store (e.g. Mongo with a unique index on the nonce and a TTL index) before it is safe. A restart clears the nonce cache: a signed request captured before the restart and still inside its 10-minute timestamp window could be replayed once afterwards.
+
+**Signed POSTs** (`requireAuth`): the signed payload must carry `data` (sha256 hex of `JSON.stringify(body minus signature, message, publicKey, witnessScript)`) and the `action` the route expects: `'action'` for `/v1/action`, `/v1/nonces*`, `/v1/sol/*` and `/v1/enterprise/*`; `'sync'` for `/v1/sync` and `/v1/recoverypub`; `'token'` for `/v1/token`. Both are checked before the signature is verified, so a mis-routed or tampered request never spends the nonce of the honest one. Every client that signs (wallet 2.1.3+, Key 2.1.1+) already sends these.
+
+**Sync records** (`POST /v1/sync`): a live record (< 15 min) for a `walletIdentity` can only be rewritten for the same `wkIdentity`, and an unsigned (legacy) write never replaces a live signed one. Re-pairing a wallet with a different SSP Key waits until the previous record expires (at most 15 minutes).
+
+**Read-auth headers** (`requireReadAuth`): `x-ssp-signature` (base64 Bitcoin message signature), `x-ssp-message` (JSON `{ action: 'read', identity: <:id>, timestamp, nonce, data }`, where `data` is the sha256 hex of the UTF-8 string `GET <path>`, path without the query string), `x-ssp-publickey` (66 hex) and `x-ssp-witnessscript` (hex, required for wkIdentity reads). Send all of them or none.
+
+---
+
 ## Development
 
 ### Running in Development Mode
-To run SSP Relay in development mode, use:  
+
+To run SSP Relay in development mode, use:
+
 ```bash
 yarn dev
 ```
 
 ### Testing
+
 SSP Relay includes a suite of tests to ensure reliability. Run the tests using:
+
 ```bash
 yarn test
 ```
@@ -86,9 +128,12 @@ yarn test
 SSP Relay runs an optional Solana paymaster service that sponsors transaction fees on behalf of SSP Wallet users on Solana chains. This solves a UX gap unique to Solana: SSP shows users their multisig vault PDA as the deposit address, but Solana transactions require a feePayer keypair (PDAs cannot sign). Without a paymaster, users would have to keep SOL in a separate "leaf" keypair address that's never shown to them — confusing and error-prone.
 
 The paymaster:
+
 - **Pays Solana tx fees** by signing the `feePayer` slot on user transactions
 - **Auto-tops-up member signers** for proposal account rent (~0.05 SOL per top-up, covers ~7 sends per fund)
 - **Validates** that incoming txs have `feePayer` set to the paymaster pubkey before signing
+- **Sponsors only SSP bundles** (`/v1/sol/broadcast`, enterprise bundled broadcast): a positive allowlist of the outer instructions AND of the proposal's inner instructions (vault SystemProgram transfers, SPL `TransferChecked` from the vault's own ATA, SPL Memo v2 — nothing else), exactly the signer slots the bundle needs (paymaster + approving members), and a reimbursement of at least max(50,000, signatures × 5,000 + priority fee) lamports (+2.5M when it creates the recipient ATA). A price-only ComputeBudget is billed at 200k CU per instruction. A simulation backstop refuses anything that would cost the paymaster more than its fee.
+- **Failure breaker**: a sponsored bundle that lands but fails on-chain still costs its fee. After 3 such failures for one multisig, or 5 for one client IP, within 24 hours, sponsorship for that key is refused. Counts are in-process (see "Single process" above) and reset on restart.
 
 This is purely a UX layer — the underlying SSP Solana Multisig program enforces all multisig security regardless of who pays fees. See [solana-multisig README](https://github.com/RunOnFlux/Solana-Multisig#how-this-differs-from-squads-v4) for the protocol-level guarantees.
 
@@ -152,11 +197,11 @@ Fund the resulting pubkey from a treasury account, then restart the relay. Until
 
 Per user / per send (figures approximate, vary with rent rates):
 
-| Event | SOL cost | Recoverable? | Paid by |
-|---|---|---|---|
-| First send (init+create+approve+approve+execute) | ~0.01 SOL | Multisig rent: yes (closing program); proposal rent: yes (closing proposal) | Paymaster (auto-top-up + tx fees + init rent) |
-| Subsequent sends | ~0.007 SOL | Proposal rent: yes (closing proposal) | Paymaster (auto-top-up of leaf + tx fees) |
-| Tx fees alone | ~5,000 lamports = 0.000005 SOL | No (burned by network) | Paymaster |
+| Event                                            | SOL cost                       | Recoverable?                                                                | Paid by                                       |
+| ------------------------------------------------ | ------------------------------ | --------------------------------------------------------------------------- | --------------------------------------------- |
+| First send (init+create+approve+approve+execute) | ~0.01 SOL                      | Multisig rent: yes (closing program); proposal rent: yes (closing proposal) | Paymaster (auto-top-up + tx fees + init rent) |
+| Subsequent sends                                 | ~0.007 SOL                     | Proposal rent: yes (closing proposal)                                       | Paymaster (auto-top-up of leaf + tx fees)     |
+| Tx fees alone                                    | ~5,000 lamports = 0.000005 SOL | No (burned by network)                                                      | Paymaster                                     |
 
 The auto-top-up mechanism transfers 0.05 SOL to a member's leaf address whenever its balance drops below 0.01 SOL, so most "top-ups" cover ~7 sends. SOL parked in user leaf addresses is recoverable but not auto-reclaimed by the relay — at scale you'd want a periodic sweep.
 
@@ -196,15 +241,15 @@ the bundled-tx smoke test in
 
 ## Contribution
 
-We welcome contributions to improve SSP Relay! Please review the [Contributing Guidelines](CONTRIBUTING.md) before getting started.  
+We welcome contributions to improve SSP Relay! Please review the [Contributing Guidelines](CONTRIBUTING.md) before getting started.
 
 ---
 
 ## Important Links
 
-- **SSP Wallet Documentation**: [https://sspwallet.gitbook.io/docs](https://sspwallet.gitbook.io/docs)  
-- **Code of Conduct**: [View here](CODE_OF_CONDUCT.md)  
-- **Contributing Guidelines**: [View here](CONTRIBUTING.md)  
+- **SSP Wallet Documentation**: [https://sspwallet.gitbook.io/docs](https://sspwallet.gitbook.io/docs)
+- **Code of Conduct**: [View here](CODE_OF_CONDUCT.md)
+- **Contributing Guidelines**: [View here](CONTRIBUTING.md)
 
 ---
 
@@ -214,23 +259,26 @@ By using SSP Relay, you agree to the terms outlined in the [Disclaimer](DISCLAIM
 
 ---
 
-## 🔒 Security Audits  
+## 🔒 Security Audits
 
-Our security is a top priority. All critical components of the SSP ecosystem have undergone rigorous security audits by [Halborn](https://halborn.com/), ensuring the highest standards of protection.  
+Our security is a top priority. All critical components of the SSP ecosystem have undergone rigorous security audits by [Halborn](https://halborn.com/), ensuring the highest standards of protection.
 
-- **SSP Wallet, SSP Key, and SSP Relay** were thoroughly audited, with the final report completed in **March 2025**.  
-- **Shnorr Multisig Account Abstraction Smart Contracts and SDK** underwent a comprehensive audit, finalized in **February 2025**.  
+- **SSP Wallet, SSP Key, and SSP Relay** were thoroughly audited, with the final report completed in **March 2025**.
+- **Shnorr Multisig Account Abstraction Smart Contracts and SDK** underwent a comprehensive audit, finalized in **February 2025**.
 
-### 📜 Audit Reports  
+### 📜 Audit Reports
 
-📄 **SSP Wallet, SSP Key, SSP Relay Audit**  
-- **[Halborn Audit Report – SSP Wallet, Key, Relay](https://github.com/RunOnFlux/ssp-relay/blob/master/SSP_Security_Audit_HALBORN_2025.pdf)** (GitHub)  
-- **[Halborn Public Report – SSP Wallet, Key, Relay](https://www.halborn.com/audits/influx-technologies/ssp-wallet-relay-and-key)** (Halborn)  
+📄 **SSP Wallet, SSP Key, SSP Relay Audit**
 
-📄 **Smart Contracts Audit**  
-- **[Halborn Audit Report – Smart Contracts](https://github.com/RunOnFlux/ssp-relay/blob/master/Account_Abstraction_Schnorr_MultiSig_SmartContracts_SecAudit_HALBORN_2025.pdf)** (GitHub)  
-- **[Halborn Public Report – Smart Contracts](https://www.halborn.com/audits/influx-technologies/account-abstraction-schnorr-multisig)** (Halborn)  
+- **[Halborn Audit Report – SSP Wallet, Key, Relay](https://github.com/RunOnFlux/ssp-relay/blob/master/SSP_Security_Audit_HALBORN_2025.pdf)** (GitHub)
+- **[Halborn Public Report – SSP Wallet, Key, Relay](https://www.halborn.com/audits/influx-technologies/ssp-wallet-relay-and-key)** (Halborn)
 
-📄 **SDK Audit**  
-- **[Halborn Audit Report – SDK](https://github.com/RunOnFlux/ssp-relay/blob/master/Account_Abstraction_Schnorr_MultiSig_SDK_SecAudit_HALBORN_2025.pdf)** (GitHub)  
-- **[Halborn Public Report – SDK](https://www.halborn.com/audits/influx-technologies/account-abstraction-schnorr-signatures-sdk)** (Halborn)  
+📄 **Smart Contracts Audit**
+
+- **[Halborn Audit Report – Smart Contracts](https://github.com/RunOnFlux/ssp-relay/blob/master/Account_Abstraction_Schnorr_MultiSig_SmartContracts_SecAudit_HALBORN_2025.pdf)** (GitHub)
+- **[Halborn Public Report – Smart Contracts](https://www.halborn.com/audits/influx-technologies/account-abstraction-schnorr-multisig)** (Halborn)
+
+📄 **SDK Audit**
+
+- **[Halborn Audit Report – SDK](https://github.com/RunOnFlux/ssp-relay/blob/master/Account_Abstraction_Schnorr_MultiSig_SDK_SecAudit_HALBORN_2025.pdf)** (GitHub)
+- **[Halborn Public Report – SDK](https://www.halborn.com/audits/influx-technologies/account-abstraction-schnorr-signatures-sdk)** (Halborn)
