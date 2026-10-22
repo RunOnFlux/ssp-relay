@@ -1496,6 +1496,12 @@ export default (app) => {
       enterpriseApi.postVaultProposalRetryBroadcast(req, res);
     },
   );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/amend',
+    (req, res) => {
+      enterpriseApi.postVaultProposalAmend(req, res);
+    },
+  );
   // Read-only share links for a proposal (payment status for the payee).
   // Pass-through only; permissions and validation live in the enterprise module.
   app.post(
