@@ -35,6 +35,8 @@ import {
   assertSponsorshipAllowed,
   recordSponsoredFailure,
 } from './solPaymasterBreaker';
+import { reserveSetup } from './solPaymasterSetupGuard';
+import { auditSetupTx, auditSponsoredBundle } from './solPaymasterAudit';
 
 // Reimbursement fees the wallet pays via vault → paymaster transfer inside
 // the multisig proposal. Wallets fetch via GET /v1/sol/paymaster.
@@ -67,6 +69,13 @@ export const FEE_SCHEDULE = {
 } as const;
 
 export type FeeSchedule = typeof FEE_SCHEDULE;
+
+// What one consumer setup may cost the paymaster in rent: the fee schedule's
+// firstSendLamports is sized to cover the multisig PDA + durable nonce rent
+// (~2.94M) plus fees. Used as the setup budget's up-front charge (corrected to
+// the measured cost after confirmation) and as the rent ceiling above which a
+// setup counts as a loss.
+const SETUP_COST_ESTIMATE_LAMPORTS = FEE_SCHEDULE.firstSendLamports;
 
 interface SolanaChainConfig {
   rpc: string;
@@ -1272,20 +1281,28 @@ export function multisigProgramId(chain: string): PublicKey {
  *     rents + network + small surplus).
  *
  * Anti-grief: this function validates the vault has SOL balance ≥
- * firstSendLamports + buffer before provisioning. Without that, an attacker
- * could spin up endless fake `(walletPub, keyPub)` pairs and bleed paymaster
- * SOL. Combined with `requireWkIdentityAuth` on the endpoint, griefing
- * requires (a) being an authenticated SSP user and (b) parking ≥3.2M
- * lamports per spawned vault — net-negative for the attacker.
+ * firstSendLamports + buffer before provisioning. That gate alone does NOT
+ * stop a rent grind (SOL-6): the balance is checked once, against a vault the
+ * caller controls, so the same ~0.00325 SOL can be moved to the next fresh
+ * `(walletPub, keyPub)` vault and the paymaster pays ~2.94M lamports of
+ * permanent rent each time — and identity is free (unsigned requests are
+ * accepted under RELAY_LEGACY_UNAUTH_MODE=log; signed identities are
+ * self-made). So every setup that spends paymaster SOL is also charged
+ * against a per-client-IP and a global hourly budget (solPaymasterSetupGuard),
+ * a client the failure/loss breaker has stopped is refused, and the real cost
+ * is measured after confirmation (solPaymasterAudit).
  *
  * Idempotent: if multisig + nonce already exist on-chain, returns the
  * current state without sending any tx (handy for wallet retries).
  */
-async function setupSolMultisig(opts: {
-  chain: string;
-  walletPubkey: string;
-  keyPubkey: string;
-}): Promise<{
+async function setupSolMultisig(
+  opts: {
+    chain: string;
+    walletPubkey: string;
+    keyPubkey: string;
+  },
+  ctx: { clientKey?: string } = {},
+): Promise<{
   signature: string | null;
   multisigAddress: string;
   vaultAddress: string;
@@ -1343,53 +1360,99 @@ async function setupSolMultisig(opts: {
     );
   }
 
-  // Build the bundled setup ixs. Order is order-dependent: init must come
-  // before provision because provision_nonce reads multisig.members for
-  // the invoke_signed seed derivation.
-  const setupIxs: TransactionInstruction[] = [];
-  if (!existingMultisig) {
-    const sortedMembers = members
-      .slice()
-      .sort((a, b) => Buffer.compare(a.toBuffer(), b.toBuffer()));
-    const { instruction: initIx } =
-      await client.buildInitializeMultisigInstruction({
-        members: sortedMembers,
-        threshold,
-        payer: info.pubkey,
-      });
-    setupIxs.push(initIx);
-  }
-  if (!existingNonceAccountInfo) {
-    const { instruction: provisionIx } =
-      await client.buildProvisionNonceInstruction({
-        multisigAddress,
-        payer: info.pubkey,
-      });
-    setupIxs.push(provisionIx);
-  }
+  // A multisig or client the failure/loss breaker has stopped gets no new
+  // paymaster-funded vaults either.
+  const breakerKeys = {
+    multisig: multisigAddress.toBase58(),
+    client: ctx.clientKey,
+  };
+  assertSponsorshipAllowed(breakerKeys);
 
-  // Legacy tx is fine here — 2 ixs, ~6 unique accounts, well under 1232 bytes.
-  const tx = new Transaction().add(
-    ...priorityFeeInstructions(opts.chain),
-    ...setupIxs,
-  );
-  const { blockhash } = await info.connection.getLatestBlockhash();
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = info.pubkey;
-  tx.partialSign(info.keypair);
-
-  const signature = await info.connection.sendRawTransaction(tx.serialize(), {
-    skipPreflight: false,
-    maxRetries: 3,
+  // SOL-6: charge this setup against the per-client and global setup budgets
+  // (throws when exhausted). Only setups that reach the chain stay charged.
+  const reservation = reserveSetup({
+    clientKey: ctx.clientKey,
+    estimateLamports: SETUP_COST_ESTIMATE_LAMPORTS,
   });
-  // Check tx didn't just confirm-but-fail on-chain (e.g., concurrent setup
-  // race lands first → our duplicate fails). Confirmation alone doesn't
-  // imply execution success.
-  const confirmResult = await confirmSignatureHttp(info.connection, signature);
-  if (confirmResult.value.err) {
-    throw new Error(
-      `Consumer setup tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
+
+  let signature: string;
+  let sendAttempted = false;
+  try {
+    // Build the bundled setup ixs. Order is order-dependent: init must come
+    // before provision because provision_nonce reads multisig.members for
+    // the invoke_signed seed derivation.
+    const setupIxs: TransactionInstruction[] = [];
+    if (!existingMultisig) {
+      const sortedMembers = members
+        .slice()
+        .sort((a, b) => Buffer.compare(a.toBuffer(), b.toBuffer()));
+      const { instruction: initIx } =
+        await client.buildInitializeMultisigInstruction({
+          members: sortedMembers,
+          threshold,
+          payer: info.pubkey,
+        });
+      setupIxs.push(initIx);
+    }
+    if (!existingNonceAccountInfo) {
+      const { instruction: provisionIx } =
+        await client.buildProvisionNonceInstruction({
+          multisigAddress,
+          payer: info.pubkey,
+        });
+      setupIxs.push(provisionIx);
+    }
+
+    // Legacy tx is fine here — 2 ixs, ~6 unique accounts, well under 1232 bytes.
+    const tx = new Transaction().add(
+      ...priorityFeeInstructions(opts.chain),
+      ...setupIxs,
     );
+    const { blockhash } = await info.connection.getLatestBlockhash();
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = info.pubkey;
+    tx.partialSign(info.keypair);
+
+    sendAttempted = true;
+    signature = await info.connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: false,
+      maxRetries: 3,
+    });
+  } catch (e) {
+    // Nothing was spent when the tx was never handed to the RPC, or the RPC
+    // refused it (SendTransactionError: preflight / JSON-RPC error). A
+    // transport error after sending may still have landed — keep the charge.
+    if (!sendAttempted || e instanceof SendTransactionError) {
+      reservation.release();
+    }
+    throw e;
+  }
+
+  try {
+    // Check tx didn't just confirm-but-fail on-chain (e.g., concurrent setup
+    // race lands first → our duplicate fails). Confirmation alone doesn't
+    // imply execution success.
+    const confirmResult = await confirmSignatureHttp(
+      info.connection,
+      signature,
+    );
+    if (confirmResult.value.err) {
+      throw new Error(
+        `Consumer setup tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
+      );
+    }
+  } finally {
+    // Measure what the setup really cost (async, never throws): settles the
+    // budget reservation and flags any rent beyond the expected accounts.
+    auditSetupTx({
+      connection: info.connection,
+      signature,
+      paymaster: info.pubkey,
+      chain: opts.chain,
+      breakerKeys,
+      maxRentLamports: SETUP_COST_ESTIMATE_LAMPORTS,
+      reservation,
+    });
   }
 
   // Re-fetch nonce so the caller gets the live nonce value to use as
@@ -1474,14 +1537,42 @@ async function broadcastWithPaymaster(
   // surfaces this via `value.err` (non-null = failure). If we don't check it,
   // the enterprise layer marks the proposal as `broadcast` and emails success
   // for a tx that actually didn't move funds.
-  const confirmResult = await confirmSignatureHttp(info.connection, signature);
+  let confirmResult: { value: { err: unknown } };
+  try {
+    confirmResult = await confirmSignatureHttp(info.connection, signature);
+  } catch (e) {
+    // Not confirmed in time — the bundle may still land. Measure it anyway
+    // (async); a landed failure or a loss is counted when it shows up.
+    auditSponsoredBundle({
+      connection: info.connection,
+      signature,
+      paymaster: info.pubkey,
+      chain,
+      breakerKeys,
+      outcomeUnknown: true,
+    });
+    throw e;
+  }
   if (confirmResult.value.err) {
     // The paymaster paid this transaction's fee without the reimbursement.
+    // (A failed transaction is charged only its fee — every other effect is
+    // rolled back — so there is nothing more to measure.)
     recordSponsoredFailure(breakerKeys);
     throw new Error(
       `Solana tx ${signature} landed but failed on-chain: ${JSON.stringify(confirmResult.value.err)}`,
     );
   }
+  // The checks above judged the chain state at check time; measure what the
+  // landed bundle really cost the paymaster (e.g. an ATA closed after the
+  // simulation makes the idempotent create pay rent again). Asynchronous —
+  // the response does not wait for it and it never throws.
+  auditSponsoredBundle({
+    connection: info.connection,
+    signature,
+    paymaster: info.pubkey,
+    chain,
+    breakerKeys,
+  });
   log.info(`[solPaymaster] broadcast ${chain} tx ${signature}`);
   return signature;
 }

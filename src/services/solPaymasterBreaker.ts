@@ -10,11 +10,19 @@
  * vault through a self-paid transaction). Each such failure costs the
  * paymaster up to signatures × 5000 + the capped priority fee.
  *
- * This breaker counts landed-but-failed sponsored bundles per multisig and per
- * client (IP key) over a rolling 24 hours and refuses further sponsorship once
- * a key reaches its limit. Every multisig the attacker uses costs them at least
- * its on-chain registration, so the loss per multisig is bounded well below
- * that cost.
+ * A bundle can also land SUCCESSFULLY and still cost the paymaster more than
+ * its fee: the recipient closes its own token account between the relay's
+ * simulation and execution, so the bundle's idempotent ATA create pays the
+ * rent again (~2.04M lamports) although the reimbursement was sized for an
+ * existing account. solPaymasterAudit measures every confirmed sponsored
+ * transaction's real paymaster balance change and reports such losses here.
+ *
+ * This breaker counts both events — landed-but-failed sponsored bundles and
+ * measured losses — per multisig and per client (IP key) over a rolling 24
+ * hours and refuses further sponsorship (sends and new vault setups) once a
+ * key reaches its limit. Every multisig the attacker uses needs a
+ * paymaster-provisioned durable nonce (for consumer vaults a budgeted
+ * /v1/sol/setup), so the loss per multisig and per client is bounded.
  *
  * Storage is in-process. The relay is a single process by design (socket.io
  * rooms and the auth nonce cache are in-process too), so the counts are
@@ -35,7 +43,7 @@ export interface BreakerKeys {
   client?: string;
 }
 
-// key → failure timestamps (ms), oldest first.
+// key → event (landed failure or measured loss) timestamps (ms), oldest first.
 const failures = new Map<string, number[]>();
 
 function recentFailures(key: string, now: number): number[] {
@@ -73,17 +81,13 @@ export function assertSponsorshipAllowed(
     const count = recentFailures(key, now).length;
     if (count >= limit) {
       throw new Error(
-        `Paymaster sponsorship refused: ${count} sponsored transactions for this ${key.split(':')[0]} landed but failed on-chain in the last 24 hours. Try again later.`,
+        `Paymaster sponsorship refused: ${count} sponsored transactions for this ${key.split(':')[0]} failed on-chain or cost the paymaster more than their fee in the last 24 hours. Try again later.`,
       );
     }
   }
 }
 
-/** Record one landed-but-failed sponsored transaction for these keys. */
-export function recordSponsoredFailure(
-  keys: BreakerKeys,
-  now = Date.now(),
-): void {
+function recordEvent(keys: BreakerKeys, now: number): void {
   for (const [key] of scopedKeys(keys)) {
     const list = recentFailures(key, now);
     list.push(now);
@@ -96,9 +100,64 @@ export function recordSponsoredFailure(
     if (oldest === undefined) break;
     failures.delete(oldest);
   }
+}
+
+function describeKeys(keys: BreakerKeys): string {
+  return `multisig=${keys.multisig}${keys.client ? `, client=${keys.client}` : ''}`;
+}
+
+/** Record one landed-but-failed sponsored transaction for these keys. */
+export function recordSponsoredFailure(
+  keys: BreakerKeys,
+  now = Date.now(),
+): void {
+  recordEvent(keys, now);
   log.warn(
-    `[solPaymaster] sponsored bundle failed on-chain (multisig=${keys.multisig}${keys.client ? `, client=${keys.client}` : ''}) — counted towards the sponsorship breaker`,
+    `[solPaymaster] sponsored bundle failed on-chain (${describeKeys(keys)}) — counted towards the sponsorship breaker`,
   );
+}
+
+export interface SponsoredLossDetail {
+  /** Transaction signature the loss was measured on. */
+  signature: string;
+  chain: string;
+  /** 'bundle' = a sponsored send, 'setup' = a vault setup. */
+  kind: 'bundle' | 'setup';
+  /** Paymaster balance before / after the transaction, and the fee charged. */
+  preLamports: number;
+  postLamports: number;
+  feeLamports: number;
+}
+
+/**
+ * Record one confirmed sponsored transaction that cost the paymaster
+ * `lossLamports` beyond what it is allowed to (the network fee, net of the
+ * vault's reimbursement). Counts exactly like a landed failure and logs an
+ * ERROR `[solPaymaster] LOSS ...` line.
+ */
+export function recordSponsoredLoss(
+  keys: BreakerKeys,
+  lossLamports: number,
+  detail: SponsoredLossDetail,
+  now = Date.now(),
+): void {
+  recordEvent(keys, now);
+  log.error(
+    `[solPaymaster] LOSS ${lossLamports} lamports beyond the expected cost of ${detail.chain} ${detail.kind} tx ${detail.signature} (${describeKeys(keys)}; paymaster pre=${detail.preLamports} post=${detail.postLamports} fee=${detail.feeLamports}) — counted towards the sponsorship breaker`,
+  );
+}
+
+/** Breaker events (failures + losses) in the window for a scoped key. */
+export function sponsorshipEventCount(
+  keys: BreakerKeys,
+  now = Date.now(),
+): { multisig: number; client?: number } {
+  return {
+    multisig: recentFailures(`multisig:${keys.multisig}`, now).length,
+    client: keys.client
+      ? recentFailures(`client:${keys.client}`, now).length
+      : undefined,
+  };
 }
 
 /** Test helper: clear every count. */
@@ -109,5 +168,7 @@ export function resetPaymasterBreaker(): void {
 export default {
   assertSponsorshipAllowed,
   recordSponsoredFailure,
+  recordSponsoredLoss,
+  sponsorshipEventCount,
   resetPaymasterBreaker,
 };

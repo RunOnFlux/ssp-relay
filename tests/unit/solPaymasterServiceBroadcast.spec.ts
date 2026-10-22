@@ -37,9 +37,15 @@ const configGetStub = sinon.stub(config, 'get').callsFake((path: string) => {
 import solPaymasterService from '../../src/services/solPaymasterService';
 import {
   resetPaymasterBreaker,
+  sponsorshipEventCount,
   MAX_FAILURES_PER_MULTISIG,
   MAX_FAILURES_PER_CLIENT,
 } from '../../src/services/solPaymasterBreaker';
+import {
+  flushPaymasterAudits,
+  setPaymasterAuditRetryPolicy,
+} from '../../src/services/solPaymasterAudit';
+import log from '../../src/lib/log';
 
 after(function () {
   configGetStub.restore();
@@ -145,13 +151,40 @@ function stubSimulation(postDelta: number, pre = 1_000_000_000) {
   return { balance, simulate };
 }
 
-function stubSendAndConfirm(sig = '5xPaymasterFakeSig') {
+// A consumer 2-of-2 bundle pays 3 signatures; the default bundle reimburses
+// 100k, so a normal send leaves the paymaster 85k richer.
+const BUNDLE_FEE = 3 * 5_000;
+const ATA_RENT = 2_039_280;
+
+/** getTransaction for the landed bundle: the paymaster's real balance change. */
+function stubConfirmedTx(paymasterDelta = 100_000 - BUNDLE_FEE) {
+  const pre = 1_000_000_000;
+  return sinon.stub(Connection.prototype, 'getTransaction').resolves({
+    slot: 1,
+    meta: {
+      err: null,
+      fee: BUNDLE_FEE,
+      preBalances: [pre],
+      postBalances: [pre + paymasterDelta],
+    },
+    transaction: {
+      message: { staticAccountKeys: [paymasterKp.publicKey] },
+      signatures: [],
+    },
+  } as any);
+}
+
+function stubSendAndConfirm(
+  sig = '5xPaymasterFakeSig',
+  paymasterDelta?: number,
+) {
   const send = sinon
     .stub(Connection.prototype, 'sendRawTransaction')
     .resolves(sig);
   sinon.stub(Connection.prototype, 'getSignatureStatuses').resolves({
     value: [{ err: null, confirmationStatus: 'confirmed' }],
   } as any);
+  stubConfirmedTx(paymasterDelta);
   return send;
 }
 
@@ -185,9 +218,13 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
     // before every test so getPaymaster() can resolve devnet config.
     reinstallConfigStub();
     resetPaymasterBreaker();
+    setPaymasterAuditRetryPolicy({ attempts: 2, delayMs: 0 });
   });
 
-  afterEach(function () {
+  afterEach(async function () {
+    // Post-send audits run after the response; let them finish on the stubs.
+    await flushPaymasterAudits();
+    setPaymasterAuditRetryPolicy(null);
     sinon.restore();
   });
 
@@ -449,7 +486,203 @@ describe('Solana Paymaster Service — broadcastWithPaymaster', function () {
         expect(
           await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
         ).to.equal('5xPaymasterFakeSig');
+        await flushPaymasterAudits();
       }
+    });
+  });
+
+  describe('post-send loss check (paymaster balance change of the landed bundle)', function () {
+    // The recipient's ATA exists when the relay checks + simulates, so the
+    // bundle needs no splFeeBump — then the recipient closes it before the
+    // bundle executes and the idempotent create pays the rent again.
+    function stubAtaExistsAtCheckTime() {
+      return sinon
+        .stub(Connection.prototype, 'getAccountInfo')
+        .resolves({ lamports: ATA_RENT, data: Buffer.alloc(165) } as any);
+    }
+
+    function lossLines(spy: sinon.SinonSpy): string[] {
+      return spy
+        .getCalls()
+        .map((c) => String(c.args[0]))
+        .filter((l) => l.startsWith('[solPaymaster] LOSS '));
+    }
+
+    it('measures a normal released-wallet-shaped send and counts no loss', async function () {
+      const error = sinon.spy(log, 'error');
+      stubSimulation(100_000 - BUNDLE_FEE);
+      stubSendAndConfirm('5xNormal');
+      const wallet = Keypair.generate();
+      const key = Keypair.generate();
+      const txB64 = await buildSignedBundle({
+        paymaster: paymasterKp.publicKey,
+        wallet,
+        key,
+      });
+      const sig = await solPaymasterService.broadcastWithPaymaster(
+        'solDevnet',
+        txB64,
+        { clientKey: '203.0.113.20' },
+      );
+      expect(sig).to.equal('5xNormal');
+      await flushPaymasterAudits();
+      const getTx = Connection.prototype.getTransaction as sinon.SinonStub;
+      expect(getTx.calledOnce).to.equal(true);
+      expect(getTx.firstCall.args[0]).to.equal('5xNormal');
+      expect(getTx.firstCall.args[1].commitment).to.equal('confirmed');
+      expect(lossLines(error)).to.have.length(0);
+      expect(
+        sponsorshipEventCount({
+          multisig: 'unused',
+          client: '203.0.113.20',
+        }).client,
+      ).to.equal(0);
+    });
+
+    it('counts a re-paid ATA rent as a loss and stops the multisig after repeated races', async function () {
+      const error = sinon.spy(log, 'error');
+      stubAtaExistsAtCheckTime();
+      stubSimulation(100_000 - BUNDLE_FEE); // simulation: ATA exists, no rent
+      // on-chain: the create paid the rent again
+      const send = stubSendAndConfirm(
+        '5xRace',
+        100_000 - BUNDLE_FEE - ATA_RENT,
+      );
+      const wallet = Keypair.generate();
+      const key = Keypair.generate();
+      for (let i = 0; i < MAX_FAILURES_PER_MULTISIG; i++) {
+        const txB64 = await buildSignedBundle({
+          paymaster: paymasterKp.publicKey,
+          spl: true,
+          reimbursementLamports: 100_000,
+          wallet,
+          key,
+        });
+        // the tx itself succeeds — the failure breaker alone never saw it
+        expect(
+          await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64, {
+            clientKey: '203.0.113.21',
+          }),
+        ).to.equal('5xRace');
+        await flushPaymasterAudits();
+      }
+      const lines = lossLines(error);
+      expect(lines).to.have.length(MAX_FAILURES_PER_MULTISIG);
+      expect(lines[0]).to.contain(`LOSS ${ATA_RENT - 100_000} lamports`);
+      expect(lines[0]).to.contain('client=203.0.113.21');
+
+      const next = await buildSignedBundle({
+        paymaster: paymasterKp.publicKey,
+        spl: true,
+        reimbursementLamports: 100_000,
+        wallet,
+        key,
+      });
+      await expectThrow(
+        () =>
+          solPaymasterService.broadcastWithPaymaster('solDevnet', next, {
+            clientKey: '198.51.100.21',
+          }),
+        /sponsorship refused.*multisig/,
+      );
+      expect(send.callCount).to.equal(MAX_FAILURES_PER_MULTISIG);
+    });
+
+    it('stops a client (IP key) that races ATA rent across fresh multisigs', async function () {
+      sinon.stub(log, 'error');
+      stubAtaExistsAtCheckTime();
+      stubSimulation(100_000 - BUNDLE_FEE);
+      const send = stubSendAndConfirm(
+        '5xRaceIp',
+        100_000 - BUNDLE_FEE - ATA_RENT,
+      );
+      for (let i = 0; i < MAX_FAILURES_PER_CLIENT; i++) {
+        const txB64 = await buildSignedBundle({
+          paymaster: paymasterKp.publicKey,
+          spl: true,
+          reimbursementLamports: 100_000,
+        });
+        await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64, {
+          clientKey: '203.0.113.22',
+        });
+        await flushPaymasterAudits();
+      }
+      const fresh = await buildSignedBundle({
+        paymaster: paymasterKp.publicKey,
+        spl: true,
+        reimbursementLamports: 100_000,
+      });
+      await expectThrow(
+        () =>
+          solPaymasterService.broadcastWithPaymaster('solDevnet', fresh, {
+            clientKey: '203.0.113.22',
+          }),
+        /sponsorship refused.*client/,
+      );
+      expect(send.callCount).to.equal(MAX_FAILURES_PER_CLIENT);
+    });
+
+    it('an honest new-recipient SPL send (rent covered by the bump) is no loss', async function () {
+      const error = sinon.spy(log, 'error');
+      sinon.stub(Connection.prototype, 'getAccountInfo').resolves(null);
+      const reimbursement = 100_000 + 2_500_000;
+      stubSimulation(reimbursement - BUNDLE_FEE - ATA_RENT);
+      stubSendAndConfirm('5xNewAta', reimbursement - BUNDLE_FEE - ATA_RENT);
+      const txB64 = await buildSignedBundle({
+        paymaster: paymasterKp.publicKey,
+        spl: true,
+        reimbursementLamports: reimbursement,
+      });
+      expect(
+        await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
+      ).to.equal('5xNewAta');
+      await flushPaymasterAudits();
+      expect(lossLines(error)).to.have.length(0);
+    });
+
+    it('returns the signature without waiting for the post-check', async function () {
+      stubSimulation(100_000 - BUNDLE_FEE);
+      stubSendAndConfirm('5xFast');
+      let release: (v: unknown) => void = () => undefined;
+      (Connection.prototype.getTransaction as sinon.SinonStub).returns(
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+      );
+      const txB64 = await buildSignedBundle({
+        paymaster: paymasterKp.publicKey,
+      });
+      expect(
+        await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64),
+      ).to.equal('5xFast');
+      release(null); // let the (now unblocked) audit finish
+    });
+
+    it('logs an RPC failure in the post-check and never throws it', async function () {
+      const warn = sinon.spy(log, 'warn');
+      stubSimulation(100_000 - BUNDLE_FEE);
+      stubSendAndConfirm('5xRpcDown');
+      (Connection.prototype.getTransaction as sinon.SinonStub).rejects(
+        new Error('fetch failed'),
+      );
+      const txB64 = await buildSignedBundle({
+        paymaster: paymasterKp.publicKey,
+      });
+      expect(
+        await solPaymasterService.broadcastWithPaymaster('solDevnet', txB64, {
+          clientKey: '203.0.113.23',
+        }),
+      ).to.equal('5xRpcDown');
+      await flushPaymasterAudits();
+      const line = warn
+        .getCalls()
+        .map((c) => String(c.args[0]))
+        .find((l) => l.includes('post-send balance check failed'));
+      expect(line).to.contain('5xRpcDown');
+      expect(line).to.contain('fetch failed');
+      expect(
+        sponsorshipEventCount({ multisig: 'x', client: '203.0.113.23' }).client,
+      ).to.equal(0);
     });
   });
 });
