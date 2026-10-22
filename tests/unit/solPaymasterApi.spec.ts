@@ -209,9 +209,11 @@ describe('Solana Paymaster API', function () {
       expect(body.status).to.equal('success');
       expect(broadcastStub.calledOnce).to.equal(true);
       // Service is invoked with chain + serializedTxBase64 only (auth fields stripped)
-      const [chainArg, txArg] = broadcastStub.firstCall.args;
+      const [chainArg, txArg, optsArg] = broadcastStub.firstCall.args;
       expect(chainArg).to.equal('solDevnet');
       expect(typeof txArg).to.equal('string');
+      // the client key feeds the paymaster's failure breaker
+      expect(typeof optsArg.clientKey).to.equal('string');
     });
 
     it('returns an error when the service rejects (e.g. feePayer mismatch)', async function () {

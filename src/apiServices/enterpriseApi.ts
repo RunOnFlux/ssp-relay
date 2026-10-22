@@ -695,6 +695,47 @@ function vaultHandler(hookName: string) {
   };
 }
 
+/**
+ * GET /v1/enterprise/organizations/:id/vaults/:vaultId/descriptor
+ *
+ * Same pass-through as vaultHandler, except that a result the enterprise
+ * module marks with httpStatus 409 (descriptor not available yet) is sent
+ * as a real HTTP 409 error.
+ */
+async function getVaultDescriptor(req: Request, res: Response): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const hook = enterpriseHooks.getHook('vaultDescriptorGet');
+    if (typeof hook !== 'function') {
+      throw new Error('Enterprise hook vaultDescriptorGet not available');
+    }
+    const result = (await (hook as (req: Request) => Promise<unknown>)(
+      req,
+    )) as {
+      success?: boolean;
+      httpStatus?: number;
+      error?: string;
+      errorCode?: string;
+    } | null;
+    if (result && result.success === false && result.httpStatus === 409) {
+      res
+        .status(409)
+        .json(
+          serviceHelper.createErrorMessage(result.error, result.errorCode, 409),
+        );
+      return;
+    }
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
 const postVault = vaultHandler('vaultCreate');
 const getVaults = vaultHandler('vaultList');
 const getVaultTags = vaultHandler('vaultTags');
@@ -1059,6 +1100,7 @@ export default {
   postVaultXpub,
   getVaultPendingSetups,
   getVaultAddresses,
+  getVaultDescriptor,
   postVaultAddress,
   postVaultSolanaSetup,
   patchVaultAddress,

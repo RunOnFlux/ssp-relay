@@ -483,6 +483,29 @@ async function fetchFees() {
   fetchFees();
 }
 
+/**
+ * The cached per-unit fee rate for a chain id (the `coin` served on
+ * /v1/networkfees, e.g. 'btc', 'ltc', 'doge'): `recommended`, else `fast`.
+ * null when the chain is unknown or no positive finite rate is cached yet.
+ * Synchronous and network-free (reads the last fetchFees result).
+ */
+export function getNetworkFeeRate(chain: string): number | null {
+  if (typeof chain !== 'string' || !chain) return null;
+  const entry = currentFees.find(
+    (f: { coin?: unknown }) => f && f.coin === chain,
+  ) as { recommended?: unknown; fast?: unknown } | undefined;
+  if (!entry) return null;
+  for (const v of [entry.recommended, entry.fast]) {
+    if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
+  }
+  return null;
+}
+
+/** Test helper: replace the cached fee list. */
+export function setCachedFeesForTests(fees: unknown[]): void {
+  currentFees = fees;
+}
+
 async function networkFees(res) {
   const timeout = 10000; // 10 second timeout
   const startTime = Date.now();
@@ -503,6 +526,7 @@ async function networkFees(res) {
 export default {
   networkFees,
   fetchFees,
+  getNetworkFeeRate,
   obtainBitcoinFees,
   obtainLitecoinFees,
   obtainEthFees,
