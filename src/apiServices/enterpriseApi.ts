@@ -792,6 +792,8 @@ const postVaultProposalCancel = vaultHandler('vaultProposalCancel');
 const postVaultProposalRetryBroadcast = vaultHandler(
   'vaultProposalRetryBroadcast',
 );
+// Add payments to a pending UTXO proposal (rebuilt, signatures reset).
+const postVaultProposalAmend = vaultHandler('vaultProposalAmend');
 // Read-only proposal share links (payment status for the payee).
 const postVaultProposalShare = vaultHandler('vaultProposalShareCreate');
 const getVaultProposalShares = vaultHandler('vaultProposalShareList');
@@ -1130,6 +1132,7 @@ export default {
   postVaultProposalReject,
   postVaultProposalCancel,
   postVaultProposalRetryBroadcast,
+  postVaultProposalAmend,
   postVaultProposalShare,
   getVaultProposalShares,
   postVaultProposalShareRevoke,
