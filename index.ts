@@ -14,11 +14,13 @@ import ratesService from './src/services/ratesService';
 import networkFeesService from './src/services/networkFeesService';
 import { logPaymasterStatus } from './src/services/solPaymasterService';
 import { logAuthModeBanner } from './src/middleware/authMiddleware';
+import { logEvmCallGuardModeBanner } from './src/lib/evmCallGuard';
 
 async function startServer() {
   try {
     log.info('Starting SSP Relay server');
     logAuthModeBanner();
+    logEvmCallGuardModeBanner();
 
     // Setup graceful shutdown handlers first
     setupGracefulShutdown();

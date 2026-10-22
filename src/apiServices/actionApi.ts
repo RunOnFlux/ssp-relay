@@ -10,6 +10,7 @@ import {
   AuthenticatedRequest,
 } from '../middleware/authMiddleware';
 import { validateWkSigningRequestPayload } from '../lib/wkSignValidation';
+import { guardConsumerEvmTx } from '../lib/evmCallGuard';
 import { getEnterpriseNoncesNeeded } from '../services/noncePoolStatusCache';
 
 interface utxo {
@@ -474,6 +475,43 @@ async function postAction(req: AuthenticatedRequest, res) {
         }
         throw error;
       }
+    }
+
+    // C-4 stopgap: refuse consumer EVM sends that call the smart account
+    // itself or upgrade it, before they are stored or reach SSP Key.
+    const evmGuard = guardConsumerEvmTx({
+      action: processedBody.action,
+      chain: processedBody.chain,
+      wkIdentity: processedBody.wkIdentity,
+      payload: processedBody.payload,
+    });
+    if (evmGuard.refused) {
+      // Released wallets (2.1.3) ignore the 403 and keep waiting, offering
+      // the QR / copy hand-off to SSP Key, which would bypass this guard.
+      // Answer the wallet the way SSP Key rejects a tx (same event, same
+      // payload) so it closes the flow and rejects the dApp request. The
+      // request is signed as wkIdentity, so only that wallet hears it.
+      try {
+        socket.getIOWallet().to(processedBody.wkIdentity).emit('txrejected', {
+          action: 'txrejected',
+          payload: processedBody.payload,
+          wkIdentity: processedBody.wkIdentity,
+          chain: processedBody.chain,
+          path: processedBody.path,
+        });
+      } catch (error) {
+        log.error(`[EVM-GUARD] could not notify the wallet: ${error}`);
+      }
+      res
+        .status(403)
+        .json(
+          serviceHelper.createErrorMessage(
+            `Transaction refused: ${evmGuard.reason}. Requests that call your own smart account can take it over.`,
+            'ForbiddenError',
+            'EVM_CALL_REFUSED',
+          ),
+        );
+      return;
     }
 
     const data: actionData = {
