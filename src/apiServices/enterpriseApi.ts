@@ -792,6 +792,12 @@ const postVaultProposalCancel = vaultHandler('vaultProposalCancel');
 const postVaultProposalRetryBroadcast = vaultHandler(
   'vaultProposalRetryBroadcast',
 );
+// Read-only proposal share links (payment status for the payee).
+const postVaultProposalShare = vaultHandler('vaultProposalShareCreate');
+const getVaultProposalShares = vaultHandler('vaultProposalShareList');
+const postVaultProposalShareRevoke = vaultHandler('vaultProposalShareRevoke');
+// Public (no session) — the enterprise hook takes the token from the body.
+const postPublicProposalShare = vaultHandler('publicProposalShareView');
 // Vault signature requests (WalletConnect Phase 2 — vault message signing).
 const postVaultSignatureRequest = vaultHandler('vaultSignatureRequestCreate');
 const getVaultSignatureRequests = vaultHandler('vaultSignatureRequestList');
@@ -1124,6 +1130,10 @@ export default {
   postVaultProposalReject,
   postVaultProposalCancel,
   postVaultProposalRetryBroadcast,
+  postVaultProposalShare,
+  getVaultProposalShares,
+  postVaultProposalShareRevoke,
+  postPublicProposalShare,
   postVaultSignatureRequest,
   getVaultSignatureRequests,
   getVaultSignatureRequest,
