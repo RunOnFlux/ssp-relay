@@ -116,6 +116,32 @@ const solBroadcastLimiter = rateLimit({
   },
 });
 
+// Solana vault setup — a paid setup makes the paymaster pay ~2.94M lamports
+// of permanent multisig + nonce rent (SOL-6 rent grind). The real control is
+// solPaymasterSetupGuard: it charges only setups that reach the chain, per
+// client IP (SSP_SOLANA_SETUP_PER_IP_HOURLY / _DAILY, default 3/hour and
+// 10/day) and against a global hourly budget, at the point of spend — so it
+// cannot be dodged by aborting the HTTP request, and a user retrying after a
+// free refusal (e.g. an unfunded vault) is not locked out. This route-level
+// cap counts EVERY setup request (including idempotent and refused ones) and
+// only bounds request volume / RPC reads: the released wallet posts setup
+// once per new vault, so 30 per hour per IP is far above legitimate use even
+// behind a shared (CGNAT) address.
+const solSetupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  message: {
+    status: 'error',
+    data: {
+      message:
+        'Too many Solana vault setup requests. Please wait and try again later.',
+    },
+  },
+});
+
 // Wallet-recovery requests are the one action posted UNSIGNED (the recovering
 // wallet has no keys). Each one pushes an approval prompt to the target's
 // SSP Key, so cap them hard per IP. Signed actions skip this limiter.
@@ -451,10 +477,13 @@ export default (app) => {
   // One-shot pre-provision for a new Solana vault: paymaster atomically
   // initializes the multisig + provisions its durable nonce account so the
   // wallet's first send can use the durable-nonce flow (no blockhash race).
-  // wkIdentity-authed + balance-gated to prevent griefing the paymaster.
+  // Balance-gated, and paid setups are budgeted per client IP and globally
+  // (solPaymasterSetupGuard) — identity is not a cost (legacy-unauth / self-
+  // made WK identities), so the IP and the global budget are the controls.
   app.post(
     '/v1/sol/setup',
     solBroadcastLimiter,
+    solSetupLimiter,
     requireWkIdentityAuthLegacyGated,
     (req, res) => {
       solPaymasterApi.postSetup(req, res);

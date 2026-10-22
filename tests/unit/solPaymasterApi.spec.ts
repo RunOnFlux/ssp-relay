@@ -423,5 +423,30 @@ describe('Solana Paymaster API', function () {
         'walletPubkey',
       ]);
     });
+
+    it('passes the client IP key to the service (per-IP setup budget)', async function () {
+      const setupStub = sinon
+        .stub(solPaymasterService, 'setupSolMultisig')
+        .resolves({
+          signature: '5ipSig',
+          multisigAddress: 'M',
+          vaultAddress: 'V',
+          nonceAccount: 'N',
+          nonceValue: 'H',
+          alreadyProvisioned: false,
+        });
+      const req = makeReq({
+        chain: 'solDevnet',
+        walletPubkey: FAKE_WALLET_PUB,
+        keyPubkey: FAKE_KEY_PUB,
+      });
+      req.socket = { remoteAddress: '203.0.113.77' };
+      const res = httpMocks.createResponse();
+      await solPaymasterApi.postSetup(req, res);
+      expect(JSON.parse(res._getData()).status).to.equal('success');
+      expect(setupStub.firstCall.args[1]).to.deep.equal({
+        clientKey: '203.0.113.77',
+      });
+    });
   });
 });

@@ -100,11 +100,15 @@ async function postSetup(req, res) {
       throw new Error('walletPubkey and keyPubkey must differ');
     }
 
-    const result = await solPaymasterService.setupSolMultisig({
-      chain,
-      walletPubkey,
-      keyPubkey,
-    });
+    // The client key charges the per-IP setup budget (and the breaker).
+    const result = await solPaymasterService.setupSolMultisig(
+      {
+        chain,
+        walletPubkey,
+        keyPubkey,
+      },
+      { clientKey: clientIpKey(req) },
+    );
 
     res.json(serviceHelper.createDataMessage(result));
   } catch (error) {
