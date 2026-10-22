@@ -1416,6 +1416,12 @@ export default (app) => {
       enterpriseApi.postVaultProposalTronInvalidate(req, res);
     },
   );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/amend',
+    (req, res) => {
+      enterpriseApi.postVaultProposalAmend(req, res);
+    },
+  );
 
   // Vault signature requests (WalletConnect Phase 2 — vault message signing).
   // A NON-broadcasting M-of-N signature over a dApp message (personal_sign);
