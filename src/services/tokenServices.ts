@@ -1,6 +1,8 @@
 import { Alchemy, Network } from 'alchemy-sdk';
 import config from 'config';
 import axios from 'axios';
+import { sspRelayKeyHeaders } from '../lib/sspHosts';
+import { fetchPublicJson } from '../lib/safeFetch';
 
 interface TokenMetadata {
   name: string | null;
@@ -22,10 +24,16 @@ interface TokenMetadata {
  * single egress IP, and a mint costs 2+ calls, so without this header token
  * imports would 429 almost immediately — a self-inflicted DoS. Same key the
  * paymaster's connections use (solPaymasterService.solanaConnectionConfig).
+ *
+ * The key is attached ONLY for SSP's own *.sspwallet.io hosts — never to
+ * third-party RPCs such as api.devnet.solana.com (DEP-13) — and those calls
+ * do not follow redirects.
  */
-function solanaRpcHeaders(): Record<string, string> {
-  const key = process.env.SSP_RELAY_PROXY_KEY;
-  return key ? { 'X-SSP-Relay-Key': key } : {};
+function solanaRpcRequestConfig(url: string) {
+  const headers = sspRelayKeyHeaders(url);
+  return Object.keys(headers).length
+    ? { headers, maxRedirects: 0 }
+    : { headers };
 }
 
 const SOLANA_RPC: Record<string, string> = {
@@ -59,7 +67,7 @@ async function getSolanaTokenMetadata(
       method: 'getAccountInfo',
       params: [mintAddress, { encoding: 'jsonParsed' }],
     },
-    { headers: solanaRpcHeaders() },
+    solanaRpcRequestConfig(url),
   );
   const mintInfo = mintResp.data.result?.value?.data?.parsed?.info;
   if (!mintInfo) {
@@ -88,6 +96,20 @@ async function getSolanaTokenMetadata(
 
 const METAPLEX_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
 
+/**
+ * The logo URL is relayed to wallets, which render it. Only pass through a
+ * plain https URL of sane length (no javascript:, data:, http:, …).
+ */
+export function sanitizeLogoUrl(image: unknown): string | null {
+  if (typeof image !== 'string' || image.length > 2048) return null;
+  try {
+    const parsed = new URL(image);
+    return parsed.protocol === 'https:' ? image : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchMetaplexMetadata(
   rpcUrl: string,
   mintAddress: string,
@@ -115,7 +137,7 @@ async function fetchMetaplexMetadata(
       method: 'getAccountInfo',
       params: [metadataPda.toBase58(), { encoding: 'base64' }],
     },
-    { headers: solanaRpcHeaders() },
+    solanaRpcRequestConfig(rpcUrl),
   );
 
   const accountData = resp.data.result?.value?.data;
@@ -138,15 +160,19 @@ async function fetchMetaplexMetadata(
   const uri = readString();
 
   // Try to resolve image URL from the off-chain JSON pointed at by `uri`.
+  // The uri is attacker-controlled (anyone can deploy a mint), so the fetch is
+  // SSRF-hardened: https on 443 only, every resolved address must be public,
+  // connection pinned to the checked address, no redirects, 5s, 256 KB.
   let logo: string | null = null;
-  if (uri && uri.startsWith('http')) {
+  if (uri) {
     try {
-      const offChain = await axios.get<{ image?: string }>(uri, {
-        timeout: 5000,
+      const offChain = await fetchPublicJson<{ image?: unknown }>(uri, {
+        timeoutMs: 5000,
+        maxBytes: 256 * 1024,
       });
-      if (offChain.data?.image) logo = offChain.data.image;
+      logo = sanitizeLogoUrl(offChain?.image);
     } catch {
-      /* off-chain JSON unavailable — return without logo */
+      /* off-chain JSON unavailable or refused — return without logo */
     }
   }
 
