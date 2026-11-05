@@ -120,6 +120,9 @@ async function postTicket(data) {
     // NO ESCAPE HATCH. This used to answer "Ticket created successfully." whenever the error
     // message contained "Cannot read properties of unde". A reporter who is told their ticket
     // was filed does not file it again.
+    // The axios error is logged above; not attached as `cause` so callers that
+    // log this error don't re-print the request (it carries the API key).
+    // eslint-disable-next-line preserve-caught-error
     throw new Error('Failed to create a Ticket.');
   }
 }
