@@ -301,7 +301,7 @@ async function confirmSignatureHttp(
  */
 function priorityFeeInstructions(chain: string): TransactionInstruction[] {
   const slotKey = chainSlot(chain);
-  let price = 0;
+  let price: number;
   try {
     price =
       config.get<SolanaChainConfig>(`solana.${slotKey}`)
