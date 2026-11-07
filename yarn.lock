@@ -1497,16 +1497,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@runonflux/tron-multisig@file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0-f79be28a.tgz::locator=ssp-relay%40workspace%3A.":
+"@runonflux/tron-multisig@npm:0.1.0":
   version: 0.1.0
-  resolution: "@runonflux/tron-multisig@file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0-f79be28a.tgz#../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0-f79be28a.tgz::hash=d313b5&locator=ssp-relay%40workspace%3A."
+  resolution: "@runonflux/tron-multisig@npm:0.1.0"
   dependencies:
     "@noble/curves": "npm:2.4.0"
     "@noble/hashes": "npm:2.4.0"
     "@scure/base": "npm:2.4.0"
   bin:
-    tron-multisig: ./dist/bin.js
-  checksum: 10c0/994b514b6fa597092104201f18e61cc87442c335db88c9c8fb077daf233c3c7e8fdb04939370a1eb35a8afa7fc2252fe20a23abd34d50a4e171d07827f5d450d
+    tron-multisig: dist/bin.js
+  checksum: 10c0/429624eb1e35e2f321dd1fc557922ce848e1a830fdec66d726c2c0c6914c62039ca5cc32c1eae0834fce91361243127cea8b6e1e59b2e8b531bd408ffc46f5d0
   languageName: node
   linkType: hard
 
@@ -7299,7 +7299,7 @@ __metadata:
     "@eslint/js": "npm:9.39.2"
     "@runonflux/aa-schnorr-multisig-sdk": "npm:1.5.0"
     "@runonflux/solana-multisig": "npm:0.12.1"
-    "@runonflux/tron-multisig": "file:../tron-multisig/dist-tarballs/runonflux-tron-multisig-0.1.0-f79be28a.tgz"
+    "@runonflux/tron-multisig": "npm:0.1.0"
     "@runonflux/utxo-lib": "npm:1.0.6"
     "@scure/bip32": "npm:2.2.0"
     "@solana/spl-token": "npm:0.4.14"
