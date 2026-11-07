@@ -173,6 +173,13 @@ async function fetchCryptoRates() {
       // pricing it would inflate treasury displays with fake balances.
       sol: response.data.data['5426'].quote.USD.price,
       solMainnet: response.data.data['5426'].quote.USD.price,
+      // TRON TRX (CMC ID 1958, already fetched as `trx` for token lookups).
+      // `/v1/rates` chain-level lookups index by chain id verbatim, exactly
+      // like `solMainnet` above, so the `tron` chain id needs its own key or
+      // every TRON balance renders 0. WTRX is TRX wrapped 1:1.
+      // `tronNile` is intentionally absent — TEST-TRX has no value.
+      tron: response.data.data['1958'].quote.USD.price,
+      wtrx: response.data.data['1958'].quote.USD.price,
     };
     cryptoRates = prices;
   } catch (error) {

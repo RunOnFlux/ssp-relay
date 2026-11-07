@@ -33,6 +33,31 @@ async function doIndexes() {
       .collection(config.collections.v1recoverypub)
       .createIndex({ wkIdentity: 1 }, { unique: true }); // one per identity, no expiry
 
+    // TRON sponsor. Own try/catch so a failure here can never skip the
+    // enterprise hook initialisation below.
+    try {
+      const tronOps = database.collection(config.collections.tronSponsorOps);
+      // Audit data: NO TTL. The unique digest index is also the broadcast
+      // dedupe lock (one sponsored transaction per signed Op).
+      await tronOps.createIndex({ digest: 1 }, { unique: true });
+      await tronOps.createIndex({ vault: 1, createdAt: -1 });
+      await tronOps.createIndex({ status: 1 });
+      const tronReservations = database.collection(
+        config.collections.tronNonceReservations,
+      );
+      // Quote nonce reservations live until the quoted Op's deadline.
+      await tronReservations.createIndex(
+        { expiresAt: 1 },
+        { expireAfterSeconds: 0 },
+      );
+      await tronReservations.createIndex(
+        { chain: 1, vault: 1, nonce: 1 },
+        { unique: true },
+      );
+    } catch (error) {
+      log.error(error);
+    }
+
     // Initialize enterprise hooks (loads enterprise module if installed)
     await enterpriseHooks.init({
       db: database,

@@ -15,6 +15,10 @@ import networkFeesService from './src/services/networkFeesService';
 import { logPaymasterStatus } from './src/services/solPaymasterService';
 import { logAuthModeBanner } from './src/middleware/authMiddleware';
 import { logEvmCallGuardModeBanner } from './src/lib/evmCallGuard';
+import {
+  assertTronConfig,
+  logTronSponsorStatus,
+} from './src/services/tronSponsorService';
 
 async function startServer() {
   try {
@@ -24,6 +28,10 @@ async function startServer() {
 
     // Setup graceful shutdown handlers first
     setupGracefulShutdown();
+
+    // TRON deployment overrides may only fill values the SDK has as null; a
+    // conflicting pinned value must stop the relay before it serves anything.
+    assertTronConfig();
 
     // Initialize database connection
     log.info('Connecting to database');
@@ -74,6 +82,9 @@ async function startServer() {
     // Solana paymaster startup banner — fire-and-forget, balance lookup
     // shouldn't block server readiness.
     logPaymasterStatus().catch((e) => log.error(e));
+    // TRON sponsor startup banner (+ resumes confirmation of broadcasts a
+    // restart left unsettled). Fire-and-forget like the Solana one.
+    logTronSponsorStatus().catch((e) => log.error(e));
   } catch (error) {
     log.error(error);
     process.exit(1);

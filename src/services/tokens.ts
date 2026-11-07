@@ -828,6 +828,120 @@ function solMainnet() {
   return tokens;
 }
 
+// TRC-20 whitelist (TRON_INTEGRATION_PLAN.md §11.2). Base58 contract
+// addresses are CASE-SENSITIVE: never lowercase them when comparing.
+// Decimals are the tokens' on-chain decimals (TRX itself is 6, never 8).
+function tron() {
+  const tokens = [
+    {
+      contract: '', // native TRX
+      name: 'TRON',
+      symbol: 'TRX',
+      decimals: 6,
+    },
+    {
+      contract: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+      name: 'Tether USD',
+      symbol: 'USDT',
+      decimals: 6,
+    },
+    {
+      contract: 'TXDk8mbtRbXeYuMNS83CfKPaYYT8XWv9Hz',
+      name: 'Decentralized USD',
+      symbol: 'USDD',
+      decimals: 18,
+    },
+    {
+      contract: 'TUpMhErZL2fhh4sVNULAbNKLokS4GjC1F4',
+      name: 'TrueUSD',
+      symbol: 'TUSD',
+      decimals: 18,
+    },
+    {
+      contract: 'TPFqcBAaaUMCSVRCqPaQ9QnzKhmuoLR6Rc',
+      name: 'World Liberty Financial USD',
+      symbol: 'USD1',
+      decimals: 18,
+    },
+    {
+      contract: 'TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR',
+      name: 'Wrapped TRX',
+      symbol: 'WTRX',
+      decimals: 6,
+    },
+    {
+      contract: 'TAFjULxiVgT4qWk6UZwjqwZXTSaGaqnVp4',
+      name: 'BitTorrent',
+      symbol: 'BTT',
+      decimals: 18,
+    },
+    {
+      contract: 'TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9',
+      name: 'JUST',
+      symbol: 'JST',
+      decimals: 18,
+    },
+    {
+      contract: 'TSSMHYeV2uE9qYH95DqyoCuNCzEL1NvU3S',
+      name: 'SUN',
+      symbol: 'SUN',
+      decimals: 18,
+    },
+    {
+      contract: 'TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7',
+      name: 'WINkLink',
+      symbol: 'WIN',
+      decimals: 6,
+    },
+    {
+      contract: 'TFczxzPhnThNSqr5by8tvxsdCFRRz6cPNq',
+      name: 'APENFT',
+      symbol: 'NFT',
+      decimals: 6,
+    },
+    {
+      contract: 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9',
+      name: 'Bitcoin (TRON)',
+      symbol: 'BTC',
+      decimals: 8,
+    },
+    {
+      contract: 'THb4CqiFdwNHsWsQCs4JhzwjMWys4aqCbF',
+      name: 'Ethereum (TRON)',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    {
+      // Circle stopped supporting USDC on TRON: shown for existing balances
+      // only, never offered as a default send token.
+      contract: 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8',
+      name: 'USD Coin (legacy)',
+      symbol: 'USDC',
+      decimals: 6,
+      legacy: true,
+    },
+  ];
+  return tokens;
+}
+
+function tronNile() {
+  const tokens = [
+    {
+      contract: '', // native TEST-TRX
+      name: 'TRON Nile',
+      symbol: 'TEST-TRX',
+      decimals: 6,
+    },
+    {
+      contract: 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf',
+      name: 'Tether USD (Nile)',
+      symbol: 'USDT',
+      decimals: 6,
+    },
+  ];
+  return tokens;
+}
+
 export const tokens = {
   eth,
   sepolia,
@@ -838,4 +952,6 @@ export const tokens = {
   bsc,
   solDevnet,
   solMainnet,
+  tron,
+  tronNile,
 };
