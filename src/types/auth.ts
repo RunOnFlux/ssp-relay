@@ -12,13 +12,19 @@
 export interface SignaturePayload {
   /** Unix timestamp in milliseconds */
   timestamp: number;
-  /** The action being performed: sync, action, token, or join */
-  action: 'sync' | 'action' | 'token' | 'join';
+  /**
+   * The action being performed: sync, action, token or join for body-signed
+   * POSTs and socket joins; read for header-signed GET reads (requireReadAuth).
+   */
+  action: 'sync' | 'action' | 'token' | 'join' | 'read';
   /** The identity being authenticated (wkIdentity, walletIdentity, etc.) */
   identity: string;
   /** Random 32-byte hex string to prevent replay attacks */
   nonce: string;
-  /** Optional: SHA256 hash of request body for POST request binding */
+  /**
+   * SHA256 hash binding the request: of the body (minus auth fields) for
+   * POSTs, of the UTF-8 string `GET <path>` for header-signed reads.
+   */
   data?: string;
 }
 
@@ -55,6 +61,11 @@ export interface VerificationResult {
    * its effects must not be applied a second time.
    */
   duplicate?: boolean;
+  /**
+   * The request could not be verified for a server-side reason (the
+   * replay-protection cache is full). Callers answer 503, not 401.
+   */
+  unavailable?: boolean;
 }
 
 /**

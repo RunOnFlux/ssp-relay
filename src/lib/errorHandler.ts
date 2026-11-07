@@ -106,6 +106,12 @@ export function notFoundHandler(req: Request, res: Response) {
 
 /**
  * Timeout handler middleware
+ *
+ * The route handler keeps running after the 408 goes out, and when it finishes
+ * it still calls res.json(). That throws ERR_HTTP_HEADERS_SENT; the handler's
+ * catch block calls res.json() again, and because route wrappers don't await
+ * the handler the second throw becomes an unhandledRejection, which shuts the
+ * relay down. So once the 408 is sent, any later json/send is dropped.
  */
 export function timeoutHandler(timeoutMs = 30000) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -121,6 +127,15 @@ export function timeoutHandler(timeoutMs = 30000) {
             message: 'Request timeout',
           },
         });
+
+        const dropLateResponse = function (this: Response) {
+          log.warn(
+            `Late response dropped after timeout: ${req.method} ${req.url}`,
+          );
+          return this;
+        };
+        res.json = dropLateResponse;
+        res.send = dropLateResponse;
       }
     }, timeoutMs);
 

@@ -1,5 +1,11 @@
 name: Test
 on: [push, pull_request]
+
+# Least privilege: the job only reads the repository. Nothing here needs to
+# write to the repo, packages, issues or deployments.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -11,28 +17,35 @@ jobs:
         mongodb-version: ['7.0']
 
     steps:
+      # Third-party and first-party actions are pinned to full commit SHAs
+      # (tags are mutable). The trailing comment records the tag the SHA was
+      # resolved from (gh api repos/<owner>/<repo>/commits/<tag>, 2026-10-12).
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node-version }}
       - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.12.1
+        uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
         with:
           mongodb-version: ${{ matrix.mongodb-version }}
           mongodb-username: ssp-relay-user
           mongodb-password: ssp-relay-password
           mongodb-db: ssp-relay
-      - name: Install yarn
-        run: npm install -g yarn
+      # Yarn is the release committed in the repo (.yarn/releases, pinned by
+      # yarnPath / packageManager) — no unpinned global install. --immutable
+      # fails the build if yarn.lock does not match package.json.
       - name: yarn install
-        run: yarn
+        run: node .yarn/releases/yarn-4.12.0.cjs install --immutable
       - name: Setup CI config
         run: |
-          echo $SERVICE_ACCOUNT_CONFIG > config/serviceAccountKey.json
-          echo $API_SECRETS > config/apisecrets.ts
-          echo $ALCHEMY_SECRETS > config/alchemysecrets.ts
+          mkdir -p logs
+          printf '%s' "$SERVICE_ACCOUNT_CONFIG" > config/serviceAccountKey.json
+          printf '%s' "$API_SECRETS" > config/apisecrets.ts
+          printf '%s' "$ALCHEMY_SECRETS" > config/alchemysecrets.ts
           touch logs/debug.log logs/error.log logs/info.log
         shell: bash
         env:
@@ -40,12 +53,17 @@ jobs:
           API_SECRETS: ${{ secrets.API_SECRETS }}
           ALCHEMY_SECRETS: ${{ secrets.ALCHEMY_SECRETS }}
       - name: Run tests and collect coverage
-        run: |
-          npm run test
+        run: node .yarn/releases/yarn-4.12.0.cjs test
         env:
           CI: true
+      # Remove the secrets from disk before any further third-party code runs.
+      - name: Remove CI secrets
+        if: always()
+        run: |
+          git checkout -- config/serviceAccountKey.json config/apisecrets.ts config/alchemysecrets.ts
+        shell: bash
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         with:
           verbose: true
         env:

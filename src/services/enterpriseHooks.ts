@@ -14,6 +14,7 @@ import {
 } from '../lib/identityAuth';
 import { getKnownTokensForNetwork } from './knownTokens';
 import solPaymasterService from './solPaymasterService';
+import { getNetworkFeeRate } from './networkFeesService';
 
 // Rates service interface (from ssp-relay)
 interface RatesService {
@@ -184,6 +185,19 @@ interface EnterpriseRemoveEmailResponse {
   errorCode?: string;
 }
 
+/**
+ * Socket handshake info passed to onSocketJoin / onSocketLeave. `address` is
+ * the TCP peer; `sspClientIp` / `sspViaCloudflare` are the relay's
+ * Cloudflare-verified client IP and edge check (lib/clientIp.ts), the same
+ * contract as req.sspClientIp / req.sspViaCloudflare on HTTP requests.
+ */
+export interface SocketHandshakeInfo {
+  headers?: Record<string, unknown>;
+  address?: string;
+  sspClientIp?: string;
+  sspViaCloudflare?: boolean;
+}
+
 // Generic hook interface
 interface HooksModule {
   init: (deps: {
@@ -193,6 +207,9 @@ interface HooksModule {
     ratesService: RatesService;
     authFunctions?: AuthFunctions;
     getKnownTokens?: (network: string) => Array<{ contract: string }> | null;
+    // Live per-unit fee rate for a chain (networkFeesService: recommended,
+    // else fast), or null. Reference for the enterprise proposer fee cap.
+    getNetworkFeeRate?: (chain: string) => number | null;
     solanaPaymasterBroadcast?: (params: {
       chain: string;
       partialSignedTxBase64: string;
@@ -252,13 +269,13 @@ interface HooksModule {
     wkIdentity: string,
     socketType: 'key' | 'wallet',
     socketId: string,
-    handshake?: { headers?: Record<string, unknown>; address?: string },
+    handshake?: SocketHandshakeInfo,
   ) => Promise<void>;
   onSocketLeave?: (
     wkIdentity: string,
     socketType: 'key' | 'wallet',
     socketId: string,
-    handshake?: { headers?: Record<string, unknown>; address?: string },
+    handshake?: SocketHandshakeInfo,
   ) => Promise<void>;
   // Public endpoint hooks (wkIdentity extracted from sspwkid header in enterprise module)
   onRates?: (req: unknown) => Promise<void>;
@@ -893,6 +910,7 @@ async function init(deps: {
           parseWitnessScript,
         },
         getKnownTokens: getKnownTokensForNetwork,
+        getNetworkFeeRate,
         // Bridge enterprise's bundled Solana broadcast into the public
         // paymaster service. Enterprise stamps all member ed25519 sigs;
         // here paymaster adds feePayer sig + submits to RPC.
@@ -1047,7 +1065,7 @@ const onSocketJoin = (
   wkIdentity: string,
   socketType: 'key' | 'wallet',
   socketId: string,
-  handshake?: { headers?: Record<string, unknown>; address?: string },
+  handshake?: SocketHandshakeInfo,
 ) =>
   hooksModule.onSocketJoin?.(wkIdentity, socketType, socketId, handshake) ??
   Promise.resolve();
@@ -1056,7 +1074,7 @@ const onSocketLeave = (
   wkIdentity: string,
   socketType: 'key' | 'wallet',
   socketId: string,
-  handshake?: { headers?: Record<string, unknown>; address?: string },
+  handshake?: SocketHandshakeInfo,
 ) =>
   hooksModule.onSocketLeave?.(wkIdentity, socketType, socketId, handshake) ??
   Promise.resolve();

@@ -257,7 +257,7 @@ describe('Action API', function () {
     });
 
     function kasRequest(payload, action = 'tx') {
-      return httpMocks.createRequest({
+      const request = httpMocks.createRequest({
         method: 'POST',
         url: 'test',
         body: {
@@ -268,6 +268,10 @@ describe('Action API', function () {
           path: '0-0',
         },
       });
+      // What the wkIdentity auth middleware sets for a signed request.
+      request.isAuthenticated = true;
+      request.verifiedIdentity = 'kaspa-wk-identity';
+      return request;
     }
 
     function stubDelivery() {

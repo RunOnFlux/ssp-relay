@@ -122,3 +122,5 @@ dist
 # Local planning artifacts (specs, plans) — not tracked in git
 docs/superpowers/
 
+# Debug dumps of request payloads (may contain user data)
+payload_*.txt

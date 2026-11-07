@@ -10,7 +10,7 @@ import config from 'config';
 import routes from '../routes';
 import { errorHandler, notFoundHandler, timeoutHandler } from './errorHandler';
 import serviceHelper from '../services/serviceHelper';
-import { clientIpKey } from './clientIp';
+import { attachClientIp, clientIpKey } from './clientIp';
 
 const app = express();
 
@@ -43,6 +43,11 @@ const trustProxyValue = trustProxyEnv
   : config.server.trustProxy;
 app.set('trust proxy', trustProxyValue);
 
+// Stamp the Cloudflare-verified client IP on every request first
+// (req.sspClientIp / req.sspViaCloudflare; see clientIp.ts). The enterprise
+// module reads only these, never raw forwarding headers.
+app.use(attachClientIp);
+
 // Request logging
 app.use(
   morgan(
@@ -71,7 +76,7 @@ const webhookLimiter = rateLimit({
 app.post(
   '/v1/enterprise/stripe/webhook',
   webhookLimiter,
-  express.raw({ type: 'application/json', limit: '15mb' }),
+  express.raw({ type: 'application/json', limit: '15mb', inflate: false }),
   async (req, res) => {
     try {
       const enterpriseHooks = (await import('../services/enterpriseHooks'))
@@ -162,10 +167,13 @@ app.get(['/health', '/v1/health'], async (_req, res) => {
   res.status(health.status === 'ok' ? 200 : 503).json(health);
 });
 
-// Body parsing middleware
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: false, limit: '15mb' }));
-app.use(express.text({ limit: '15mb' }));
+// Body parsing middleware. inflate:false refuses compressed request bodies
+// (415) before a decompression stream exists: body-parser < 2.4.0 can turn
+// trailing bytes after a compressed frame into an uncaught exception
+// (GHSA-27r3-jxmh-p828). No SSP client sends compressed bodies.
+app.use(express.json({ limit: '15mb', inflate: false }));
+app.use(express.urlencoded({ extended: false, limit: '15mb', inflate: false }));
+app.use(express.text({ limit: '15mb', inflate: false }));
 
 // Compression
 app.use(compression());

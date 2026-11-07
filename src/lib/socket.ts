@@ -9,38 +9,109 @@ import {
   AuthFields,
   SignaturePayload,
 } from './identityAuth';
+import { handshakeClientIp } from './clientIp';
 
 let ioKey;
 let ioWallet;
 
 /**
- * Verify socket authentication for wkIdentity (multisig).
- *
- * @param data - The join event data
- * @returns Whether authentication is valid
+ * Room for wallets that are recovering their password. Such a wallet has no
+ * decrypted keys, so it cannot sign a join; it is admitted to this room only,
+ * which receives nothing but the recovery answer (`recoveryresponse`, whose
+ * payload is encrypted to the requester's ephemeral key) and `recoverydenied`.
+ * Every other event for the identity goes to the authenticated room.
  */
-function verifySocketAuth(data: {
+export function recoveryRoom(wkIdentity: string): string {
+  return `recovery:${wkIdentity}`;
+}
+
+/** Events a recovery-room member may receive. */
+export const RECOVERY_ROOM_EVENTS: readonly string[] = [
+  'recoveryresponse',
+  'recoverydenied',
+];
+
+export interface SocketJoinData {
   wkIdentity: string;
   signature?: string;
   message?: string;
   publicKey?: string;
   witnessScript?: string;
-}): { valid: boolean; error?: string } {
+}
+
+export interface SocketAuthResult {
+  valid: boolean;
+  error?: string;
+  /** No auth fields at all (as opposed to bad or partial auth). */
+  unauthenticated?: boolean;
+}
+
+/**
+ * Validate the shape of a join payload: an object with a string wkIdentity of
+ * sane length. Returns the identity, or an error message.
+ */
+export function parseJoinData(
+  data: unknown,
+): { wkIdentity: string } | { error: string } {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { error: 'Invalid join payload' };
+  }
+  const { wkIdentity } = data as { wkIdentity?: unknown };
+  if (!wkIdentity || typeof wkIdentity !== 'string') {
+    return { error: 'Invalid wkIdentity' };
+  }
+  if (wkIdentity.length < 10 || wkIdentity.length > 500) {
+    return { error: 'Invalid wkIdentity length' };
+  }
+  return { wkIdentity };
+}
+
+/**
+ * Verify socket authentication for wkIdentity (multisig).
+ *
+ * Auth is mandatory: a join without signature/message/publicKey is NOT
+ * authenticated (returned with `unauthenticated: true` so the wallet
+ * namespace can admit it to the recovery-only room), and a partial set is
+ * refused outright.
+ *
+ * @param data - The join event data
+ * @returns Whether authentication is valid
+ */
+export function verifySocketAuth(data: SocketJoinData): SocketAuthResult {
   const { wkIdentity, signature, message, publicKey, witnessScript } = data;
 
-  // If no auth fields provided, allow for backward compatibility
-  // TODO: Make auth required after clients are updated
-  if (!signature || !message || !publicKey) {
-    log.warn(
-      `[SOCKET AUTH] SKIPPED - ${wkIdentity} (no auth fields, legacy client)`,
-    );
-    return { valid: true }; // Allow for backward compatibility
+  if (!signature && !message && !publicKey) {
+    return {
+      valid: false,
+      unauthenticated: true,
+      error: 'Authentication required',
+    };
+  }
+  if (
+    typeof signature !== 'string' ||
+    typeof message !== 'string' ||
+    typeof publicKey !== 'string' ||
+    !signature ||
+    !message ||
+    !publicKey
+  ) {
+    return { valid: false, error: 'Incomplete authentication fields' };
+  }
+  if (!/^[a-fA-F0-9]{66}$/.test(publicKey)) {
+    return { valid: false, error: 'Invalid publicKey format' };
   }
 
   log.info(`[SOCKET AUTH] Verifying join for ${wkIdentity}...`);
 
-  // For multisig identity, require witness script
-  if (isMultisigIdentity(wkIdentity) && !witnessScript) {
+  // Only multisig WK identities join rooms; witness script is mandatory.
+  if (!isMultisigIdentity(wkIdentity)) {
+    return { valid: false, error: 'Join identity must be a wkIdentity' };
+  }
+  if (
+    !witnessScript ||
+    typeof witnessScript !== 'string' ||
+    !/^[a-fA-F0-9]+$/.test(witnessScript)
+  ) {
     return {
       valid: false,
       error: 'witnessScript required for multisig identity',
@@ -50,10 +121,13 @@ function verifySocketAuth(data: {
   // Verify the signature payload action is 'join'
   try {
     const payload: SignaturePayload = JSON.parse(message);
+    if (!payload || typeof payload !== 'object') {
+      return { valid: false, error: 'Invalid message format' };
+    }
     if (payload.action !== 'join') {
       return {
         valid: false,
-        error: `Invalid action in payload: expected 'join', got '${payload.action}'`,
+        error: `Invalid action in payload: expected 'join', got '${String(payload.action)}'`,
       };
     }
     if (payload.identity !== wkIdentity) {
@@ -77,7 +151,9 @@ function verifySocketAuth(data: {
     witnessScript,
   };
 
-  const result = verifyMultisigAuth(authData, wkIdentity, network);
+  const result = verifyMultisigAuth(authData, wkIdentity, network, {
+    allowedActions: ['join'],
+  });
 
   if (!result.valid) {
     log.warn(`[SOCKET AUTH] FAILED - ${wkIdentity}: ${result.error}`);
@@ -90,45 +166,85 @@ function verifySocketAuth(data: {
   return { valid: true };
 }
 
+/**
+ * Wrap a socket event listener so that neither a synchronous throw nor a
+ * rejected promise can escape. socket.io dispatches listeners without a
+ * try/catch, and the relay treats uncaughtException / unhandledRejection as
+ * fatal (graceful shutdown), so a single malformed event (e.g. `join` with a
+ * null payload) would otherwise take the whole relay down.
+ */
+export function safeListener<A extends unknown[]>(
+  label: string,
+  fn: (...args: A) => unknown,
+): (...args: A) => void {
+  return (...args: A) => {
+    try {
+      const result = fn(...args);
+      if (result && typeof (result as Promise<unknown>).catch === 'function') {
+        (result as Promise<unknown>).catch((error) => {
+          log.error(
+            `[SOCKET] ${label} handler failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
+      }
+    } catch (error) {
+      log.error(
+        `[SOCKET] ${label} handler failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  };
+}
+
+function refuseJoin(socket, message: string): void {
+  socket.emit('error', { message });
+  socket.disconnect();
+}
+
+/**
+ * Allowed browser origins for the wallet namespace's HTTP long-polling
+ * transport (CORS only matters to browsers; the extension's own pages hold
+ * host permissions and the mobile app is not a browser). Override with
+ * RELAY_SOCKET_CORS_ORIGINS (comma-separated exact origins, or '*').
+ */
+const SOCKET_EXTENSION_ORIGIN =
+  /^(chrome-extension|moz-extension|safari-web-extension):\/\/[a-zA-Z0-9-]+$/;
+const SOCKET_SSP_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*sspwallet\.(com|io)$/;
+export function isAllowedSocketOrigin(origin: string | undefined): boolean {
+  if (!origin) return true; // non-browser clients send no Origin
+  const override = process.env.RELAY_SOCKET_CORS_ORIGINS;
+  if (override && override.trim()) {
+    const list = override
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+    if (list.includes('*')) return true;
+    return list.includes(origin);
+  }
+  return SOCKET_EXTENSION_ORIGIN.test(origin) || SOCKET_SSP_ORIGIN.test(origin);
+}
+
 function initIOKey(httpServer?, path = '/v1/socket/key') {
   ioKey = new Server(httpServer, { path });
-  ioKey.on('connection', async (socket) => {
+  ioKey.on('connection', (socket) => {
     log.info(`[SOCKET KEY] New connection: ${socket.id}`);
     socket.on(
       'join',
-      async (data: {
-        wkIdentity: string;
-        signature?: string;
-        message?: string;
-        publicKey?: string;
-        witnessScript?: string;
-      }) => {
-        const { wkIdentity } = data;
-
-        // Validate wkIdentity before joining room
-        if (!wkIdentity || typeof wkIdentity !== 'string') {
-          log.warn('Invalid wkIdentity provided to socket join');
-          socket.emit('error', { message: 'Invalid wkIdentity' });
-          socket.disconnect();
+      safeListener('key join', async (data: unknown) => {
+        const parsed = parseJoinData(data);
+        if ('error' in parsed) {
+          log.warn(`[SOCKET KEY] Invalid join: ${parsed.error}`);
+          refuseJoin(socket, parsed.error);
           return;
         }
-        if (wkIdentity.length < 10 || wkIdentity.length > 500) {
-          log.warn(`Invalid wkIdentity length: ${wkIdentity.length}`);
-          socket.emit('error', { message: 'Invalid wkIdentity length' });
-          socket.disconnect();
-          return;
-        }
+        const { wkIdentity } = parsed;
 
-        // Verify authentication
-        const authResult = verifySocketAuth(data);
+        // Verify authentication — mandatory on the key namespace.
+        const authResult = verifySocketAuth(data as SocketJoinData);
         if (!authResult.valid) {
           log.warn(
             `Socket authentication failed for ${wkIdentity}: ${authResult.error}`,
           );
-          socket.emit('error', {
-            message: authResult.error || 'Authentication failed',
-          });
-          socket.disconnect();
+          refuseJoin(socket, authResult.error || 'Authentication failed');
           return;
         }
 
@@ -139,6 +255,7 @@ function initIOKey(httpServer?, path = '/v1/socket/key') {
           .onSocketJoin(wkIdentity, 'key', socket.id, {
             headers: socket.handshake.headers,
             address: socket.handshake.address,
+            ...handshakeClientIp(socket.handshake),
           })
           .catch((e) => log.error(e));
 
@@ -164,21 +281,25 @@ function initIOKey(httpServer?, path = '/v1/socket/key') {
         ) {
           ioKey.to(wkIdentity).emit(actionToSend.action, actionToSend);
         }
-      },
+      }),
     );
 
-    socket.on('leave', ({ wkIdentity }) => {
-      if (!wkIdentity || typeof wkIdentity !== 'string') {
-        return;
-      }
-      socket.leave(wkIdentity);
-      enterpriseHooks
-        .onSocketLeave(wkIdentity, 'key', socket.id, {
-          headers: socket.handshake.headers,
-          address: socket.handshake.address,
-        })
-        .catch((e) => log.error(e));
-    });
+    socket.on(
+      'leave',
+      safeListener('key leave', (data: unknown) => {
+        const parsed = parseJoinData(data);
+        if ('error' in parsed) return;
+        const { wkIdentity } = parsed;
+        socket.leave(wkIdentity);
+        enterpriseHooks
+          .onSocketLeave(wkIdentity, 'key', socket.id, {
+            headers: socket.handshake.headers,
+            address: socket.handshake.address,
+            ...handshakeClientIp(socket.handshake),
+          })
+          .catch((e) => log.error(e));
+      }),
+    );
   });
   return ioKey;
 }
@@ -198,7 +319,9 @@ function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
     transports: ['websocket', 'polling', 'flashsocket'],
     allowEIO3: true,
     cors: {
-      origin: '*',
+      origin: (origin, callback) => {
+        callback(null, isAllowedSocketOrigin(origin));
+      },
       methods: ['GET', 'POST'],
     },
   });
@@ -206,39 +329,32 @@ function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
     log.info(`[SOCKET WALLET] New connection: ${socket.id}`);
     socket.on(
       'join',
-      (data: {
-        wkIdentity: string;
-        signature?: string;
-        message?: string;
-        publicKey?: string;
-        witnessScript?: string;
-      }) => {
-        const { wkIdentity } = data;
-
-        // Validate wkIdentity before joining room
-        if (!wkIdentity || typeof wkIdentity !== 'string') {
-          log.warn('Invalid wkIdentity provided to wallet socket join');
-          socket.emit('error', { message: 'Invalid wkIdentity' });
-          socket.disconnect();
+      safeListener('wallet join', (data: unknown) => {
+        const parsed = parseJoinData(data);
+        if ('error' in parsed) {
+          log.warn(`[SOCKET WALLET] Invalid join: ${parsed.error}`);
+          refuseJoin(socket, parsed.error);
           return;
         }
-        if (wkIdentity.length < 10 || wkIdentity.length > 500) {
-          log.warn(`Invalid wkIdentity length: ${wkIdentity.length}`);
-          socket.emit('error', { message: 'Invalid wkIdentity length' });
-          socket.disconnect();
-          return;
-        }
+        const { wkIdentity } = parsed;
 
         // Verify authentication
-        const authResult = verifySocketAuth(data);
+        const authResult = verifySocketAuth(data as SocketJoinData);
         if (!authResult.valid) {
+          if (authResult.unauthenticated) {
+            // A wallet without keys (password recovery) cannot sign. Admit it
+            // to the recovery-only room: it receives the recovery answer for
+            // its identity and nothing else.
+            socket.join(recoveryRoom(wkIdentity));
+            log.info(
+              `[SOCKET WALLET] ${socket.id} joined recovery-only room for ${wkIdentity} (unsigned join)`,
+            );
+            return;
+          }
           log.warn(
             `[SOCKET WALLET] Auth failed for ${wkIdentity}: ${authResult.error}`,
           );
-          socket.emit('error', {
-            message: authResult.error || 'Authentication failed',
-          });
-          socket.disconnect();
+          refuseJoin(socket, authResult.error || 'Authentication failed');
           return;
         }
 
@@ -248,22 +364,28 @@ function initIOWallet(httpServer?, path = '/v1/socket/wallet') {
           .onSocketJoin(wkIdentity, 'wallet', socket.id, {
             headers: socket.handshake.headers,
             address: socket.handshake.address,
+            ...handshakeClientIp(socket.handshake),
           })
           .catch((e) => log.error(e));
-      },
+      }),
     );
-    socket.on('leave', ({ wkIdentity }) => {
-      if (!wkIdentity || typeof wkIdentity !== 'string') {
-        return;
-      }
-      socket.leave(wkIdentity);
-      enterpriseHooks
-        .onSocketLeave(wkIdentity, 'wallet', socket.id, {
-          headers: socket.handshake.headers,
-          address: socket.handshake.address,
-        })
-        .catch((e) => log.error(e));
-    });
+    socket.on(
+      'leave',
+      safeListener('wallet leave', (data: unknown) => {
+        const parsed = parseJoinData(data);
+        if ('error' in parsed) return;
+        const { wkIdentity } = parsed;
+        socket.leave(wkIdentity);
+        socket.leave(recoveryRoom(wkIdentity));
+        enterpriseHooks
+          .onSocketLeave(wkIdentity, 'wallet', socket.id, {
+            headers: socket.handshake.headers,
+            address: socket.handshake.address,
+            ...handshakeClientIp(socket.handshake),
+          })
+          .catch((e) => log.error(e));
+      }),
+    );
   });
   return ioWallet;
 }

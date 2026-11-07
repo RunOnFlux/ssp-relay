@@ -2,6 +2,7 @@ import solPaymasterService from '../services/solPaymasterService';
 import serviceHelper from '../services/serviceHelper';
 import log from '../lib/log';
 import { stripAuthFields } from '../middleware/authMiddleware';
+import { clientIpKey } from '../lib/clientIp';
 
 const SUPPORTED_CHAINS = ['solDevnet', 'solMainnet'];
 
@@ -51,9 +52,11 @@ async function postBroadcast(req, res) {
     ) {
       throw new Error('Invalid serialized transaction');
     }
+    // The client key feeds the paymaster's failure breaker (per IP).
     const signature = await solPaymasterService.broadcastWithPaymaster(
       chain,
       serializedTxBase64,
+      { clientKey: clientIpKey(req) },
     );
     res.json(serviceHelper.createDataMessage({ signature }));
   } catch (error) {
@@ -97,11 +100,15 @@ async function postSetup(req, res) {
       throw new Error('walletPubkey and keyPubkey must differ');
     }
 
-    const result = await solPaymasterService.setupSolMultisig({
-      chain,
-      walletPubkey,
-      keyPubkey,
-    });
+    // The client key charges the per-IP setup budget (and the breaker).
+    const result = await solPaymasterService.setupSolMultisig(
+      {
+        chain,
+        walletPubkey,
+        keyPubkey,
+      },
+      { clientKey: clientIpKey(req) },
+    );
 
     res.json(serviceHelper.createDataMessage(result));
   } catch (error) {

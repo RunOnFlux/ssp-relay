@@ -356,9 +356,8 @@ async function decodeTransactionForApproval(rawTx, chain = 'btc') {
       const decoded = await decodeKASTransactionForApproval(rawTx, chain);
       return decoded;
     }
-    log.info('Decoding transaction for approval');
-    log.info(rawTx);
-    log.info(chain);
+    // Chain only: raw transactions and recipients are not written to logs.
+    log.info(`Decoding transaction for approval (${chain})`);
     const libID = getLibId(chain);
     const cashAddrPrefix = blockchains[chain].cashaddr;
     const network = utxolib.networks[libID];
@@ -411,7 +410,6 @@ async function decodeTransactionForApproval(rawTx, chain = 'btc') {
           outOne.script,
           network,
         );
-        log.warn(address);
         txReceiver = address;
         amount = new BigNumber(outOne.value)
           .dividedBy(new BigNumber(1e8))

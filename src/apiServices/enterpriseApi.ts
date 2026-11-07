@@ -695,6 +695,47 @@ function vaultHandler(hookName: string) {
   };
 }
 
+/**
+ * GET /v1/enterprise/organizations/:id/vaults/:vaultId/descriptor
+ *
+ * Same pass-through as vaultHandler, except that a result the enterprise
+ * module marks with httpStatus 409 (descriptor not available yet) is sent
+ * as a real HTTP 409 error.
+ */
+async function getVaultDescriptor(req: Request, res: Response): Promise<void> {
+  try {
+    if (!enterpriseHooks.isLoaded()) {
+      throw new Error('Enterprise features not available');
+    }
+    const hook = enterpriseHooks.getHook('vaultDescriptorGet');
+    if (typeof hook !== 'function') {
+      throw new Error('Enterprise hook vaultDescriptorGet not available');
+    }
+    const result = (await (hook as (req: Request) => Promise<unknown>)(
+      req,
+    )) as {
+      success?: boolean;
+      httpStatus?: number;
+      error?: string;
+      errorCode?: string;
+    } | null;
+    if (result && result.success === false && result.httpStatus === 409) {
+      res
+        .status(409)
+        .json(
+          serviceHelper.createErrorMessage(result.error, result.errorCode, 409),
+        );
+      return;
+    }
+    res.json(serviceHelper.createDataMessage(result));
+  } catch (error) {
+    log.error(error);
+    res.json(
+      serviceHelper.createErrorMessage(error.message, error.name, error.code),
+    );
+  }
+}
+
 const postVault = vaultHandler('vaultCreate');
 const getVaults = vaultHandler('vaultList');
 const getVaultTags = vaultHandler('vaultTags');
@@ -751,6 +792,14 @@ const postVaultProposalCancel = vaultHandler('vaultProposalCancel');
 const postVaultProposalRetryBroadcast = vaultHandler(
   'vaultProposalRetryBroadcast',
 );
+// Add payments to a pending UTXO proposal (rebuilt, signatures reset).
+const postVaultProposalAmend = vaultHandler('vaultProposalAmend');
+// Read-only proposal share links (payment status for the payee).
+const postVaultProposalShare = vaultHandler('vaultProposalShareCreate');
+const getVaultProposalShares = vaultHandler('vaultProposalShareList');
+const postVaultProposalShareRevoke = vaultHandler('vaultProposalShareRevoke');
+// Public (no session) — the enterprise hook takes the token from the body.
+const postPublicProposalShare = vaultHandler('publicProposalShareView');
 // Vault signature requests (WalletConnect Phase 2 — vault message signing).
 const postVaultSignatureRequest = vaultHandler('vaultSignatureRequestCreate');
 const getVaultSignatureRequests = vaultHandler('vaultSignatureRequestList');
@@ -1053,6 +1102,7 @@ export default {
   postVaultXpub,
   getVaultPendingSetups,
   getVaultAddresses,
+  getVaultDescriptor,
   postVaultAddress,
   postVaultSolanaSetup,
   patchVaultAddress,
@@ -1082,6 +1132,11 @@ export default {
   postVaultProposalReject,
   postVaultProposalCancel,
   postVaultProposalRetryBroadcast,
+  postVaultProposalAmend,
+  postVaultProposalShare,
+  getVaultProposalShares,
+  postVaultProposalShareRevoke,
+  postPublicProposalShare,
   postVaultSignatureRequest,
   getVaultSignatureRequests,
   getVaultSignatureRequest,
