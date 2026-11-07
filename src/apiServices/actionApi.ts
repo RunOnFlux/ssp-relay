@@ -12,6 +12,7 @@ import {
 import { validateWkSigningRequestPayload } from '../lib/wkSignValidation';
 import { guardConsumerEvmTx } from '../lib/evmCallGuard';
 import { getEnterpriseNoncesNeeded } from '../services/noncePoolStatusCache';
+import { parseTronOpPayload } from '../lib/tronPayload';
 
 interface utxo {
   txid: string;
@@ -355,6 +356,13 @@ async function postAction(req: AuthenticatedRequest, res) {
         } catch {
           throw new Error('Invalid EVM payload format: must be valid JSON');
         }
+      }
+    } else if (blockchain && blockchain.chainType === 'tron') {
+      // TRON never carries hex transactions: the `tx` payload is the
+      // `ssp-tron-op` JSON (TRON_SSP_CONTRACT.md §3), with the Op in the
+      // SDK's canonical form. Other actions (txid, txrejected) are untouched.
+      if (processedBody.action === 'tx') {
+        parseTronOpPayload(processedBody.payload, processedBody.chain);
       }
     } else if (blockchain && blockchain.chainType === 'utxo') {
       // For UTXO chains, validate payload is hex string

@@ -6,6 +6,7 @@ import actionApi from './apiServices/actionApi';
 import recoveryPubApi from './apiServices/recoveryPubApi';
 import ratesApi from './apiServices/ratesApi';
 import solPaymasterApi from './apiServices/solPaymasterApi';
+import tronSponsorApi from './apiServices/tronSponsorApi';
 import ticketsApi from './apiServices/ticketsApi';
 import contactApi from './apiServices/contactApi';
 import feeService from './services/networkFeesService';
@@ -196,6 +197,47 @@ const unsignedRecoveryIdentityLimiter = rateLimit({
     status: 'error',
     data: {
       message: 'Too many recovery requests for this identity. Please wait.',
+    },
+  },
+});
+
+// TRON sponsor broadcast — every accepted request makes SSP's energy account
+// pay for an on-chain transaction (reverts included), so it gets the same
+// 10/min/IP budget as the Solana paymaster plus
+// `requireWkIdentityAuthLegacyGated` on the route. The service's own
+// acceptance rule is the real guard.
+const tronBroadcastLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  message: {
+    status: 'error',
+    data: {
+      message:
+        'Too many TRON broadcast requests. Please wait a minute and try again.',
+    },
+  },
+});
+
+// TRON sponsor quote — no on-chain cost, but each quote runs several node
+// simulations and reserves a vault nonce until its deadline.
+// A 16-call quote costs ~35-40 TRON node reads (simulations, balances, nonce
+// bitmap), all charged to the relay's shared Worker bucket (TRON_RL_RELAY,
+// 900/min). 10/min per IP covers a user re-quoting while editing a send and
+// keeps one client from starving every other user's sponsored traffic.
+const tronQuoteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+  message: {
+    status: 'error',
+    data: {
+      message:
+        'Too many TRON quote requests. Please wait a minute and try again.',
     },
   },
 });
@@ -487,6 +529,24 @@ export default (app) => {
     requireWkIdentityAuthLegacyGated,
     (req, res) => {
       solPaymasterApi.postSetup(req, res);
+    },
+  );
+
+  // TRON sponsor — SSP's energy account pays the energy of vault operations;
+  // the vault pays a signed fee in the same transaction (see
+  // tronSponsorService for the acceptance rule).
+  app.get('/v1/tron/sponsor', (req, res) => {
+    tronSponsorApi.getSponsor(req, res);
+  });
+  app.post('/v1/tron/quote', tronQuoteLimiter, (req, res) => {
+    tronSponsorApi.postQuote(req, res);
+  });
+  app.post(
+    '/v1/tron/broadcast',
+    tronBroadcastLimiter,
+    requireWkIdentityAuthLegacyGated,
+    (req, res) => {
+      tronSponsorApi.postBroadcast(req, res);
     },
   );
 
@@ -1529,6 +1589,12 @@ export default (app) => {
     publicShareLimiter,
     (req, res) => {
       enterpriseApi.postPublicProposalShare(req, res);
+    },
+  );
+  app.post(
+    '/v1/enterprise/organizations/:id/vaults/:vaultId/proposals/:proposalId/tron-invalidate',
+    (req, res) => {
+      enterpriseApi.postVaultProposalTronInvalidate(req, res);
     },
   );
 

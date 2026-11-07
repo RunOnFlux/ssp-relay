@@ -800,6 +800,11 @@ const getVaultProposalShares = vaultHandler('vaultProposalShareList');
 const postVaultProposalShareRevoke = vaultHandler('vaultProposalShareRevoke');
 // Public (no session) — the enterprise hook takes the token from the body.
 const postPublicProposalShare = vaultHandler('publicProposalShareView');
+// TRON: cancel a fully signed (but cancelled/rejected/expired/failed) proposal
+// on-chain by proposing a no-call Op that burns the same nonce.
+const postVaultProposalTronInvalidate = vaultHandler(
+  'vaultProposalTronInvalidate',
+);
 // Vault signature requests (WalletConnect Phase 2 — vault message signing).
 const postVaultSignatureRequest = vaultHandler('vaultSignatureRequestCreate');
 const getVaultSignatureRequests = vaultHandler('vaultSignatureRequestList');
@@ -1137,6 +1142,7 @@ export default {
   getVaultProposalShares,
   postVaultProposalShareRevoke,
   postPublicProposalShare,
+  postVaultProposalTronInvalidate,
   postVaultSignatureRequest,
   getVaultSignatureRequests,
   getVaultSignatureRequest,
