@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck test suite
 import { expect } from 'chai';
+import utxolib from '@runonflux/utxo-lib';
 import transactionDecoder from '../../src/services/transactionDecoder';
 
 const rawTxSepolia = {
@@ -101,6 +102,80 @@ describe('Transaction Decoder', function () {
         sender: '0xd447BA08b0d395fCAd6e480d270529c932289Ce1',
         token: '',
         tokenSymbol: 'TEST-ETH',
+      });
+    });
+  });
+
+  // Wallet → Key approval: the relay decodes the partially signed (wallet
+  // only) transaction for the push notification.
+  describe('Decode Transaction: Zcash-family (NU7)', function () {
+    function partiallySigned(libid, version, groupId, amounts) {
+      const network = utxolib.networks[libid];
+      const kpWallet = utxolib.ECPair.makeRandom({ network });
+      const kpKey = utxolib.ECPair.makeRandom({ network });
+      const redeemScript = utxolib.script.multisig.output.encode(2, [
+        kpWallet.getPublicKeyBuffer(),
+        kpKey.getPublicKeyBuffer(),
+      ]);
+      const vaultSpk = utxolib.script.scriptHash.output.encode(
+        utxolib.crypto.hash160(redeemScript),
+      );
+      const recipientSpk = utxolib.script.scriptHash.output.encode(
+        Buffer.alloc(20, 9),
+      );
+      const txb = new utxolib.TransactionBuilder(network);
+      txb.setVersion(version);
+      txb.setVersionGroupId(groupId);
+      amounts.forEach((_, i) => txb.addInput('ab'.repeat(32), i));
+      txb.addOutput(recipientSpk, 123450000);
+      txb.addOutput(vaultSpk, 1000000);
+      if (version >= 5) {
+        txb.setPrevouts(amounts.map((value) => ({ value, script: vaultSpk })));
+      }
+      amounts.forEach((amount, vin) => {
+        txb.sign(vin, kpWallet, redeemScript, 1, amount);
+      });
+      return {
+        hex: txb.buildIncomplete().toHex(),
+        recipient: utxolib.address.fromOutputScript(recipientSpk, network),
+      };
+    }
+
+    it('decodes a ZEC v5 (ZIP 225) transaction', async function () {
+      const { hex, recipient } = partiallySigned(
+        'zcash',
+        5,
+        0x26a7270a,
+        [100000000, 25000000],
+      );
+      expect(hex.slice(0, 24)).to.equal('050000800a27a726d90a1977');
+      const response = await transactionDecoder.decodeTransactionForApproval(
+        hex,
+        'zec',
+      );
+      expect(response).to.deep.equal({
+        receiver: recipient,
+        amount: '1.2345',
+        tokenSymbol: 'ZEC',
+      });
+    });
+
+    it('still decodes a Flux v4 transaction', async function () {
+      const { hex, recipient } = partiallySigned(
+        'flux',
+        4,
+        0x892f2085,
+        [200000000],
+      );
+      expect(hex.slice(0, 16)).to.equal('0400008085202f89');
+      const response = await transactionDecoder.decodeTransactionForApproval(
+        hex,
+        'flux',
+      );
+      expect(response).to.deep.equal({
+        receiver: recipient,
+        amount: '1.2345',
+        tokenSymbol: 'FLUX',
       });
     });
   });

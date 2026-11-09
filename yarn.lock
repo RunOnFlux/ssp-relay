@@ -1481,9 +1481,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@runonflux/utxo-lib@npm:1.0.6":
-  version: 1.0.6
-  resolution: "@runonflux/utxo-lib@npm:1.0.6"
+"@runonflux/utxo-lib@npm:1.1.0":
+  version: 1.1.0
+  resolution: "@runonflux/utxo-lib@npm:1.1.0"
   dependencies:
     bech32: "npm:0.0.3"
     bigi: "npm:^1.4.0"
@@ -1507,7 +1507,7 @@ __metadata:
   dependenciesMeta:
     secp256k1:
       optional: true
-  checksum: 10c0/ff0b5eadb49156d4d6ff8f98fff9f203c92f6cded81bfeaed7a8afec6eb63c45c6f6e972d57643826ad0c5742a34bde1f4f74d24f697c47bd682a3985e645406
+  checksum: 10c0/b9e66fd6cd2796a0f68637b71d5daccd9b02280d1498f7f6ae2f9c159068a9d5e33fc78561d1afea6356aaff1e612620c88224a96dc5275f0ac5dcff7af0532f
   languageName: node
   linkType: hard
 
@@ -7263,7 +7263,7 @@ __metadata:
     "@eslint/js": "npm:9.39.2"
     "@runonflux/aa-schnorr-multisig-sdk": "npm:1.5.0"
     "@runonflux/solana-multisig": "npm:0.12.1"
-    "@runonflux/utxo-lib": "npm:1.0.6"
+    "@runonflux/utxo-lib": "npm:1.1.0"
     "@scure/bip32": "npm:2.2.0"
     "@solana/spl-token": "npm:0.4.14"
     "@solana/web3.js": "npm:1.98.4"

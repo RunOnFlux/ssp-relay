@@ -226,8 +226,11 @@ const zec = {
     public: 0x0488b21e,
     private: 0x0488ade4,
   },
-  txVersion: 4,
-  txGroupID: 0x892f2085,
+  // NU7 (mainnet block 3,543,405, 2026-11-05) made v4 transactions invalid
+  // (ZIP 2003): ZEC uses v5 (ZIP 225 encoding, ZIP 244 txid/sighash) with the
+  // NU5 version group id. Flux stays on v4 / 0x892f2085.
+  txVersion: 5,
+  txGroupID: 0x26a7270a,
   backend: 'blockbook',
   dustLimit: 546, // min utxo amount
   minFeePerByte: 1, // min fee per byte
@@ -235,7 +238,7 @@ const zec = {
   maxMessage: 80, // 80 bytes in size
   maxTxSize: 100000, // 100,000 vbytes
   rbf: false,
-  txExpiryHeight: 60, // 1 hour
+  txExpiryHeight: 144, // 144 blocks, 1 hour at NU7's 25 s block time
 };
 
 const bch = {

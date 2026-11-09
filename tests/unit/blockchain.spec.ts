@@ -184,8 +184,8 @@ describe('Blockchain', function () {
       assert.equal(blockchains.zec.wif, '80');
       assert.equal(blockchains.zec.bip32.public, 0x0488b21e);
       assert.equal(blockchains.zec.bip32.private, 0x0488ade4);
-      assert.equal(blockchains.zec.txVersion, 4);
-      assert.equal(blockchains.zec.txGroupID, 0x892f2085);
+      assert.equal(blockchains.zec.txVersion, 5);
+      assert.equal(blockchains.zec.txGroupID, 0x26a7270a);
       assert.equal(blockchains.zec.backend, 'blockbook');
       assert.equal(blockchains.zec.dustLimit, 546);
       assert.equal(blockchains.zec.minFeePerByte, 1);
@@ -193,7 +193,7 @@ describe('Blockchain', function () {
       assert.equal(blockchains.zec.maxMessage, 80);
       assert.equal(blockchains.zec.maxTxSize, 100000);
       assert.equal(blockchains.zec.rbf, false);
-      assert.equal(blockchains.zec.txExpiryHeight, 60);
+      assert.equal(blockchains.zec.txExpiryHeight, 144);
     });
 
     it('should return valid btcTestnet data', async function () {
