@@ -295,7 +295,7 @@ async function obtainBaseFees() {
 }
 
 async function obtainBscFees() {
-  const url = `https://node.bsc-mainnet.runonflux.io`;
+  const url = `https://bnb-mainnet.g.alchemy.com/v2/${config.keys.alchemy}`;
   try {
     // const dataA = {
     //   id: Math.floor(Math.random() * 100000000),
@@ -305,7 +305,7 @@ async function obtainBscFees() {
     const dataB = {
       id: new Date().getTime(),
       jsonrpc: '2.0',
-      method: 'eth_maxPriorityFeePerGas',
+      method: 'rundler_maxPriorityFeePerGas',
     };
     // const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
@@ -333,7 +333,7 @@ async function obtainBscFees() {
 }
 
 async function obtainAvaxFees() {
-  const url = `https://node.avax-mainnet.runonflux.io`;
+  const url = `https://avax-mainnet.g.alchemy.com/v2/${config.keys.alchemy}`;
   try {
     const dataA = {
       id: Math.floor(Math.random() * 100000000),
@@ -343,7 +343,7 @@ async function obtainAvaxFees() {
     const dataB = {
       id: new Date().getTime(),
       jsonrpc: '2.0',
-      method: 'eth_maxPriorityFeePerGas',
+      method: 'rundler_maxPriorityFeePerGas',
     };
     const resA = await axios.post(url, dataA);
     const resB = await axios.post(url, dataB);
