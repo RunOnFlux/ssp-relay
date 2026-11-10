@@ -11,6 +11,7 @@ import contactApi from './apiServices/contactApi';
 import feeService from './services/networkFeesService';
 import tokenApi from './apiServices/tokenApi';
 import onramperApi from './apiServices/onramperApi';
+import { getOnrampNetworks } from './services/onrampAvailabilityService';
 import noncesApi from './apiServices/noncesApi';
 import enterpriseNotificationApi from './apiServices/enterpriseNotificationApi';
 import enterpriseApi from './apiServices/enterpriseApi';
@@ -510,7 +511,13 @@ export default (app) => {
   // get enabled services, used to toggle off on third party features in the app
   app.get('/v1/services', (req, res) => {
     enterpriseHooks.onServices(req).catch((e) => log.error(e));
-    res.json(config.services);
+    // onrampNetworks: per-network Buy/Sell availability for the caller's
+    // country (Cloudflare header), so the wallet can grey out coins no
+    // provider sells. Omitted until the first Onramper check completes.
+    const onrampNetworks = getOnrampNetworks(req.headers['cf-ipcountry']);
+    res.json(
+      onrampNetworks ? { ...config.services, onrampNetworks } : config.services,
+    );
   });
   // onramper signing endpoint
   app.post('/v1/sign/onramper', (req, res) => {
