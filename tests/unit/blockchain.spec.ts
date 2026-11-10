@@ -371,5 +371,21 @@ describe('Blockchain', function () {
       assert.equal(blockchains.eth.tokens[3].symbol, 'USDC');
       assert.equal(blockchains.eth.tokens[3].decimals, 6);
     });
+
+    it('should return valid kas data (KASPA_SSP_CONTRACT §1)', async function () {
+      assert.equal(blockchains.kas.id, 'kas');
+      assert.equal(blockchains.kas.libid, 'kaspa');
+      assert.equal(blockchains.kas.name, 'Kaspa');
+      assert.equal(blockchains.kas.symbol, 'KAS');
+      assert.equal(blockchains.kas.decimals, 8);
+      assert.equal(blockchains.kas.slip, 111111);
+      assert.equal(blockchains.kas.scriptType, 'p2sh');
+      assert.equal(blockchains.kas.chainType, 'kas');
+      assert.equal(blockchains.kas.backend, 'kaspa-rest');
+      assert.equal(blockchains.kas.bip32.public, 0x0488b21e);
+      assert.equal(blockchains.kas.bip32.private, 0x0488ade4);
+      assert.equal(blockchains.kas.node, 'api-kaspa.sspwallet.io');
+      assert.equal(blockchains.kas.explorer, 'explorer.kaspa.org');
+    });
   });
 });

@@ -491,6 +491,29 @@ const solMainnet = {
   tokens: tokens.solMainnet(),
 };
 
+const kas = {
+  id: 'kas',
+  libid: 'kaspa', // kaspa-core NetworkPrefix / address prefix
+  name: 'Kaspa',
+  symbol: 'KAS',
+  decimals: 8, // 1 KAS = 100,000,000 sompi
+  slip: 111111,
+  scriptType: 'p2sh', // every SSP vault is a kaspa:p… P2SH multisig
+  bip32: {
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  chainType: 'kas', // never 'utxo': Kaspa does not use utxo-lib hex txs
+  backend: 'kaspa-rest', // kaspa-rest-server
+  node: 'api-kaspa.sspwallet.io',
+  explorer: 'explorer.kaspa.org',
+  // Fees are sompi per GRAM of mass (not per byte). Network minimum 100,
+  // kaspa-core ceiling 10,000 sompi/gram and 5 KAS per transaction.
+  minFeePerGram: 100,
+  feePerGram: 100,
+  maxFeePerGram: 10000,
+};
+
 export default {
   btc,
   flux,
@@ -505,6 +528,7 @@ export default {
   rvn,
   zec,
   solMainnet,
+  kas,
   btcTestnet,
   btcSignet,
   fluxTestnet,

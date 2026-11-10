@@ -2,6 +2,7 @@
 // @ts-nocheck test suite
 import { expect } from 'chai';
 import transactionDecoder from '../../src/services/transactionDecoder';
+import { buildKaspaBundle } from '../helpers/kaspaBundle';
 
 const rawTxSepolia = {
   id: '0x8b18236447c918b3b217da857a787a7561313b730374430596eaa6f9c2d0ee16',
@@ -101,6 +102,31 @@ describe('Transaction Decoder', function () {
         sender: '0xd447BA08b0d395fCAd6e480d270529c932289Ce1',
         token: '',
         tokenSymbol: 'TEST-ETH',
+      });
+    });
+
+    it('should decode a kas signing bundle (receiver, amount, 8 decimals)', async function () {
+      const { json, recipient } = await buildKaspaBundle();
+      const response = await transactionDecoder.decodeTransactionForApproval(
+        json,
+        'kas',
+      );
+      expect(response).to.deep.equal({
+        receiver: recipient,
+        amount: '2.5',
+        tokenSymbol: 'KAS',
+      });
+    });
+
+    it('should return decodingError for a kas payload that is not a bundle', async function () {
+      const response = await transactionDecoder.decodeTransactionForApproval(
+        '0200000001abcdef',
+        'kas',
+      );
+      expect(response).to.deep.equal({
+        amount: 'decodingError',
+        receiver: 'decodingError',
+        tokenSymbol: 'decodingError',
       });
     });
   });

@@ -59,6 +59,12 @@ export default {
     offramp: true,
     swap: true,
   },
+  kaspa: {
+    // kaspa-rest-server hosts, tried in order. The branded host is the
+    // ssp-backends-proxy Worker (→ api.kas.zelcore.io); api.kaspa.org is the
+    // public fallback. Used only for the relay's fee estimate.
+    rest: ['https://api-kaspa.sspwallet.io', 'https://api.kaspa.org'],
+  },
   solana: {
     // Per-chain RPC endpoints. The paymaster keypair itself is resolved at
     // runtime by solPaymasterService — see resolveKeypair() for the

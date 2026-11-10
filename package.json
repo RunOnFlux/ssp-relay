@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@runonflux/aa-schnorr-multisig-sdk": "1.5.0",
+    "@runonflux/kaspa-core": "1.0.1",
     "@runonflux/solana-multisig": "0.12.1",
     "@runonflux/utxo-lib": "1.0.6",
     "@scure/bip32": "2.4.0",
