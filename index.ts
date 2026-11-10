@@ -12,6 +12,7 @@ import serviceHelper from './src/services/serviceHelper';
 import databaseService from './src/services/databaseIndexCreationService';
 import ratesService from './src/services/ratesService';
 import networkFeesService from './src/services/networkFeesService';
+import { startOnrampAvailability } from './src/services/onrampAvailabilityService';
 import { logPaymasterStatus } from './src/services/solPaymasterService';
 import { logAuthModeBanner } from './src/middleware/authMiddleware';
 import { logEvmCallGuardModeBanner } from './src/lib/evmCallGuard';
@@ -52,6 +53,7 @@ async function startServer() {
     log.info('Initializing background services');
     ratesService.initRates();
     networkFeesService.fetchFees();
+    startOnrampAvailability();
     log.info('Background services initialized');
 
     // Start HTTP server

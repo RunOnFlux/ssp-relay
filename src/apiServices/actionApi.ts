@@ -471,6 +471,7 @@ async function postAction(req: AuthenticatedRequest, res) {
         if (error instanceof SyntaxError) {
           throw new Error(
             'Invalid wksigningrequest payload: must be valid JSON',
+            { cause: error },
           );
         }
         throw error;

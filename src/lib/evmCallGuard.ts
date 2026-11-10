@@ -118,8 +118,7 @@ interface InnerCall {
 }
 
 export type UserOpCheck =
-  | { allowed: true; calls: number }
-  | { allowed: false; reason: string };
+  { allowed: true; calls: number } | { allowed: false; reason: string };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === 'object' && !Array.isArray(v);
