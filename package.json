@@ -35,7 +35,7 @@
   "dependencies": {
     "@runonflux/aa-schnorr-multisig-sdk": "1.5.0",
     "@runonflux/solana-multisig": "0.12.1",
-    "@runonflux/utxo-lib": "1.0.6",
+    "@runonflux/utxo-lib": "1.1.0",
     "@scure/bip32": "2.4.0",
     "@solana/spl-token": "0.4.15",
     "@solana/web3.js": "1.98.4",
