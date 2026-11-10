@@ -448,6 +448,32 @@ const avax = {
   onramperNetwork: 'avaxc',
 };
 
+const xdc = {
+  id: 'xdc',
+  libid: 'xdc',
+  name: 'XDC Network',
+  symbol: 'XDC',
+  slip: 550,
+  decimals: 18,
+  bip32: {
+    // not specified, use default
+    public: 0x0488b21e,
+    private: 0x0488ade4,
+  },
+  scriptType: 'p2sh', // not specified, use default
+  chainType: 'evm',
+  chainId: '50',
+  backend: 'etherspot',
+  accountSalt: 'aasalt', // ssp uses this salt for smart accounts
+  factorySalt: 'aafactorysalt', // factory uses this salt
+  factoryAddress: '0x3974821943e9cA3549744D910999332eE387Fda4',
+  entrypointAddress: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+  baseFee: 25, // 25 gwei
+  priorityFee: 1, // 1 gwei
+  gasLimit: 750000, // 750k gas
+  tokens: tokens.xdc(),
+};
+
 const solDevnet = {
   id: 'solDevnet',
   libid: 'solana-devnet',
@@ -504,6 +530,7 @@ export default {
   base,
   rvn,
   zec,
+  xdc,
   solMainnet,
   btcTestnet,
   btcSignet,
