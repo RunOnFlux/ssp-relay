@@ -109,6 +109,9 @@ This message was sent via the SSP Wallet contact form.
       `Contact form submission from ${data.name} (${data.email}): ${data.message}`,
     );
 
+    // The original error is logged above; not attached as `cause` so callers
+    // that log this error don't re-print transport details.
+    // eslint-disable-next-line preserve-caught-error
     throw new Error('Failed to send contact message.');
   }
 }
