@@ -36,6 +36,10 @@ export default {
     freshdesk: freshdesksecrets.apikey,
     alchemy: alchemysecrets.alchemyApiKey,
     onramper: onrampersecrets.secretKey,
+    // Onramper Signature V2 Ed25519 private key (PEM). The same key pair as
+    // ZelCore's backend, since both use the same Onramper API key.
+    // ONRAMPER_SIGN_V2_PRIVATE_KEY overrides it at runtime.
+    onramperSignV2: onrampersecrets.signV2PrivateKey,
     coingecko: apisecrets.coingeckoApiKey,
   },
   freshdesk: {
@@ -53,6 +57,21 @@ export default {
     },
     from: emailsecrets.from,
     to: emailsecrets.to,
+  },
+  onramper: {
+    // Public widget API key, shared with ZelCore (not a secret: it is in every
+    // widget URL).
+    apiKey: 'pk_prod_01JDMCZ0ZRZ14VBRW20B4HC04V',
+    widgetEndpoint: 'https://buy.onramper.com',
+    // Widget URL signing for POST /v1/onramper/url: 'v1' (legacy HMAC) or 'v2'
+    // (Ed25519 + endUserIpHash). Switch to 'v2' only once Onramper confirms the
+    // public key is registered and keys.onramperSignV2 is set on every relay
+    // instance. ONRAMPER_SIGNATURE_VERSION overrides it at runtime.
+    signatureVersion: 'v1',
+    // V2 only: bind each checkout to the caller's IP (endUserIpHash). Kill
+    // switch if users hit IP-mismatch 403s; ONRAMPER_BIND_END_USER_IP=false
+    // overrides it at runtime.
+    bindEndUserIp: true,
   },
   services: {
     onramp: true,
