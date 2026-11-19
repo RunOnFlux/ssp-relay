@@ -16,6 +16,7 @@ async function getAction(id) {
       action: 1,
       payload: 1,
       utxos: 1,
+      receiver: 1,
       expireAt: 1,
       createdAt: 1,
     },
@@ -45,7 +46,12 @@ async function postAction(data) {
   data.createdAt = new Date(timestamp);
   data.expireAt = new Date(validTill);
 
-  const update = { $set: data };
+  // One slot per identity: a receiver hint belongs to the request it came
+  // with, so one left from an earlier request must not reach the next.
+  const update: Record<string, unknown> = { $set: data };
+  if (data.receiver === undefined) {
+    update.$unset = { receiver: '' };
+  }
   const options = {
     upsert: true,
   };

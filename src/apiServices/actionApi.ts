@@ -28,6 +28,13 @@ interface actionData {
   action: string;
   payload: string;
   utxos?: utxo[];
+  /**
+   * 'tx' only: the recipient as the user entered it in SSP Wallet. Sent for
+   * Zcash TEX addresses (ZIP 320), which the transaction pays as a plain
+   * P2PKH output. SSP Key shows it only after checking that it encodes an
+   * output of the transaction; the relay just passes it on.
+   */
+  receiver?: string;
 }
 
 /** The only action a client may post without signing it (see isUnsignedRecoveryRequest). */
@@ -449,6 +456,23 @@ async function postAction(req: AuthenticatedRequest, res) {
       });
     }
 
+    let receiver: string | undefined;
+    if (
+      processedBody.receiver !== undefined &&
+      processedBody.receiver !== null
+    ) {
+      if (
+        typeof processedBody.receiver !== 'string' ||
+        processedBody.receiver.length > 200 ||
+        !/^[a-zA-Z0-9:]+$/.test(processedBody.receiver)
+      ) {
+        throw new Error('Invalid Receiver specified');
+      }
+      if (processedBody.action === 'tx') {
+        receiver = processedBody.receiver;
+      }
+    }
+
     // Validate recovery request payload format (the unsigned action)
     if (processedBody.action === UNSIGNED_ACTION) {
       const validation = validateRecoveryRequestPayload(processedBody.payload);
@@ -525,6 +549,9 @@ async function postAction(req: AuthenticatedRequest, res) {
 
     if (processedBody.utxos) {
       data.utxos = processedBody.utxos;
+    }
+    if (receiver) {
+      data.receiver = receiver;
     }
 
     enterpriseHooks.onAction(req, data).catch((e) => log.error(e));
