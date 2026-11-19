@@ -179,7 +179,54 @@ async function fetchMetaplexMetadata(
   return { name: name || null, symbol: symbol || null, decimals: null, logo };
 }
 
-export async function getFromAlchemy(contractAddress: string, network: string) {
+/**
+ * Token metadata is immutable once a contract or mint exists, and
+ * /v1/tokeninfo is public and unauthenticated: every miss costs a metered
+ * provider call (Alchemy alchemy_getTokenMetadata, or Solana RPC reads). A
+ * found token (non-null decimals) is cached per network and address; misses
+ * and errors are not, so a token deployed later is still found.
+ */
+const TOKEN_METADATA_CACHE_MAX = 5000;
+const TOKEN_METADATA_TTL_MS = 24 * 60 * 60 * 1000;
+const tokenMetadataCache = new Map<string, { at: number; value: unknown }>();
+
+function tokenMetadataCacheKey(contractAddress: string, network: string) {
+  // EVM addresses are case-insensitive hex; Solana mints are case-sensitive.
+  const address = network.startsWith('sol')
+    ? contractAddress
+    : contractAddress.toLowerCase();
+  return `${network}:${address}`;
+}
+
+/** Tests only. */
+export function clearTokenMetadataCache(): void {
+  tokenMetadataCache.clear();
+}
+
+export async function getFromAlchemy(
+  contractAddress: string,
+  network: string,
+  now: number = Date.now(),
+) {
+  const key = tokenMetadataCacheKey(contractAddress, network);
+  const cached = tokenMetadataCache.get(key);
+  if (cached && now - cached.at < TOKEN_METADATA_TTL_MS) {
+    return cached.value;
+  }
+  const value = await fetchTokenMetadata(contractAddress, network);
+  const decimals = (value as { decimals?: unknown } | null)?.decimals;
+  if (decimals !== null && decimals !== undefined) {
+    tokenMetadataCache.delete(key);
+    tokenMetadataCache.set(key, { at: now, value });
+    if (tokenMetadataCache.size > TOKEN_METADATA_CACHE_MAX) {
+      const oldest = tokenMetadataCache.keys().next().value;
+      if (oldest !== undefined) tokenMetadataCache.delete(oldest);
+    }
+  }
+  return value;
+}
+
+async function fetchTokenMetadata(contractAddress: string, network: string) {
   if (network === 'solDevnet' || network === 'solMainnet') {
     return getSolanaTokenMetadata(contractAddress, network);
   }
