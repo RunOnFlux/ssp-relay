@@ -64,10 +64,11 @@ export default {
     apiKey: 'pk_prod_01JDMCZ0ZRZ14VBRW20B4HC04V',
     widgetEndpoint: 'https://buy.onramper.com',
     // Widget URL signing for POST /v1/onramper/url: 'v1' (legacy HMAC) or 'v2'
-    // (Ed25519 + endUserIpHash). Switch to 'v2' only once Onramper confirms the
-    // public key is registered and keys.onramperSignV2 is set on every relay
-    // instance. ONRAMPER_SIGNATURE_VERSION overrides it at runtime.
-    signatureVersion: 'v1',
+    // (Ed25519 + endUserIpHash). 'v2' needs keys.onramperSignV2 on every relay
+    // instance; Onramper registered the public key on 2026-11-16, and ZelCore's
+    // backend signs with the same key pair. ONRAMPER_SIGNATURE_VERSION=v1
+    // rolls back at runtime.
+    signatureVersion: 'v2',
     // V2 only: bind each checkout to the caller's IP (endUserIpHash). Kill
     // switch if users hit IP-mismatch 403s; ONRAMPER_BIND_END_USER_IP=false
     // overrides it at runtime.
