@@ -519,9 +519,15 @@ export default (app) => {
       onrampNetworks ? { ...config.services, onrampNetworks } : config.services,
     );
   });
-  // onramper signing endpoint
+  // onramper signing endpoint (V1 HMAC over a wallet-built string; kept for
+  // wallets released before /v1/onramper/url)
   app.post('/v1/sign/onramper', (req, res) => {
     onramperApi.postDataToSign(req, res);
+  });
+  // onramper widget URL: the relay builds and signs the whole URL (V1 or
+  // Signature V2 per config.onramper.signatureVersion)
+  app.post('/v1/onramper/url', (req, res) => {
+    onramperApi.postWidgetUrl(req, res);
   });
 
   // SSP Enterprise - notification subscription (requires wkIdentity auth)
