@@ -153,7 +153,9 @@ describe('Onramper widget URL', function () {
   });
 
   describe('buildWidgetUrl', function () {
-    it('defaults to v1', function () {
+    it('defaults to v2; ONRAMPER_SIGNATURE_VERSION=v1 rolls back', function () {
+      expect(configuredSignatureVersion()).to.equal('v2');
+      process.env.ONRAMPER_SIGNATURE_VERSION = 'v1';
       expect(configuredSignatureVersion()).to.equal('v1');
     });
 
@@ -254,7 +256,24 @@ describe('Onramper widget URL', function () {
       expect(body.status).to.equal('error');
     });
 
-    it('v1 by default: the legacy URL in the standard envelope', async function () {
+    it('v2 by default: a signed URL in the standard envelope', async function () {
+      const req = httpMocks.createRequest({
+        method: 'POST',
+        url: '/v1/onramper/url',
+        body: input,
+      });
+      req.sspClientIp = '203.0.113.7';
+      req.sspViaCloudflare = true;
+      const { status, body } = await call(onramperApi.postWidgetUrl, req);
+      expect(status).to.equal(200);
+      expect(body.status).to.equal('success');
+      expect(verifyV2(body.data.url).get('endUserIpHash')).to.equal(
+        sha256('203.0.113.7'),
+      );
+    });
+
+    it('v1 via ONRAMPER_SIGNATURE_VERSION=v1: the legacy URL', async function () {
+      process.env.ONRAMPER_SIGNATURE_VERSION = 'v1';
       const req = httpMocks.createRequest({
         method: 'POST',
         url: '/v1/onramper/url',
@@ -267,6 +286,7 @@ describe('Onramper widget URL', function () {
     });
 
     it('accepts a JSON text body', async function () {
+      process.env.ONRAMPER_SIGNATURE_VERSION = 'v1';
       const req = httpMocks.createRequest({
         method: 'POST',
         url: '/v1/onramper/url',
