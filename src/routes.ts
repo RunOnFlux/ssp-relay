@@ -96,6 +96,17 @@ const pricingLimiter = rateLimit({
   keyGenerator: clientIpKey,
 });
 
+// Unauthenticated /v1/tokeninfo — a cache miss costs a metered provider call
+// (Alchemy token metadata, or Solana RPC reads). Wallets and the enterprise
+// app call it once per custom-token import, so 30/min/IP is generous.
+const tokenInfoLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: clientIpKey,
+});
+
 // Solana paymaster broadcast — each request triggers an on-chain Solana
 // tx that costs the relay-operator real SOL (paymaster fee). 10/min/IP keeps
 // any single user well under the per-tx cost ceiling while allowing normal
@@ -504,10 +515,14 @@ export default (app) => {
     tokenApi.getKnownTokens(req, res);
   });
   // get token information endpoint
-  app.get('/v1/tokeninfo{/:network}{/:address}', (req, res) => {
-    enterpriseHooks.onTokenInfo(req).catch((e) => log.error(e));
-    tokenApi.getTokenInfo(req, res);
-  });
+  app.get(
+    '/v1/tokeninfo{/:network}{/:address}',
+    tokenInfoLimiter,
+    (req, res) => {
+      enterpriseHooks.onTokenInfo(req).catch((e) => log.error(e));
+      tokenApi.getTokenInfo(req, res);
+    },
+  );
   // get enabled services, used to toggle off on third party features in the app
   app.get('/v1/services', (req, res) => {
     enterpriseHooks.onServices(req).catch((e) => log.error(e));

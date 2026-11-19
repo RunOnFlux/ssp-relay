@@ -371,6 +371,7 @@ async function obtainAvaxFees() {
 }
 
 let i = -1;
+const TESTNET_FEE_EVERY = 5;
 
 async function fetchFees() {
   i += 1;
@@ -387,8 +388,18 @@ async function fetchFees() {
     ltcFee = currentFees.find((f) => f.coin === 'ltc');
   }
   const ethFee = await obtainEthFees();
-  const sepFee = await obtainSepoliaFees();
-  const amoyFee = await obtainAmoyFees();
+  // Testnets: every TESTNET_FEE_EVERY cycles (~2 min) instead of every ~20 s.
+  // Each refresh is two metered Alchemy calls per chain, and testnet fees
+  // need no mainnet freshness. The first cycle (i = 0) fills them.
+  let sepFee;
+  let amoyFee;
+  if (i % TESTNET_FEE_EVERY === 0) {
+    sepFee = await obtainSepoliaFees();
+    amoyFee = await obtainAmoyFees();
+  } else {
+    sepFee = currentFees.find((f) => f.coin === 'sepolia');
+    amoyFee = currentFees.find((f) => f.coin === 'amoy');
+  }
   const polygonFee = await obtainPolygonFees();
   const baseFee = await obtainBaseFees();
   const bscFee = await obtainBscFees();
