@@ -2,24 +2,96 @@ import axios from 'axios';
 import config from 'config';
 import log from '../lib/log';
 
-let fiatRates = {};
+type FiatRates = Record<string, number>;
+
+// "1 USD = X <code>". SSP Wallet and SSP Key multiply every USD price by
+// fiat[selected currency] and use 0 when the code is missing, so an empty
+// table shows every balance as 0.
+let fiatRates: FiatRates = {};
 let cryptoRates = {
   btc: 1,
   eth: 1,
 };
 
+const RATE_REQUEST_TIMEOUT_MS = 15_000;
+
+// The currencies SSP Wallet offers, plus the rest of Mixin's list. Fallback
+// sources also return crypto codes, which must not end up in the fiat table.
+// prettier-ignore
+const FIAT_CODES = new Set([
+  'AED', 'ARS', 'AUD', 'BDT', 'BHD', 'BMD', 'BRL', 'CAD', 'CHF', 'CLP',
+  'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'GEL', 'HKD', 'HUF', 'IDR', 'ILS',
+  'INR', 'JPY', 'KRW', 'KWD', 'LKR', 'MMK', 'MXN', 'MYR', 'NGN', 'NOK',
+  'NZD', 'PHP', 'PKR', 'PLN', 'RUB', 'SAR', 'SEK', 'SGD', 'THB', 'TRY',
+  'TWD', 'UAH', 'USD', 'VEF', 'VND', 'XAG', 'XAU', 'XDR', 'ZAR',
+]);
+
+// A table is only accepted when it is USD-based and reasonably complete.
+const MIN_FIAT_CODES = 30;
+
+function pickFiatRates(entries: [unknown, unknown][]): FiatRates {
+  const picked: FiatRates = {};
+  for (const [code, raw] of entries) {
+    const rate = typeof raw === 'string' ? Number(raw) : raw;
+    if (
+      typeof code === 'string' &&
+      FIAT_CODES.has(code) &&
+      typeof rate === 'number' &&
+      Number.isFinite(rate) &&
+      rate > 0
+    ) {
+      picked[code] = rate;
+    }
+  }
+  return picked;
+}
+
+async function fetchMixinFiatRates(): Promise<FiatRates> {
+  const response = await axios.get('https://api.mixin.one/external/fiats', {
+    timeout: RATE_REQUEST_TIMEOUT_MS,
+  });
+  const list: unknown = response.data?.data;
+  if (!Array.isArray(list)) {
+    return {};
+  }
+  return pickFiatRates(
+    list.map((entry) => [entry?.code, entry?.rate] as [unknown, unknown]),
+  );
+}
+
+async function fetchCoinbaseFiatRates(): Promise<FiatRates> {
+  const response = await axios.get(
+    'https://api.coinbase.com/v2/exchange-rates',
+    { params: { currency: 'USD' }, timeout: RATE_REQUEST_TIMEOUT_MS },
+  );
+  const rates: unknown = response.data?.data?.rates;
+  if (!rates || typeof rates !== 'object') {
+    return {};
+  }
+  return pickFiatRates(Object.entries(rates));
+}
+
+const fiatSources: { name: string; fetch: () => Promise<FiatRates> }[] = [
+  { name: 'mixin', fetch: fetchMixinFiatRates },
+  { name: 'coinbase', fetch: fetchCoinbaseFiatRates },
+];
+
+// Tries each source in order and keeps the last good table when all fail.
 async function fetchFiatRates() {
-  try {
-    const response = await axios.get('https://api.mixin.one/external/fiats');
-    const { data } = response;
-    const fetchedRates = data.data;
-    const fiatObject = {};
-    fetchedRates.forEach((rate) => {
-      fiatObject[rate.code] = rate.rate;
-    });
-    fiatRates = fiatObject;
-  } catch (error) {
-    log.error(error);
+  for (const source of fiatSources) {
+    try {
+      const rates = await source.fetch();
+      if (rates.USD === 1 && Object.keys(rates).length >= MIN_FIAT_CODES) {
+        fiatRates = rates;
+        return;
+      }
+      log.error(
+        `Fiat rates from ${source.name} unusable (${Object.keys(rates).length} codes)`,
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      log.error(`Fiat rates from ${source.name} failed: ${reason}`);
+    }
   }
 }
 
@@ -39,6 +111,7 @@ async function fetchCryptoRates() {
       headers: {
         'X-CMC_PRO_API_KEY': apiKey,
       },
+      timeout: RATE_REQUEST_TIMEOUT_MS,
     });
     const prices = {
       btc: response.data.data['1'].quote.USD.price,
@@ -182,6 +255,9 @@ async function fetchCryptoRates() {
 
 function getRates() {
   const fiatRatesWithBTC = {
+    // USD is the base, so USD values stay right even before any fiat fetch
+    // has succeeded.
+    USD: 1,
     ...fiatRates,
     BTC: 1 / cryptoRates.btc,
     ETH: 1 / cryptoRates.eth,
