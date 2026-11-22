@@ -88,11 +88,19 @@ async function postTicket(req, res) {
     }
     alreadySubmittedIps.set(ip, currentCount);
 
+    // The website the form sits on (the browser sets Origin on these cross-site posts). The
+    // Flux Helpdesk files the ticket under that site's product; Freshdesk ignores it.
+    const origin =
+      typeof req.headers.origin === 'string'
+        ? req.headers.origin.slice(0, 200)
+        : undefined;
+
     const data = {
       description: processedBody.description,
       subject: processedBody.subject,
       type: processedBody.type,
       email: processedBody.email,
+      origin,
     };
 
     const info = await ticketService.postTicket(data);

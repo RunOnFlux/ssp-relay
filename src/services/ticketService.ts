@@ -90,7 +90,7 @@ function createdTicketId(body) {
  * The request is one JSON POST with basic auth (api key as the username, any password), so
  * there is nothing left to gain from the dependency, and errors below are now Freshdesk's own.
  */
-async function postTicket(data) {
+async function postFreshdeskTicket(data) {
   const token = config.keys.freshdesk;
   const baseUri = `https://${config.freshdesk.namespace}.freshdesk.com`;
   try {
@@ -125,6 +125,81 @@ async function postTicket(data) {
     // eslint-disable-next-line preserve-caught-error
     throw new Error('Failed to create a Ticket.');
   }
+}
+
+/**
+ * WHERE A TICKET GOES: the Flux Helpdesk (support.runonflux.io) once both of these are set,
+ * Freshdesk until then.
+ *
+ *   RELAY_HELPDESK_URL    the desk, e.g. https://support.runonflux.io
+ *   RELAY_HELPDESK_TOKEN  "api_key:api_secret" of the desk's web-forms user
+ *
+ * Environment variables rather than a config file, so a server that has not been given them
+ * keeps filing to Freshdesk instead of failing to start. Read on every call, so the switch at
+ * the Freshdesk cutover is a restart with two variables added, not a release.
+ */
+function helpdeskTarget(): { url: string; token: string } | null {
+  const url = (process.env.RELAY_HELPDESK_URL || '').trim().replace(/\/+$/, '');
+  const token = (process.env.RELAY_HELPDESK_TOKEN || '').trim();
+  return url && token ? { url, token } : null;
+}
+
+/**
+ * The desk's endpoint for website forms (flux_helpdesk.web_forms.create_ticket). It takes the
+ * text as the reporter typed it and escapes it itself; the website the form sits on (`origin`)
+ * tells it which product the ticket is about. Priority, contact and owner are the desk's job.
+ */
+async function postHelpdeskTicket(
+  target: { url: string; token: string },
+  data,
+) {
+  try {
+    const response = await axios.post(
+      `${target.url}/api/method/flux_helpdesk.web_forms.create_ticket`,
+      {
+        email: data.email,
+        subject: data.subject,
+        description: data.description,
+        type: data.type,
+        origin: data.origin,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `token ${target.token}`,
+        },
+        timeout: 30000,
+        // A redirect here is a login page or a proxy in the way, never a created ticket.
+        maxRedirects: 0,
+      },
+    );
+    const ticket = response.data?.message?.ticket;
+    if (!ticket) {
+      throw new Error(
+        `not a Helpdesk answer: ${JSON.stringify(response.data ?? null).slice(0, 300)}`,
+      );
+    }
+    log.info(`Helpdesk ticket created: ${ticket}`);
+    return 'Ticket created successfully.';
+  } catch (error) {
+    const status = error.response?.status;
+    const details = error.response?.data
+      ? JSON.stringify(error.response.data).slice(0, 1000)
+      : error.message;
+    log.error(
+      `Helpdesk ticket creation failed (${status ?? 'no response'}): ${details}`,
+    );
+    // Logged above. Not attached as `cause`: the axios error carries the request, and the
+    // request carries the desk token, which callers that log this error would print.
+    // eslint-disable-next-line preserve-caught-error
+    throw new Error('Failed to create a Ticket.');
+  }
+}
+
+async function postTicket(data) {
+  const target = helpdeskTarget();
+  return target ? postHelpdeskTicket(target, data) : postFreshdeskTicket(data);
 }
 
 export default {
