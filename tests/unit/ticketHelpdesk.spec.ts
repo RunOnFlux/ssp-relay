@@ -3,14 +3,15 @@
 import { assert } from 'chai';
 import sinon from 'sinon';
 import axios from 'axios';
+import config from 'config';
 import ticketService from '../../src/services/ticketService';
 
 /**
  * THE MOVE TO THE FLUX HELPDESK.
  *
- * With RELAY_HELPDESK_URL and RELAY_HELPDESK_TOKEN set, a ticket goes to the desk's web-forms
- * endpoint; without them it still goes to Freshdesk, so a server that has not been given the
- * two variables keeps working exactly as before.
+ * With the desk's url and token in config/helpdesksecrets.ts, a ticket goes to the desk's
+ * web-forms endpoint; while either is empty it still goes to Freshdesk, so a server that has not
+ * been given them keeps working exactly as before.
  */
 const submission = {
   email: 'player@example.com',
@@ -20,15 +21,22 @@ const submission = {
   origin: 'https://sspwallet.io',
 };
 
+/** config.get with the desk's settings in helpdesksecrets.ts, everything else as configured. */
+function deskConfig(desk: { url?: string; token?: string }) {
+  const get = sinon.stub(config, 'get');
+  get.callsFake((path: string) => {
+    if (path === 'helpdesk.url') return desk.url ?? '';
+    if (path === 'helpdesk.token') return desk.token ?? '';
+    return get.wrappedMethod.call(config, path);
+  });
+}
+
 describe('Ticket Service: Flux Helpdesk', function () {
   beforeEach(function () {
-    process.env.RELAY_HELPDESK_URL = 'https://desk.example/';
-    process.env.RELAY_HELPDESK_TOKEN = 'key123:secret456';
+    deskConfig({ url: 'https://desk.example/', token: 'key123:secret456' });
   });
 
   afterEach(function () {
-    delete process.env.RELAY_HELPDESK_URL;
-    delete process.env.RELAY_HELPDESK_TOKEN;
     sinon.restore();
   });
 
@@ -86,8 +94,9 @@ describe('Ticket Service: Flux Helpdesk', function () {
       .catch((e) => assert.equal(e.message, 'Failed to create a Ticket.'));
   });
 
-  it('still files to Freshdesk while the two variables are not set', async function () {
-    delete process.env.RELAY_HELPDESK_URL;
+  it('still files to Freshdesk while the desk is not configured', async function () {
+    sinon.restore();
+    deskConfig({ token: 'key123:secret456' });
     const post = sinon.stub(axios, 'post').resolves({
       status: 201,
       data: { id: 9182 },

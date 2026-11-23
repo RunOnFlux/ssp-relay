@@ -1,6 +1,7 @@
 import dbsecrets from './dbsecrets';
 import apisecrets from './apisecrets';
 import freshdesksecrets from './freshdesksecrets';
+import helpdesksecrets from './helpdesksecrets';
 import alchemysecrets from './alchemysecrets';
 import onrampersecrets from './onrampersecrets';
 import emailsecrets from './emailsecrets';
@@ -46,6 +47,12 @@ export default {
     namespace: freshdesksecrets.namespace,
     groupId: freshdesksecrets.groupid,
     ips: freshdesksecrets.ips,
+  },
+  // The Flux Helpdesk (support.runonflux.io), which replaces Freshdesk. Tickets go there
+  // once both are set in helpdesksecrets.ts; while either is empty they go to Freshdesk.
+  helpdesk: {
+    url: helpdesksecrets.url,
+    token: helpdesksecrets.token,
   },
   email: {
     smtp: {

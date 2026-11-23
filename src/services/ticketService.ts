@@ -128,19 +128,17 @@ async function postFreshdeskTicket(data) {
 }
 
 /**
- * WHERE A TICKET GOES: the Flux Helpdesk (support.runonflux.io) once both of these are set,
- * Freshdesk until then.
+ * WHERE A TICKET GOES: the Flux Helpdesk (support.runonflux.io) once both of these are set in
+ * config/helpdesksecrets.ts, Freshdesk while either is empty.
  *
- *   RELAY_HELPDESK_URL    the desk, e.g. https://support.runonflux.io
- *   RELAY_HELPDESK_TOKEN  "api_key:api_secret" of the desk's web-forms user
- *
- * Environment variables rather than a config file, so a server that has not been given them
- * keeps filing to Freshdesk instead of failing to start. Read on every call, so the switch at
- * the Freshdesk cutover is a restart with two variables added, not a release.
+ *   url    the desk, e.g. https://support.runonflux.io
+ *   token  "api_key:api_secret" of the desk's web-forms user
  */
 function helpdeskTarget(): { url: string; token: string } | null {
-  const url = (process.env.RELAY_HELPDESK_URL || '').trim().replace(/\/+$/, '');
-  const token = (process.env.RELAY_HELPDESK_TOKEN || '').trim();
+  const url = String(config.get('helpdesk.url') || '')
+    .trim()
+    .replace(/\/+$/, '');
+  const token = String(config.get('helpdesk.token') || '').trim();
   return url && token ? { url, token } : null;
 }
 
