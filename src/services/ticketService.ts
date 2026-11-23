@@ -134,11 +134,20 @@ async function postFreshdeskTicket(data) {
  *   url    the desk, e.g. https://support.runonflux.io
  *   token  "api_key:api_secret" of the desk's web-forms user
  */
+export const helpdeskConfig = {
+  // A seam for the tests: node-config locks its object once read, so it cannot be stubbed.
+  read(): { url: string; token: string } {
+    return {
+      url: String(config.get('helpdesk.url') || ''),
+      token: String(config.get('helpdesk.token') || ''),
+    };
+  },
+};
+
 function helpdeskTarget(): { url: string; token: string } | null {
-  const url = String(config.get('helpdesk.url') || '')
-    .trim()
-    .replace(/\/+$/, '');
-  const token = String(config.get('helpdesk.token') || '').trim();
+  const desk = helpdeskConfig.read();
+  const url = desk.url.trim().replace(/\/+$/, '');
+  const token = desk.token.trim();
   return url && token ? { url, token } : null;
 }
 

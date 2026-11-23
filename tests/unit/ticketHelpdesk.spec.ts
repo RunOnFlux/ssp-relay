@@ -3,8 +3,9 @@
 import { assert } from 'chai';
 import sinon from 'sinon';
 import axios from 'axios';
-import config from 'config';
-import ticketService from '../../src/services/ticketService';
+import ticketService, {
+  helpdeskConfig,
+} from '../../src/services/ticketService';
 
 /**
  * THE MOVE TO THE FLUX HELPDESK.
@@ -21,14 +22,11 @@ const submission = {
   origin: 'https://sspwallet.io',
 };
 
-/** config.get with the desk's settings in helpdesksecrets.ts, everything else as configured. */
+/** The desk's settings as config/helpdesksecrets.ts would hold them. */
 function deskConfig(desk: { url?: string; token?: string }) {
-  const get = sinon.stub(config, 'get');
-  get.callsFake((path: string) => {
-    if (path === 'helpdesk.url') return desk.url ?? '';
-    if (path === 'helpdesk.token') return desk.token ?? '';
-    return get.wrappedMethod.call(config, path);
-  });
+  sinon
+    .stub(helpdeskConfig, 'read')
+    .returns({ url: desk.url ?? '', token: desk.token ?? '' });
 }
 
 describe('Ticket Service: Flux Helpdesk', function () {
